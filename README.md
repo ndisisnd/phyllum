@@ -44,7 +44,8 @@ Three ideas govern every command:
 - **Conversational, not form-driven.** When Phyllum is missing something, it asks a
   follow-up with a suggestion attached — never a blank required field.
 - **One write target.** `DESIGN-SYSTEM.md` is the only file Phyllum touches, aside from
-  its own gitignored session state and, on `init`, the skill install.
+  its own gitignored `.phyllum/` — session state, and `apply`'s plan — and, on `init`, the
+  skill install.
 
 Two rules outrank being helpful. Phyllum never invents a value — a slot nobody filled is
 a question or a `TODO`, never a plausible guess. And it never corrects a value — four
@@ -57,6 +58,7 @@ The commands:
 |---------|--------------|
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats |
 | `assess` | Read the codebase and inventory the raw styling already in it |
+| `apply` | Plan applying the design system to the codebase — writes a PRD, runs nothing |
 | `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `system` | Print the design system to the terminal |
 | `gui` | Start a localhost dashboard for browsing tokens and components |
@@ -70,8 +72,8 @@ The commands:
 Phyllum needs **Node 20 or newer** and has no dependencies to install. The intelligent
 commands (`create`, `tokenise`) also want [Claude Code](https://www.claude.com/product/claude-code)
 — they run natively inside a Claude Code session, or shell out to the `claude` CLI from a
-plain terminal. The mechanical commands (`menu`, `help`, `system`, `assess`, `gui`,
-`version`, `update`, `init`) work without it. The `gui` dashboard uses your system
+plain terminal. The mechanical commands (`menu`, `help`, `system`, `assess`, `apply`,
+`gui`, `version`, `update`, `init`) work without it. The `gui` dashboard uses your system
 `python3`.
 
 Install it globally:
@@ -137,6 +139,21 @@ without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md
 If the sentence names the token, that name is used; if not, Phyllum suggests one from the
 naming scales and confirms it with you. It does not read your code — that's `assess`.
 
+`apply` is the other direction: it takes the design system you have built and plans how to
+get it into your code. Raw values become the tokens that already name them; ad-hoc patterns
+become the components you recorded. **It plans it, and runs none of it.** `phyllum apply`
+writes one file — `.phyllum/PRD.md` — where every single change has its own acceptance
+criterion naming the file, the literal, what it becomes, and how to check it. Changes are
+grouped into phases, and one phase is one future commit with its own verification: its
+criteria, plus your project's own test suite when Phyllum can detect one. If your project
+has an agent harness — a `CLAUDE.md`, an `AGENTS.md`, a Cursor or Windsurf config — the plan
+is shaped so that harness can execute it natively; with none found, it is a plain plan
+anybody can read. Everything Phyllum won't touch is listed with a reason: a literal no token
+names, a length named for a different role, a component whose spec still says `TODO`. Re-run
+`apply` any time and it resumes — your ticks, your completed phases and your notes survive,
+while the change list is re-derived from scratch. `phyllum apply run` is what will execute
+the plan, on its own branch, one commit per phase; it lands next.
+
 Writes are atomic — Phyllum writes a temp file and renames it, so a crashed run can't
 corrupt `DESIGN-SYSTEM.md`.
 
@@ -180,6 +197,13 @@ so the scan runs in a plain terminal with nothing else installed.
 **Does `assess` change my code?**
 No. It reads. The modules that do the scanning contain no write call at all, and the test
 suite diffs the entire directory around every scan and fails if one byte moved.
+
+**Does `apply` change my code?**
+Not today. `phyllum apply` writes a plan to `.phyllum/PRD.md` and nothing else — the test
+suite diffs the whole project directory around every run and fails on a single other file.
+`apply run` will be the first command allowed to write source, and only from a plan you have
+read, only on its own branch, and only one commit per phase, stopping and reporting rather
+than pressing on if a phase fails.
 
 **Why is there a Python server for the GUI?**
 `gui` serves a local dashboard over `python3` bound to localhost only, with a

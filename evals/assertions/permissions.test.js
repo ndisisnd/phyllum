@@ -239,6 +239,41 @@ test('nothing on the assess path can reach the write funnel', () => {
 });
 
 /**
+ * `apply` plans a change to source code (v0.2.0 §6.5.1), which makes it the
+ * command with the most to prove. It proves it by the shape of the code: the
+ * derivation module cannot write at all, and the command module's only write is
+ * the plan itself — one funnel call, one path, and that path is inside the
+ * `.phyllum/**` exception the permission model already had. No new write target
+ * was opened to ship the first write-to-code command.
+ */
+test('the apply path can plan a codebase change without being able to make one', () => {
+  const derivation = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'prd.js'), 'utf8');
+  for (const writer of [
+    'writeGuarded',
+    'mkdirGuarded',
+    'writeDesignSystem',
+    'writePrd',
+    'appendGitignoreLine',
+    'writeState',
+  ]) {
+    assert.ok(!derivation.includes(writer), `lib/prd.js must not name ${writer} — it derives, it does not write`);
+  }
+
+  const command = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'apply-command.js'), 'utf8');
+  for (const raw of ['writeFileSync', 'appendFileSync', 'renameSync', 'rmSync', 'createWriteStream', 'mkdirSync']) {
+    assert.ok(!command.includes(raw), `apply-command.js must not call ${raw} — the funnel is the only way in`);
+  }
+  // Exactly one write, and it is the plan.
+  const calls = command.match(/write[A-Z][A-Za-z]*\(/g) ?? [];
+  assert.deepEqual([...new Set(calls)], ['writePrd('], 'the plan is the only thing `apply` writes');
+  assert.ok(!command.includes('writeDesignSystem'), '`apply` does not touch the design system either');
+
+  // And the plan's path is the existing exception, not a new one.
+  assert.ok(isAllowedPath('.phyllum/PRD.md'));
+  assert.ok(!isAllowedPath('PRD.md', { init: true }), 'a PRD in the project root is never writable');
+});
+
+/**
  * An accepted suggestion does write — that is the point of step 5 — so the
  * structural claim moves rather than disappearing: the write lives in one module,
  * behind the acceptance gate, and it goes through the funnel like every other

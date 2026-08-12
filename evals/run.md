@@ -128,7 +128,7 @@ them, and re-run `npm run evals:record` so the baseline matches.
 
 `evals/baseline.json` is stamped `"release": "v1"` — the bar every future change
 has to clear — and `"milestone"` records which change last re-recorded it
-(v0.2.0 M1, which added `update-install-detection`). The v1 scores themselves
+(v0.2.0 M6, which added `apply-prd-contract`). The v1 scores themselves
 only ever go up. The bar has two halves:
 
 | | Bar |
@@ -154,7 +154,7 @@ Rules that go with the baseline (plan §8.5):
 Re-record with `npm run evals:record` only when the change legitimately moves a
 score, and commit the new baseline with that change.
 
-## What is covered today (v0.1.0 M1–M6, then v0.2.0 M1–M5)
+## What is covered today (v0.1.0 M1–M6, then v0.2.0 M1–M6)
 
 | File | Covers |
 |------|--------|
@@ -176,6 +176,8 @@ score, and commit the new baseline with that change.
 | `evals/assertions/assess-scan.test.js` | `assess`'s engine: the read-only scan (proved by diffing the whole directory around it), the three passes, the language-agnostic sweep over every text file, what is never evidence — documentation, lockfiles, gitignored paths, Phyllum's own record — React-only component detection, clustering, the naming scales, coverage vs proposals, the rerun diff |
 | `evals/assertions/assess-suggest.test.js` | `assess` step 4 and step 5: the mapping table over its four buckets, the token review reusing `tokenise`'s, the component pick reusing `create`'s, the "seen but not read" bucket asked about rather than guessed, and one scan feeding both tracks |
 | `evals/assertions/assess-cli.test.js` | The `assess` command surface: registered and reachable, the report saying what it read, no model and no network needed, the codebase byte-identical afterwards, and the four chained modes — `tokens` and `components` walking one track each, `components` looping one candidate at a time with a consent gate each, bare `assess` recording one component per run, and `assess update` accepting the proposed tokens into `DESIGN-SYSTEM.md` alone while declining every question that would be a guess |
+| `evals/assertions/apply-prd.test.js` | `apply`'s plan engine (v0.2.0 §6.5.1): harness detection and its precedence — config files beating the `.phyllum/` preference beating memory, and harnesses other than Claude Code — the host test suite detected rather than assumed, one criterion per literal per file, a token never repurposed across roles, a near-identical literal inheriting its cluster's token and saying the rendered value changes, a `TODO` component excluded by name, adoption honest about being React-only, phases grouped by kind with tokens before components, the render → parse round trip M7 depends on, and resume carrying ticks by what a criterion is about rather than by its id |
+| `evals/assertions/apply-cli.test.js` | The `apply` command surface: `.phyllum/PRD.md` the only file written — proved by diffing the whole project directory before and after — no ask, confirm, model or network needed, a second run converging byte for byte, `run` reserved and honestly unbuilt, `--fresh` as the one destructive act and what it says about it, an empty design system answered with the command that fills it, and nothing to apply writing no plan at all |
 | `evals/assertions/tokenise-write.test.js` | Nothing before acceptance, one file changes, tokens in the right section, Backlog reconciliation |
 | `evals/assertions/tokenise-cli.test.js` | The spec tables as contract, `tokenise`/`tokenize` on a real flow, `init`'s step-4 seeding |
 | `evals/assertions/gui.test.js` | The server lifecycle against a real process — localhost-only binding, PID + port record, a second `gui` reusing the first, `kill` on both the live and the stale path — plus the JSON API, the one parse contract, and the scope word as opening filter |
@@ -191,6 +193,7 @@ score, and commit the new baseline with that change.
 | Eval | Grades | Threshold |
 |------|--------|-----------|
 | `init-detection` | the framework, styling, artefacts and code-view fallback reported for six pinned codebases | 1.0 |
+| `apply-prd-contract` | `apply`'s plan over pinned fixtures: which harness will execute it and from which layer, the exact set of acceptance criteria, the exclusions told apart by *reason* (unnamed vs named-for-another-role vs `TODO` spec), the phase grouping, adoption honest about not running off React, and — the criterion that outranks the rest — every criterion naming a file and a literal that are really there | 1.0 |
 | `update-install-detection` | how Phyllum was installed, and the exact update command, over ten pinned install layouts — npm and pnpm, global and project, one-off caches and a source checkout | 1.0 |
 | `create-prose-extraction` | name, archetype and properties pulled out of a description | ≥ 0.95 |
 | `create-anti-fabrication` | no value in a draft that the input did not supply | 1.0 |

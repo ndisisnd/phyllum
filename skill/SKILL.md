@@ -27,13 +27,19 @@ Three operational exceptions exist, all Phyllum-owned:
 | Path | When |
 |------|------|
 | `DESIGN-SYSTEM.md` | any command, after the user accepts a change |
-| `.phyllum/**` | session state; gitignored |
+| `.phyllum/**` | session state, and `apply`'s plan at `.phyllum/PRD.md`; gitignored |
 | `.claude/skills/phyllum/**` | `init` — the skill install; and `update`, which re-syncs that same copy |
 | one `.phyllum/` line in `.gitignore` | `init` only, with the user's confirmation |
 
 Nothing else, ever. Do not write generated component code into the codebase,
 do not rewrite existing styles to use tokens, do not touch config files. If a
 task seems to need a write outside this list, stop and tell the user instead.
+
+One command will eventually be allowed past that line, and only through a gate:
+`apply run` (v0.2.0 M7) rewrites source styling to use tokens — but only from a
+plan the user has read at `.phyllum/PRD.md`, only on its own branch, and only one
+phase per commit. `phyllum apply` writes that plan and changes nothing else, so
+the rule above holds unchanged for every command that exists today.
 
 ## Commands
 
@@ -44,6 +50,7 @@ task seems to need a write outside this list, stop and tell the user instead.
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
 | `assess` | — | Read the codebase and inventory the raw styling in it |
+| `apply` | — | Plan applying the design system to the codebase — writes a PRD, runs nothing |
 | `tokenise` | `tokenize` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
@@ -59,11 +66,13 @@ create, never a component named "help". A quoted `"help"` means the word.
 
 Scope words (`tokens` / `components` / `all`) are only meaningful on `system`
 and `gui`, and default to `all`. `assess` reserves its own three words in
-argument position — `tokens` / `components` / `update` — for its chained modes.
+argument position — `tokens` / `components` / `update` — for its chained modes,
+and `apply` reserves one: `run`.
 
 Which command reads what is the whole division of labour, and it is worth stating
 plainly: `assess` reads your codebase, `tokenise` reads the sentence you typed,
-`create` reads your intent. All three write only `DESIGN-SYSTEM.md`.
+`create` reads your intent. All three write only `DESIGN-SYSTEM.md`. `apply`
+reads the design system *and* the codebase, and writes only its own plan.
 
 ## Reference files — load only what the current command needs
 
@@ -71,6 +80,7 @@ plainly: `assess` reads your codebase, `tokenise` reads the sentence you typed,
 |---------|-----------|
 | `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
 | `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering, the mapping table, the token and component suggestion tracks |
+| `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
 | `tokenise` | `refs/tokenise.md` — how a sentence is read, the three passes, the naming scales, the follow-up loop when a value or a name is missing, acceptance |
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `system` | `refs/system.md` — listing format |
@@ -108,8 +118,8 @@ three-backtick block. Fence length is significant to the parser.
 ## Execution model
 
 - **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, `version`, `update`,
-  `assess`'s scan, mapping table and proposed names, and `init`'s scaffold and
-  install steps) run entirely in Node, with no model involved.
+  `apply`, `assess`'s scan, mapping table and proposed names, and `init`'s
+  scaffold and install steps) run entirely in Node, with no model involved.
 - **Intelligence** (`create`, `tokenise`, `assess`'s suggestion review, and
   `init`'s detection and seeding steps) is this skill. Inside a Claude Code session it runs natively; from a
   plain terminal the CLI shells out to `claude` with this skill loaded.
@@ -214,6 +224,32 @@ could not read and a component pick are both declined and reported as declined.
 Anything unrecognised is declined too, which is what stops a later flow being
 auto-accepted into by accident. `assess update` writes `DESIGN-SYSTEM.md` and
 nothing else; the codebase remains `apply`'s alone to write.
+
+v0.2.0 M6 ships `apply` — the plan half of Phyllum's first write-to-code command,
+and only the plan half. `phyllum apply` reads `DESIGN-SYSTEM.md` for what to apply
+and the `assess` scan for where the raw literals are, then writes one file:
+`.phyllum/PRD.md`. Not one byte of the user's codebase is touched, so the command
+that will eventually rewrite source can ship and be reviewed on its own. Four
+things make the plan a contract rather than a report. **Harness detection comes
+first**, and harness files win: the project's own agent config (`CLAUDE.md`,
+`AGENT.md`, `AGENTS.md` or another recognisable config) outranks a `.phyllum/`
+preference, which outranks agent memory — and with none found, the PRD takes the
+simple shape any harness or person can execute. **Every change gets its own
+acceptance criterion**, naming the file, the literal, the token or component it
+becomes, and how to check it; resolution is per literal rather than per cluster,
+because a criterion naming a cluster's representative would name a value that is
+not in the file. **One phase is one future commit** — colours, then numbers, then
+typography, then one phase per component, each with a verification block demanding
+its own criteria plus the host project's own test suite when one is detected.
+**What is not being done is listed with a reason**: an unnamed literal, a length
+named for a different role, a value whose role could not be read, a component
+whose spec still says `TODO`. A TODO means *do not generate*, so a TODO component
+appears as a reasoned exclusion, never as a silently missing change. Re-running
+`apply` resumes — the inventory is regenerated, ticks, completed phases and the
+`Notes` section are kept, and ticks are carried by what a criterion is about
+rather than by its id, because ids renumber. `--fresh` discards all three, and
+says so. `refs/apply.md` is the contract; `apply run` (v0.2.0 M7) is what executes
+it and is registered, documented and not built.
 
 Commands that are not built yet are registered and documented, and say so when
 invoked.

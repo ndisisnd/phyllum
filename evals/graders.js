@@ -26,8 +26,10 @@ import { fileURLToPath } from 'node:url';
 
 import { contractFor, traceRuleFor } from '../lib/archetypes.js';
 import { commandLine, detectInstall, updateCommandFor } from '../lib/install-method.js';
-import { assessValues } from '../lib/assess.js';
+import { assess, assessValues } from '../lib/assess.js';
 import { scanCandidates } from '../lib/candidates.js';
+import { detectHarness } from '../lib/harness-detect.js';
+import { buildPhases, componentChanges, tokenChanges } from '../lib/prd.js';
 import {
   extractDraft,
   gapsFor,
@@ -48,9 +50,10 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  *
  * The bar itself is still v1's: every score recorded for the v1 release has to
  * keep clearing, and the milestone only records which change last re-recorded
- * the file (v0.2.0 M1 added `update-install-detection`).
+ * the file (v0.2.0 M6 added `apply-prd-contract`). No threshold has ever been
+ * lowered; this stamp only ever moves because an eval was added.
  */
-export const MILESTONE = 'v0.2.0 M1';
+export const MILESTONE = 'v0.2.0 M6';
 export const RELEASE = 'v1';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
@@ -679,8 +682,129 @@ function installDetection() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// apply — the PRD contract (plan v0.2.0 §6.5.1, §7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Does the plan say the right thing about the right codebase?
+ *
+ * `apply` step one is mechanical from end to end, so unlike the `create` evals
+ * there is no model half here to leave unscored: harness detection, the change
+ * inventory, the exclusions and the phase grouping are all facts about pinned
+ * fixtures, and all four are graded.
+ *
+ * The fifth criterion is the one the plan §7 note asks for by name —
+ * **every acceptance criterion has to map to a change somebody could verify.**
+ * So each criterion is checked against the fixture on disk: the file it names
+ * must exist, and the literal or pattern it names must actually appear in that
+ * file. A criterion nobody can check is the failure mode this eval exists to
+ * catch, and it fails whatever else scored.
+ */
+function applyPrdContract() {
+  const spec = readJson('evals/prompts/apply-prd-contract.json');
+  const model = parse(readText(spec.designSystem));
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const compare = (id, label, actual, expected) => {
+    max += 1;
+    const a = [...actual].sort().join(' · ');
+    const b = [...expected].sort().join(' · ');
+    if (a === b) points += 1;
+    else failures.push(`${id}: ${label}\n      got      ${a || '(none)'}\n      expected ${b || '(none)'}`);
+  };
+
+  for (const testCase of spec.cases) {
+    const root = path.join(PACKAGE_ROOT, testCase.fixture);
+    const expected = testCase.expected;
+
+    if (testCase.kind === 'harness') {
+      // A pinned project, and the one question that decides the PRD's shape.
+      const harness = detectHarness(root, { home: path.join(os.tmpdir(), 'phyllum-no-home') });
+      max += 1;
+      if (
+        (harness.id ?? null) === expected.id &&
+        harness.layer === expected.layer &&
+        (harness.config ?? null) === expected.config
+      ) {
+        points += 1;
+      } else {
+        failures.push(
+          `${testCase.id}: harness ${harness.id ?? 'none'} via ${harness.layer} (${harness.config ?? '—'}) ` +
+            `≠ ${expected.id ?? 'none'} via ${expected.layer} (${expected.config ?? '—'})`,
+        );
+      }
+      continue;
+    }
+
+    const assessment = assess(root, model);
+    const tokens = tokenChanges(assessment, model);
+    const components = componentChanges(root, model, assessment);
+    const phases = buildPhases({ tokens: tokens.changes, components: components.changes });
+    const changes = phases.flatMap((phase) => phase.changes);
+
+    compare(
+      testCase.id,
+      'criteria',
+      changes.map((change) =>
+        change.kind === 'component'
+          ? `${change.file}|${change.pattern}|component ${change.component}`
+          : `${change.file}|${change.literal}|token ${change.token}`,
+      ),
+      expected.criteria,
+    );
+
+    compare(testCase.id, 'phases', phases.map((phase) => phase.title), expected.phases);
+
+    // Exclusions are graded by kind, because the *reason* is the product here: a
+    // literal nobody named and a literal named for another role are different
+    // facts, and collapsing them would be the dishonest answer.
+    const wrongRole = tokens.unnamed.filter((row) => /repurposes a token across roles/.test(row.reason));
+    const plainlyUnnamed = tokens.unnamed.filter((row) => /no token in DESIGN-SYSTEM\.md names/.test(row.reason));
+    compare(testCase.id, 'exclusions: unnamed', plainlyUnnamed.map((row) => row.value), expected.exclusions.unnamed);
+    compare(testCase.id, 'exclusions: wrong role', wrongRole.map((row) => row.value), expected.exclusions.wrongRole);
+    compare(
+      testCase.id,
+      'exclusions: TODO components',
+      components.excluded.map((row) => row.component),
+      expected.exclusions.todoComponents,
+    );
+
+    max += 1;
+    if (components.ran === expected.exclusions.adoptionRan) points += 1;
+    else {
+      failures.push(
+        `${testCase.id}: the adoption pass ${components.ran ? 'ran' : 'did not run'}, expected the opposite`,
+      );
+    }
+
+    // And the criterion that outranks the rest: is every change checkable?
+    max += 1;
+    const unverifiable = [];
+    for (const change of changes) {
+      const file = path.join(root, change.file);
+      if (!fs.existsSync(file)) {
+        unverifiable.push(`${change.id} names a file that does not exist: ${change.file}`);
+        continue;
+      }
+      const contents = fs.readFileSync(file, 'utf8').toLowerCase();
+      const subject = change.kind === 'component' ? change.pattern.split('.').at(-1) : change.literal;
+      if (!contents.includes(String(subject).toLowerCase())) {
+        unverifiable.push(`${change.id} names ${subject}, which is not in ${change.file}`);
+      }
+    }
+    if (unverifiable.length === 0) points += 1;
+    else failures.push(`${testCase.id}: unverifiable criteria\n      ${unverifiable.join('\n      ')}`);
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
 export const EVALS = [
   { id: 'init-detection', modelDependent: false, run: initDetection },
+  { id: 'apply-prd-contract', modelDependent: false, run: applyPrdContract },
   { id: 'update-install-detection', modelDependent: false, run: installDetection },
   { id: 'create-prose-extraction', modelDependent: true, run: proseExtraction },
   { id: 'create-anti-fabrication', modelDependent: true, run: antiFabrication },
