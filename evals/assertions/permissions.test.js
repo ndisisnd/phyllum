@@ -238,6 +238,26 @@ test('nothing on the assess path can reach the write funnel', () => {
   assert.deepEqual(offenders, [], offenders.join('\n'));
 });
 
+/**
+ * An accepted suggestion does write — that is the point of step 5 — so the
+ * structural claim moves rather than disappearing: the write lives in one module,
+ * behind the acceptance gate, and it goes through the funnel like every other
+ * write in Phyllum. No raw filesystem call, and no path but DESIGN-SYSTEM.md.
+ */
+test('the suggestion tracks write only through the funnel, and only after acceptance', () => {
+  const source = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'assess-suggest.js'), 'utf8');
+
+  for (const raw of ['writeFileSync', 'appendFileSync', 'renameSync', 'rmSync', 'createWriteStream']) {
+    assert.ok(!source.includes(raw), `assess-suggest.js must not call ${raw} — the funnel is the only way in`);
+  }
+  assert.match(source, /writeDesignSystem\(root, render\(model\)\)/, 'the one write is the design system file');
+  assert.match(
+    source,
+    /typeof ctx\.confirm !== 'function'/,
+    'and it is unreachable without an acceptance gate to answer it',
+  );
+});
+
 test("the Python server's write confinement is structural, not conventional", () => {
   const source = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
   const lines = source.split('\n');

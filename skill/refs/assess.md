@@ -29,18 +29,27 @@ expect. There is no second copy of these rules in the code.
 
 ## The pipeline
 
-Three steps land in this milestone; the last two are what turns the inventory
-into a product.
+Five steps, and the report is the pipeline read out loud: what Phyllum can see,
+what it read, what the codebase uses, the map of it, and what it suggests you do.
 
 | Step | What happens |
 |------|--------------|
 | 1. detect | work out the language and framework, and pick the scanners for the stack |
 | 2. scan | read the project for raw styling — read-only, never a write |
 | 3. aggregate | cluster near-identical values, count usage, rank by frequency |
-| 4. map | present the inventory as a table: value · where and how often used · what it means |
+| 4. map | present the inventory as a table: value · where and how often used · what it means · what covers it |
 | 5. suggest | propose tokens for the raw values and components for the recurring patterns |
 
-Steps 4 and 5 are the suggestion half, and they land after the scan does.
+**Steps 1–4 are mechanical.** A scan and a rendering: no model, no conversation,
+nothing to accept. The whole assessment — including the mapping table with the
+name Phyllum would propose already in it — works in a plain terminal with nothing
+installed, which is why the report is useful before you say yes to anything.
+
+**Step 5 is the half that talks.** Naming a value and recording a component are
+decisions, so they are asked one at a time. In an interactive session (or inside
+Claude Code) the tracks are walked; in a one-shot terminal command they are
+previewed, with the proposals named rather than withheld. Nothing about the
+report changes either way — only whether anybody is there to answer.
 
 ### The split commitment
 
@@ -150,6 +159,24 @@ anything is styled with it, and a number with no property has no role — and
 without a role, `12px` could be a corner or a padding. Phyllum does not guess
 which.
 
+### Seen, not read — the fourth bucket
+
+A key Phyllum cannot map is not the same fact as no key at all. `AccentTint =
+"#7C3AED"` in a Go file, or a length on a `box-shadow`, is plainly a design value
+written against a property no table above gives a meaning to. Those used to be
+dropped in silence, which made the report quietly understate the drift.
+
+They are now a bucket of their own: **seen, not read**. The rules are narrow on
+purpose.
+
+| Rule | Why |
+|------|-----|
+| the value must be unmistakable — a colour literal, or a length with a unit | `timeout: 30` is a config number, not a design decision, and never becomes one |
+| there must be a key — a bare literal in an array or a string still counts for nothing | a value nobody wrote a property for is not evidence that anything is styled |
+| the row says `role unknown`, and is never proposed as a token | without a role, naming `18px` would be recording a corner radius as a padding |
+| the review asks one question per row, and an unanswered question names nothing | the same way `tokenise` asks what a bare length applies to |
+| a value the system already names never appears here | so an accepted answer makes the row disappear on the next run |
+
 ---
 
 ## Component detection — React in v0.2.0
@@ -212,6 +239,47 @@ out of a sentence or out of the code. One set of scales, two ways in.
 
 ---
 
+## The map — step 4
+
+One table, one ranking, every bucket in it. A row is a whole decision:
+
+| Column | What it says |
+|--------|--------------|
+| value | the value as the code writes it — the cluster's most-used member, never an average |
+| used | how many times it is written out across the project |
+| where | the first file it was found in, and how many others there are |
+| what it looks like | what the scan established: the properties a colour sits on, the role a length carries, or `role unknown` |
+| coverage | the token that already names it, the name Phyllum would propose, or `ask` |
+
+The ranking is frequency, most-used first, because the value the codebase leans on
+hardest is the one worth naming first. Covered values are **on the same table** as
+uncovered ones: "how far has this drifted?" is only answerable if what is already
+named sits next to what is not. A truncated table always says how many rows it
+left out, and a row that stands for several clustered values says so — an
+inventory that hid the merge would look tidier than the codebase is.
+
+## The two suggestion tracks — step 5
+
+A token and a component are different decisions, so they are two tracks rather
+than one flow.
+
+**Tokens.** Every unnamed value, most-used first, walked one at a time. It is
+`tokenise`'s review, not a second one: the same question, the same answer grammar
+(confirm · rename · `merge <token>` · skip — the table in `refs/tokenise.md`), the
+same naming scales, the same write. What `assess` adds is the number of them and
+the codebase evidence behind each — an accepted token records how much of the code
+it covers. One acceptance gate covers the batch, and a no there writes nothing.
+
+**Components.** Every repeated pattern offered as a seed for `create`. The pick
+carries a **name and an archetype, never a value**: whatever CSS sits around the
+pattern is evidence for the follow-up loop to offer, not a fact about the
+component. From the pick onwards it is `create`'s own machinery — the contract's
+questions, the spec and code review, its own acceptance gate.
+
+One component per run, deliberately. Recording a component is a conversation of
+its own, and five of them queued behind one another is not a review. The patterns
+not recorded are named in the report, and the next run picks up where you left off.
+
 ## Rerunnable
 
 A second `assess` diffs against the tokens `DESIGN-SYSTEM.md` already holds.
@@ -233,3 +301,11 @@ nothing, and a codebase that has drifted since proposes exactly what drifted.
   is reported as covered, not proposed again.
 - **Pretend the component pass ran** on a stack it does not support, or imply it
   read files it skipped.
+- **Guess a role.** A value it could see but could not read is a question. Skip
+  the question and the value stays unnamed — that is the correct outcome, not a
+  failure.
+- **Seed a component with a scanned value.** A candidate is a name and an
+  archetype; every value still comes from you.
+- **Need a model to be useful.** The scan, the map and the proposed names are
+  mechanical. Only the review is a conversation, and its absence is said plainly
+  rather than dressed up as an error.

@@ -70,7 +70,7 @@ plainly: `assess` reads your codebase, `tokenise` reads the sentence you typed,
 | Command | Reference |
 |---------|-----------|
 | `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
-| `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering |
+| `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering, the mapping table, the token and component suggestion tracks |
 | `tokenise` | `refs/tokenise.md` — how a sentence is read, the three passes, the naming scales, the follow-up loop when a value or a name is missing, acceptance |
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `system` | `refs/system.md` — listing format |
@@ -108,14 +108,18 @@ three-backtick block. Fence length is significant to the parser.
 ## Execution model
 
 - **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, `version`, `update`,
-  `assess`'s scan, and `init`'s scaffold and install steps) run entirely in Node,
-  with no model involved.
-- **Intelligence** (`create`, `tokenise`, and `init`'s detection and seeding
-  steps) is this skill. Inside a Claude Code session it runs natively; from a
+  `assess`'s scan, mapping table and proposed names, and `init`'s scaffold and
+  install steps) run entirely in Node, with no model involved.
+- **Intelligence** (`create`, `tokenise`, `assess`'s suggestion review, and
+  `init`'s detection and seeding steps) is this skill. Inside a Claude Code session it runs natively; from a
   plain terminal the CLI shells out to `claude` with this skill loaded.
 - If `claude` is not installed, the intelligent commands fail with a clear
   message naming the two options — install Claude Code, or run the skill from a
   Claude Code session. Mechanics keep working regardless.
+- `assess` is the one command that spans both halves, so it degrades instead of
+  failing: the report, the map and the proposed names are printed in full, and
+  only the review is left un-walked. It never pitches an install, because it did
+  its mechanical job.
 
 ## Two rules that outrank being helpful
 
@@ -181,9 +185,20 @@ JSON, Go or Kotlin counts as much as a `.css` file does. **Component detection i
 React only**, and on any other stack the report says the component pass did not
 run rather than pretending it did. A value the design system already names is
 reported as coverage, never proposed again, which is what makes a second `assess`
-show only what has drifted. The mapping table and the two suggestion tracks read
-this result rather than rescanning, and the scan itself writes nothing at all —
-`refs/assess.md` is the contract.
+show only what has drifted. The scan itself writes nothing at all.
+
+v0.2.0 M4 turns that inventory into a product: the **mapping table** and the two
+**suggestion tracks**, both reading the scan result rather than rescanning. The
+table is one frequency-ranked page over four buckets — already named, not named
+yet, seen but not read, and repeated patterns — with each row carrying where the
+value is used, what it looks like it means, and either the token that covers it or
+the name Phyllum would propose. The table and those names are mechanical, so the
+report is complete with no model attached. The tracks are the conversation: the
+token track is `tokenise`'s review with codebase evidence behind each proposal,
+and the component track hands a candidate to `create`'s pick mode, which seeds a
+name and an archetype and never a value. The fourth bucket is where `assess`
+refuses to guess — a value whose property it could not read is asked about, and an
+unanswered question leaves the value unnamed. `refs/assess.md` is the contract.
 
 Commands that are not built yet are registered and documented, and say so when
 invoked.

@@ -142,6 +142,41 @@ test('the session runs the whole tokenise flow: the sentence, the name, acceptan
   });
 });
 
+test('the session runs the whole assess flow: the map, the review, acceptance', async () => {
+  await withTempDir(async (dir) => {
+    // A codebase small enough to count the questions: one stylesheet, two raw
+    // values, so the review is two names and one acceptance.
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'src', 'app.css'),
+      '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n',
+    );
+    fs.writeFileSync(
+      path.join(dir, 'DESIGN-SYSTEM.md'),
+      readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
+    );
+    const cssBefore = fs.readFileSync(path.join(dir, 'src', 'app.css'), 'utf8');
+
+    const out = await session(dir, ['assess', 'y', 'y', 'y', 'exit']);
+
+    assert.ok(out.includes('phyllum assess — read-only'), 'the promise leads the report');
+    assert.ok(out.includes('Step 4 — the map'), 'the table is part of the session, not a separate mode');
+    assert.ok(out.includes('used 1×'), 'and the rows carry the evidence');
+    assert.ok(out.includes('Name #16A34A as `color-primary`?'), 'the review is `tokenise`s, one value at a time');
+    assert.ok(out.includes('Write 2 tokens to DESIGN-SYSTEM.md?'), 'one acceptance gate for the batch');
+    assert.ok(out.includes('Wrote 2 tokens to DESIGN-SYSTEM.md'));
+
+    const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(file.includes('| color-primary | #16A34A |'));
+    assert.ok(file.includes('| space-md | 20px | spacing |'));
+    assert.equal(
+      fs.readFileSync(path.join(dir, 'src', 'app.css'), 'utf8'),
+      cssBefore,
+      'the codebase it just read is byte for byte what it was',
+    );
+  });
+});
+
 test('declining in the session leaves the file untouched', async () => {
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));

@@ -222,6 +222,65 @@ test('a word that is not a scope gets the valid ones rather than an error', asyn
   });
 });
 
+// ---------------------------------------------------------------------------
+// The map and the suggestions (v0.2.0 plan §5.1 steps 4–5)
+// ---------------------------------------------------------------------------
+
+test('the report walks the whole pipeline, in the order it runs', async () => {
+  await withProject(async (dir) => {
+    const { out } = await run('assess', dir, {});
+    const steps = ['Step 2 — the scan', 'Step 3 — what your codebase uses', 'Step 4 — the map', 'Step 5 — suggestions'];
+    let at = -1;
+    for (const step of steps) {
+      const index = out.indexOf(step);
+      assert.ok(index > at, `${step} is missing, or out of order`);
+      at = index;
+    }
+  }, POPULATED_FIXTURE);
+});
+
+test('the map is a table with a coverage column, not a list of loose values', async () => {
+  await withProject(async (dir) => {
+    const { out } = await run('assess', dir, {});
+    const header = out.split('\n').find((line) => line.includes('what it looks like'));
+    assert.ok(header, 'the table names its columns');
+    for (const column of ['value', 'used', 'where', 'coverage']) {
+      assert.ok(header.includes(column), `the ${column} column is part of the contract`);
+    }
+    assert.ok(out.includes('color-primary'), 'a covered value shows the token that covers it');
+    assert.ok(/\(proposed\)/.test(out), 'and an uncovered one shows the name Phyllum would give it');
+    assert.ok(out.includes('Four buckets:'), 'the buckets add up in one line');
+  }, POPULATED_FIXTURE);
+});
+
+test('a value seen but not read is a question on the page, never a silent drop', async () => {
+  await withProject(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'tokens.go'), 'package ui\n\nconst AccentTint = "#7C3AED"\n');
+    const { out } = await run('assess', dir, {});
+    assert.ok(out.includes('#7C3AED'), 'the value is in the report');
+    assert.ok(out.includes('role unknown'), 'and it says what it could not work out');
+    assert.ok(out.includes('seen but not read'), 'the bucket is named in the totals');
+  }, POPULATED_FIXTURE);
+});
+
+test('the suggestions are named without a model, and the review is only offered', async () => {
+  await withProject(async (dir) => {
+    const before = snapshotContents(dir);
+    const { out, code } = await run('assess', dir, { env: {} });
+
+    assert.equal(code, 0, 'a full report is not a failure, whatever is installed');
+    assert.ok(/\d+ tokens? Phyllum would propose/.test(out), 'the mechanical half names its proposals');
+    assert.ok(out.includes('`phyllum create` opens the same picker'), 'and points at the way in for components');
+    assert.ok(!out.includes('Install Claude Code'), 'the assessment needed no model, so it pitches none');
+    assert.ok(!out.includes('inside a Claude Code session'));
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: [],
+      changed: [],
+      removed: [],
+    }, 'and a report with nobody to ask writes nothing');
+  }, POPULATED_FIXTURE, path.join(FIXTURES, 'codebases', 'repeated-jsx'));
+});
+
 test('assess appears in the menu and in the greeting, exactly once', async () => {
   await withProject(async (dir) => {
     const { out } = await run('menu', dir);
