@@ -44,8 +44,9 @@ Three ideas govern every command:
 - **Conversational, not form-driven.** When Phyllum is missing something, it asks a
   follow-up with a suggestion attached — never a blank required field.
 - **One write target.** `DESIGN-SYSTEM.md` is the only file Phyllum touches, aside from
-  its own gitignored `.phyllum/` — session state, and `apply`'s plan — and, on `init`, the
-  skill install.
+  its own gitignored `.phyllum/` — session state, settings, and `apply`'s plan — and, on
+  `init`, the skill install. One command is allowed past that line, `apply run`, and only
+  from a plan you have read, on a branch of its own, one phase at a time.
 
 Two rules outrank being helpful. Phyllum never invents a value — a slot nobody filled is
 a question or a `TODO`, never a plausible guess. And it never corrects a value — four
@@ -58,7 +59,7 @@ The commands:
 |---------|--------------|
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats |
 | `assess` | Read the codebase and inventory the raw styling already in it |
-| `apply` | Plan applying the design system to the codebase — writes a PRD, runs nothing |
+| `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `system` | Print the design system to the terminal |
 | `gui` | Start a localhost dashboard for browsing tokens and components |
@@ -151,8 +152,23 @@ is shaped so that harness can execute it natively; with none found, it is a plai
 anybody can read. Everything Phyllum won't touch is listed with a reason: a literal no token
 names, a length named for a different role, a component whose spec still says `TODO`. Re-run
 `apply` any time and it resumes — your ticks, your completed phases and your notes survive,
-while the change list is re-derived from scratch. `phyllum apply run` is what will execute
-the plan, on its own branch, one commit per phase; it lands next.
+while the change list is re-derived from scratch.
+
+`phyllum apply run` executes that plan — the one command that writes to your source files.
+It re-checks the harness first: if your project has one, Phyllum hands the plan over with
+precise instructions rather than driving somebody else's agent harness itself. With none
+found, Phyllum orchestrates the run — a Fable orchestrator driving Opus 4.8 agents by
+default, and whatever `.phyllum/config.json` says instead. Either way the same guarantees
+hold. Work happens on a `phyllum/apply-<date>` branch created from wherever you were
+standing, so **the branch you are on is never written to**. Each phase lands as its own
+commit containing only the files that phase's criteria name. Exact literals on the
+properties a criterion names are replaced mechanically in Node, and the report says which
+criteria went that way and which went to an agent — with no model reachable, mechanical
+phases still land and the rest stop and say which model they needed. A phase commits only
+when its criteria verify by reading the file, its diff stays inside those files, and your
+own test suite is green. A failing phase stops the run, keeps the completed commits, and
+records where it stopped in the plan; the next `apply run` resumes from there. Nothing is
+ever rolled back. You get a status report every five minutes while it works.
 
 Writes are atomic — Phyllum writes a temp file and renames it, so a crashed run can't
 corrupt `DESIGN-SYSTEM.md`.
@@ -199,11 +215,20 @@ No. It reads. The modules that do the scanning contain no write call at all, and
 suite diffs the entire directory around every scan and fails if one byte moved.
 
 **Does `apply` change my code?**
-Not today. `phyllum apply` writes a plan to `.phyllum/PRD.md` and nothing else — the test
+`phyllum apply` does not. It writes a plan to `.phyllum/PRD.md` and nothing else — the test
 suite diffs the whole project directory around every run and fails on a single other file.
-`apply run` will be the first command allowed to write source, and only from a plan you have
-read, only on its own branch, and only one commit per phase, stopping and reporting rather
-than pressing on if a phase fails.
+`phyllum apply run` is the one command allowed to write source, and only from that plan:
+only on a `phyllum/apply-<date>` branch of its own, only the files the running phase's
+criteria name, one commit per phase, stopping and reporting rather than pressing on when a
+phase fails. Nothing it does is ever rolled back automatically — a stopped run keeps its
+branch and its commits, and tells you where it stopped.
+
+**What stops `apply run` from editing a file it was not asked to?**
+The permission model, not good intentions. A phase opens a *grant* naming its branch and its
+own file list, and every write re-checks both — the wrong branch, a file outside the phase,
+or a closed grant is refused, and nothing else in Phyllum can open a grant at all. The
+assertion suite asserts each of those refusals, and an edit that lands outside the phase's
+criteria stops the phase instead of being committed.
 
 **Why is there a Python server for the GUI?**
 `gui` serves a local dashboard over `python3` bound to localhost only, with a

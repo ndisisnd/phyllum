@@ -1,16 +1,17 @@
 /**
  * The `apply` command surface (v0.2.0 plan §6.5.1).
  *
- * `apply` is the command that will one day rewrite somebody's source code, so
- * the single most important assertion in this file is a negative one: **running
- * it changes nothing but `.phyllum/PRD.md`.** That is proved the strongest way
- * available here — the whole project directory is snapshotted byte for byte
+ * `apply run` rewrites somebody's source code, so the single most important
+ * assertion in this file is a negative one about its other half: **`phyllum
+ * apply` changes nothing but `.phyllum/PRD.md`.** That is proved the strongest
+ * way available here — the whole project directory is snapshotted byte for byte
  * before and after, and any other path in the diff fails the run.
  *
- * The rest is the grammar and the refusals: `run` reserved as a scope word and
- * honestly reported as unbuilt, `--fresh` as the one destructive thing `apply`
- * can do to its own file, and an empty design system answered with the command
- * that fills it rather than an empty plan.
+ * The rest is the grammar and the refusals: `run` as the scope word (and, with no
+ * plan written, a refusal that changes nothing), `--fresh` as the one destructive
+ * thing `apply` can do to its own file, and an empty design system answered with
+ * the command that fills it rather than an empty plan. `apply run`'s own machinery
+ * is asserted in `apply-run.test.js` and `apply-e2e.test.js`.
  */
 
 import assert from 'node:assert/strict';
@@ -19,7 +20,6 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { executeArgv, executeLine } from '../../lib/execute.js';
-import { RUN_MILESTONE } from '../../lib/apply-command.js';
 import { DISPATCHABLE, resolveCommand } from '../../lib/registry.js';
 import { PRD_FILE, isAllowedPath, writePrd } from '../../lib/write.js';
 import { renderMenu } from '../../lib/menu.js';
@@ -68,7 +68,7 @@ test('`apply` is a real command, in the menu and in help', () => {
   const command = resolveCommand('apply');
   assert.ok(command, '`apply` must resolve');
   assert.equal(command.built, true);
-  assert.equal(command.milestone, 'v0.2.0 M6');
+  assert.equal(command.milestone, 'v0.2.0 M7');
   assert.ok(DISPATCHABLE.includes(command));
 
   assert.match(renderMenu(), /phyllum apply/);
@@ -175,7 +175,7 @@ test('the report says who will execute it, what changes, what does not, and that
       assert.match(result.out, /Step 3 — what will not change/);
       assert.match(result.out, /Step 4 — verification, per phase/);
       assert.match(result.out, /Nothing in your codebase was changed/);
-      assert.match(result.out, new RegExp(`not built yet \\(${RUN_MILESTONE.replace('.', '\\.')}\\)`));
+      assert.match(result.out, /`phyllum apply run` executes it/);
     },
     { files: { 'CLAUDE.md': '# project instructions\n' } },
   );
@@ -294,12 +294,16 @@ test('an interrupted refresh leaves the previous plan — and its ticks — inta
 // The grammar
 // ---------------------------------------------------------------------------
 
-test('`run` is a reserved scope word, registered and honestly unbuilt', async () => {
+test('`run` is `apply`\'s scope word, and with no plan it changes nothing', async () => {
   await project(async (dir) => {
+    // No `phyllum apply` has run here, so there is no PRD — and without a plan
+    // there is no consent, so `apply run` refuses and points at the command that
+    // writes one. The whole project directory is diffed around it.
     const before = snapshotContents(dir);
     const result = await executeArgv(['apply', 'run'], ctx(dir));
-    assert.match(result.out, /registered but not built yet/);
-    assert.match(result.out, new RegExp(RUN_MILESTONE.replace(/\./g, '\\.')));
+    assert.equal(result.code, 0);
+    assert.match(result.out, /there is no plan for `apply run` to execute/);
+    assert.match(result.out, /Run `phyllum apply` first/);
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
       added: [],
       changed: [],

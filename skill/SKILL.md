@@ -35,11 +35,12 @@ Nothing else, ever. Do not write generated component code into the codebase,
 do not rewrite existing styles to use tokens, do not touch config files. If a
 task seems to need a write outside this list, stop and tell the user instead.
 
-One command will eventually be allowed past that line, and only through a gate:
+Exactly one command is allowed past that line, and only through a gate:
 `apply run` (v0.2.0 M7) rewrites source styling to use tokens — but only from a
-plan the user has read at `.phyllum/PRD.md`, only on its own branch, and only one
-phase per commit. `phyllum apply` writes that plan and changes nothing else, so
-the rule above holds unchanged for every command that exists today.
+plan the user has read at `.phyllum/PRD.md`, only on a `phyllum/apply-<date>`
+branch, only the files the running phase's criteria name, and only one phase per
+commit. `phyllum apply` writes that plan and changes nothing else, so the rule
+above holds unchanged for every other command.
 
 ## Commands
 
@@ -50,7 +51,7 @@ the rule above holds unchanged for every command that exists today.
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
 | `assess` | — | Read the codebase and inventory the raw styling in it |
-| `apply` | — | Plan applying the design system to the codebase — writes a PRD, runs nothing |
+| `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | `tokenize` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
@@ -248,8 +249,22 @@ appears as a reasoned exclusion, never as a silently missing change. Re-running
 `apply` resumes — the inventory is regenerated, ticks, completed phases and the
 `Notes` section are kept, and ticks are carried by what a criterion is about
 rather than by its id, because ids renumber. `--fresh` discards all three, and
-says so. `refs/apply.md` is the contract; `apply run` (v0.2.0 M7) is what executes
-it and is registered, documented and not built.
+says so.
+
+v0.2.0 M7 ships the other half: `phyllum apply run`, in `apply`'s v0.2.0 M7
+milestone, is the one command that writes source files. It re-checks the harness
+first — found, and it hands the plan over with precise instructions rather than
+driving another vendor's harness itself; none, and Phyllum orchestrates the run
+itself, a Fable orchestrator driving Opus 4.8 agents by default and whatever
+`.phyllum/config.json` says instead. Work happens on a `phyllum/apply-<date>`
+branch created from wherever the user was standing, one commit per phase, with a
+status report every five minutes. Exact literals on the properties a criterion
+names are replaced mechanically in Node; anything needing generation goes to an
+agent, and the report says which criteria went which way. A phase commits only
+when its own criteria verify by reading the file, its diff touches only the files
+those criteria name, and the host project's own suite is green. A failing phase
+stops the run and records why in the PRD; completed phases stay committed and
+nothing is ever rolled back. `refs/apply.md` is the contract for both halves.
 
 Commands that are not built yet are registered and documented, and say so when
 invoked.

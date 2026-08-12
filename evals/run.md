@@ -194,6 +194,7 @@ score, and commit the new baseline with that change.
 |------|--------|-----------|
 | `init-detection` | the framework, styling, artefacts and code-view fallback reported for six pinned codebases | 1.0 |
 | `apply-prd-contract` | `apply`'s plan over pinned fixtures: which harness will execute it and from which layer, the exact set of acceptance criteria, the exclusions told apart by *reason* (unnamed vs named-for-another-role vs `TODO` spec), the phase grouping, adoption honest about not running off React, and — the criterion that outranks the rest — every criterion naming a file and a literal that are really there | 1.0 |
+| `apply-run-execution` | `apply run`'s decisions either side of the agent: which criteria Node does itself and which need a model (with which of the four reasons for each), what the substitution leaves behind — role-respecting, case-insensitive, tokens declared where they are read — and whether verification can tell satisfied from not-satisfied from **cannot tell**, which is the answer that stops a phase instead of trusting an agent's word | 1.0 |
 | `update-install-detection` | how Phyllum was installed, and the exact update command, over ten pinned install layouts — npm and pnpm, global and project, one-off caches and a source checkout | 1.0 |
 | `create-prose-extraction` | name, archetype and properties pulled out of a description | ≥ 0.95 |
 | `create-anti-fabrication` | no value in a draft that the input did not supply | 1.0 |

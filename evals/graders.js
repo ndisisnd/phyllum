@@ -29,7 +29,9 @@ import { commandLine, detectInstall, updateCommandFor } from '../lib/install-met
 import { assess, assessValues } from '../lib/assess.js';
 import { scanCandidates } from '../lib/candidates.js';
 import { detectHarness } from '../lib/harness-detect.js';
-import { buildPhases, componentChanges, tokenChanges } from '../lib/prd.js';
+import { buildPhases, componentChanges, criterionFields, tokenChanges } from '../lib/prd.js';
+import { applyFile, classifyCriterion, rawLiteralRemains } from '../lib/apply-mechanical.js';
+import { verifyCriterion } from '../lib/apply-run.js';
 import {
   extractDraft,
   gapsFor,
@@ -802,9 +804,148 @@ function applyPrdContract() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// apply run — the decisions either side of the agent (plan v0.2.0 §6.5.2, §7)
+// ---------------------------------------------------------------------------
+
+/**
+ * `apply run` delegates the part no runner can grade, and decides everything
+ * else. This eval grades the deciding.
+ *
+ * Three questions, in the order a run asks them. **Routing**: can Node do this
+ * criterion itself, and if not, which of the four reasons sends it to a model?
+ * **Substitution**: does the edit land where the criterion says and nowhere else,
+ * and is the token it now reads actually declared? **Verification**: reading the
+ * file afterwards, can Phyllum tell satisfied from not-satisfied from *cannot
+ * tell*? The third answer is the one that matters most — it is what stops a phase
+ * rather than ticking a box on an agent's word.
+ */
+function applyRunExecution() {
+  const spec = readJson('evals/prompts/apply-run-execution.json');
+  const model = parse(readText(spec.designSystem));
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const check = (label, condition, detail = '') => {
+    max += 1;
+    if (condition) points += 1;
+    else failures.push(`${label}${detail ? `\n      ${detail}` : ''}`);
+  };
+
+  /** The four agent reasons, keyed the way the prompt set names them. */
+  const reasonKind = (reason) => {
+    if (/near-identical/.test(reason)) return 'near-identical';
+    if (/size, weight and line-height/.test(reason)) return 'typography';
+    if (/generation, not substitution/.test(reason)) return 'component';
+    if (/not a stylesheet/.test(reason)) return 'not-a-stylesheet';
+    return 'other';
+  };
+
+  for (const testCase of spec.cases) {
+    if (testCase.kind === 'routing') {
+      const root = path.join(PACKAGE_ROOT, testCase.fixture);
+      const assessment = assess(root, model);
+      const tokens = tokenChanges(assessment, model);
+      const components = componentChanges(root, model, assessment);
+      const phases = buildPhases({ tokens: tokens.changes, components: components.changes });
+
+      const mechanical = [];
+      const agent = {};
+      for (const change of phases.flatMap((phase) => phase.changes)) {
+        const fields = Object.fromEntries(criterionFields(change));
+        const entry = classifyCriterion({ id: change.id, fields }, model);
+        const key =
+          change.kind === 'component'
+            ? `${change.file}|${change.pattern}|component ${change.component}`
+            : `${change.file}|${change.literal}|token ${change.token}`;
+        if (entry.route === 'mechanical') mechanical.push(key);
+        else agent[key] = reasonKind(entry.reason);
+      }
+
+      check(
+        `${testCase.id}: which criteria Node does itself`,
+        [...mechanical].sort().join(' · ') === [...testCase.expected.mechanical].sort().join(' · '),
+        `got ${mechanical.sort().join(' · ') || '(none)'}`,
+      );
+      check(
+        `${testCase.id}: which criteria need a model, and why each one does`,
+        JSON.stringify(sortKeys(agent)) === JSON.stringify(sortKeys(testCase.expected.agent)),
+        `got ${JSON.stringify(sortKeys(agent))}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'substitution') {
+      const plan = {
+        file: 'src/styles.css',
+        literal: testCase.literal,
+        properties: testCase.properties,
+        reference: `var(--${testCase.token.name})`,
+        token: testCase.token,
+      };
+      const applied = applyFile(testCase.source, [{ id: 'AC-1.1', plan }]);
+      check(
+        `${testCase.id}: the number of values replaced`,
+        applied.results[0].replaced === testCase.expected.replaced,
+        `replaced ${applied.results[0].replaced}, expected ${testCase.expected.replaced}`,
+      );
+      for (const fragment of testCase.expected.contains) {
+        check(`${testCase.id}: the result contains ${fragment}`, applied.text.includes(fragment), applied.text);
+      }
+      check(
+        `${testCase.id}: no raw literal left on the named properties`,
+        rawLiteralRemains(applied.text, plan) === testCase.expected.rawRemainsOnNamedProperties,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'verification') {
+      const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-eval-'));
+      try {
+        const target = path.join(dir, testCase.file);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, testCase.source);
+        const { literal, token, properties } = testCase.criterion;
+        const result = verifyCriterion(
+          dir,
+          {
+            id: 'AC-1.1',
+            done: false,
+            fields: {
+              file: `\`${testCase.file}\``,
+              literal: `\`${literal}\``,
+              becomes: `token \`${token}\``,
+              check: `in \`${testCase.file}\`, every ${properties
+                .map((property) => `\`${property}\``)
+                .join(', ')} value of \`${literal}\` reads the \`${token}\` token instead, and no raw \`${literal}\` is left on those properties.`,
+            },
+          },
+          model,
+        );
+        check(
+          `${testCase.id}: satisfied is ${String(testCase.expected.satisfied)}`,
+          result.satisfied === testCase.expected.satisfied,
+          `got ${String(result.satisfied)} (${result.why ?? 'no reason'})`,
+        );
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+/** Object keys in a fixed order, so a comparison is about content. */
+function sortKeys(object) {
+  return Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
+}
+
 export const EVALS = [
   { id: 'init-detection', modelDependent: false, run: initDetection },
   { id: 'apply-prd-contract', modelDependent: false, run: applyPrdContract },
+  { id: 'apply-run-execution', modelDependent: false, run: applyRunExecution },
   { id: 'update-install-detection', modelDependent: false, run: installDetection },
   { id: 'create-prose-extraction', modelDependent: true, run: proseExtraction },
   { id: 'create-anti-fabrication', modelDependent: true, run: antiFabrication },
