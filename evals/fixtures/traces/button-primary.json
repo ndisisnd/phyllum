@@ -1,5 +1,5 @@
 {
-  "note": "A pinned trace result for evals/fixtures/images/button-primary.png — the shape a trace comes back in, written by hand for the fixture set. It is the *input* to the eval: what is graded is Basal's ingestion of it (which measurements become values, which become questions, and what is refused), not a model's eyesight. A real model run belongs under fixtures/recordings/ and is graded separately.",
+  "note": "A pinned trace result for evals/fixtures/images/button-primary.png — the shape a trace comes back in, written by hand for the fixture set. It is the *input* to the eval: what is graded is Phyllum's ingestion of it (which measurements become values, which become questions, and what is refused), not a model's eyesight. A real model run belongs under fixtures/recordings/ and is graded separately.",
   "file": "evals/fixtures/images/button-primary.png",
   "name": "Button/Primary",
   "archetype": "button",

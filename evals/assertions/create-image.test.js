@@ -4,7 +4,7 @@
  * The plan's two hard promises for this mode are checked here:
  *
  *   The output is text. A trace produces a spec the user reads, corrects and
- *   accepts — and no file outside DESIGN-SYSTEM.md and .basal/ is ever written,
+ *   accepts — and no file outside DESIGN-SYSTEM.md and .phyllum/ is ever written,
  *   before acceptance or after it.
  *
  *   Nothing unmeasurable is invented. A reading below its confidence bar
@@ -13,7 +13,7 @@
  *
  * No test here looks at a pixel or calls a model: the tracing is Claude Code's
  * job (§7.3), so it arrives through `ctx.trace` as a structured result and what
- * is asserted is the frame Basal puts around it.
+ * is asserted is the frame Phyllum puts around it.
  */
 
 import assert from 'node:assert/strict';
@@ -113,7 +113,7 @@ test('validation names the reason rather than guessing at the intent', async () 
 });
 
 // ---------------------------------------------------------------------------
-// The trace request — what Basal asks for
+// The trace request — what Phyllum asks for
 // ---------------------------------------------------------------------------
 
 test('the trace request asks for exactly what the contract table says is measurable', () => {
@@ -264,9 +264,9 @@ test('a traced image is rendered as text — a spec and a code view — and writ
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, []);
     assert.deepEqual(
-      diff.added.filter((rel) => !rel.startsWith('.basal/')),
+      diff.added.filter((rel) => !rel.startsWith('.phyllum/')),
       [],
-      'only Basal’s own state may appear before acceptance',
+      'only Phyllum’s own state may appear before acceptance',
     );
   });
 });
@@ -285,9 +285,9 @@ test('on acceptance exactly one file changes, and it is DESIGN-SYSTEM.md', async
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md']);
     assert.deepEqual(diff.removed, []);
     assert.deepEqual(
-      diff.added.filter((rel) => !rel.startsWith('.basal/')),
+      diff.added.filter((rel) => !rel.startsWith('.phyllum/')),
       [],
-      'no file outside DESIGN-SYSTEM.md and .basal/ is written',
+      'no file outside DESIGN-SYSTEM.md and .phyllum/ is written',
     );
 
     const written = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
@@ -355,8 +355,8 @@ test('an image path that does not resolve is an error, not a description', async
 
 test('an image queued by the dashboard is picked up by a bare create, and drained', async () => {
   await withProject(async (dir) => {
-    fs.mkdirSync(path.join(dir, '.basal', 'uploads'), { recursive: true });
-    const uploaded = '.basal/uploads/2026-08-12-button.png';
+    fs.mkdirSync(path.join(dir, '.phyllum', 'uploads'), { recursive: true });
+    const uploaded = '.phyllum/uploads/2026-08-12-button.png';
     fs.copyFileSync(path.join(IMAGES, 'button-primary.png'), path.join(dir, uploaded));
     writeState(dir, {
       queue: [

@@ -1,11 +1,11 @@
 {
-  "name": "basal",
+  "name": "phyllum",
   "version": "0.1.0",
   "description": "Design system companion — turns prose, images, or your codebase into tokens and components, recorded in DESIGN-SYSTEM.md",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "basal": "bin/basal.js"
+    "phyllum": "bin/phyllum.js"
   },
   "main": "lib/execute.js",
   "exports": {

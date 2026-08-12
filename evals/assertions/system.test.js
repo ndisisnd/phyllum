@@ -116,6 +116,6 @@ test('the same scope rules apply to dashboard, the gui alias', async () => {
     const { out, code } = await run('dashboard sideways', dir);
     assert.equal(code, 0);
     assert.ok(out.includes('is not a scope'));
-    assert.ok(out.includes('basal dashboard'));
+    assert.ok(out.includes('phyllum dashboard'));
   });
 });

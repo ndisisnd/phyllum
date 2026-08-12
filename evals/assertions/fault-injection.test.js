@@ -88,16 +88,16 @@ test('an interruption after the rename means the new file is the live one', asyn
   });
 });
 
-test('the same sweep holds for Basal-owned state, not just the design system', async () => {
+test('the same sweep holds for Phyllum-owned state, not just the design system', async () => {
   for (const stage of BEFORE_SWAP) {
     await withTempDir(async (dir) => {
-      writeGuarded(dir, '.basal/session.json', '{"version":1}\n');
+      writeGuarded(dir, '.phyllum/session.json', '{"version":1}\n');
       assert.throws(
-        () => writeGuarded(dir, '.basal/session.json', 'CORRUPT', { faultAt: stage }),
+        () => writeGuarded(dir, '.phyllum/session.json', 'CORRUPT', { faultAt: stage }),
         InjectedFault,
       );
-      assert.equal(read(dir, '.basal/session.json'), '{"version":1}\n');
-      assert.deepEqual(snapshotPaths(dir), ['.basal/session.json']);
+      assert.equal(read(dir, '.phyllum/session.json'), '{"version":1}\n');
+      assert.deepEqual(snapshotPaths(dir), ['.phyllum/session.json']);
     });
   }
 });
@@ -144,7 +144,7 @@ async function killedMidWrite(dir) {
     `const dir = ${JSON.stringify(dir)};`,
     // Write the temp file by hand exactly as the funnel does, then die before
     // the rename — a SIGKILL leaves no chance to clean anything up.
-    `fs.writeFileSync(${JSON.stringify(path.join(dir, 'DESIGN-SYSTEM.md'))} + '.basal-tmp-' + process.pid + '-1', 'half a file');`,
+    `fs.writeFileSync(${JSON.stringify(path.join(dir, 'DESIGN-SYSTEM.md'))} + '.phyllum-tmp-' + process.pid + '-1', 'half a file');`,
     `process.kill(process.pid, 'SIGKILL');`,
   ].join('\n');
   const file = path.join(dir, 'crash.mjs');
@@ -171,7 +171,7 @@ test('the next write sweeps up the temp file a killed process left behind', asyn
     writeDesignSystem(dir, original);
     await killedMidWrite(dir);
 
-    const litter = snapshotPaths(dir).filter((rel) => rel.includes('.basal-tmp-'));
+    const litter = snapshotPaths(dir).filter((rel) => rel.includes('.phyllum-tmp-'));
     assert.equal(litter.length, 1, 'a killed process does leave litter — that is the point');
 
     writeDesignSystem(dir, `${original}\n`);

@@ -166,7 +166,7 @@ test('an answered state is recorded in the state, not as a property', () => {
   assert.ok(renderSpecBlock(draft).includes('hover: background 10% darker'));
 });
 
-test('the spec block Basal writes is the spec block Basal reads back', () => {
+test('the spec block Phyllum writes is the spec block Phyllum reads back', () => {
   const model = parse(readFixture(POPULATED_FIXTURE));
   const draft = extractDraft('button primary with 12px padding-top', {
     tokenNames: tokenNamesOf(model),

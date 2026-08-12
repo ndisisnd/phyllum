@@ -5,7 +5,7 @@
 
 Craft a component from user input and, on acceptance, write it into
 `DESIGN-SYSTEM.md`. **Nothing is persisted before the user accepts.** The draft
-lives in `.basal/session.json` — Basal's own state, gitignored — until then.
+lives in `.phyllum/session.json` — Phyllum's own state, gitignored — until then.
 
 The tables in this file are the contract, and they are machine-readable: the CLI
 parses them at run time (`lib/archetypes.js`), and the assertion suite is driven
@@ -63,7 +63,7 @@ Parsing is extraction, never invention. Four passes over the sentence, in order:
    every pair that follows it in the same clause: "…with a darker #1D4ED8
    background on hover" records `states.hover.background: #1D4ED8`.
 
-Values are copied **verbatim**. Basal never rounds `11px` to `12px`, never
+Values are copied **verbatim**. Phyllum never rounds `11px` to `12px`, never
 converts `rem` to `px`, never normalises `#2563eb` to uppercase, and never
 replaces a gradient with a flat colour. See "WHAT is free" below.
 
@@ -83,7 +83,7 @@ turns "a button" into a checklist:
 > **must** define background colour, border colour, corner radius and
 > typography, plus hover and disabled states.
 
-<!-- basal:contracts -->
+<!-- phyllum:contracts -->
 
 | Archetype | Aliases | Mandatory slots | States |
 |-----------|---------|-----------------|--------|
@@ -107,11 +107,11 @@ Two rules, deliberately asymmetric:
 
 ### Slot vocabulary
 
-The property keys Basal writes into a spec, the contract slot each one fills,
+The property keys Phyllum writes into a spec, the contract slot each one fills,
 and the prose phrases that name it. A slot counts as filled when **any** of its
 property keys is present — `padding-top: 12px` fills the `padding` slot.
 
-<!-- basal:vocabulary -->
+<!-- phyllum:vocabulary -->
 
 | Property | Slot | Prose phrases |
 |----------|------|---------------|
@@ -144,7 +144,7 @@ Third-priority suggestions only (see the follow-up loop). A default is offered
 as a **clearly labelled guess** and is only ever recorded because the user chose
 it. A default that nobody picked never reaches the spec.
 
-<!-- basal:defaults -->
+<!-- phyllum:defaults -->
 
 | Archetype | Slot | Default guess |
 |-----------|------|---------------|
@@ -203,10 +203,10 @@ probably contain:
 
 ## Image tracing rules (Mode B)
 
-The CLI owns the frame; the model owns the eyes. Basal validates the file,
+The CLI owns the frame; the model owns the eyes. Phyllum validates the file,
 builds the **trace request**, and ingests the **trace result** — the measuring
 itself happens where the vision is (a Claude Code session, or the `claude` CLI
-the terminal shells out to). Basal never guesses a pixel, and never asks a model
+the terminal shells out to). Phyllum never guesses a pixel, and never asks a model
 to guess one either.
 
 Four steps, in order:
@@ -221,7 +221,7 @@ Four steps, in order:
 3. **Trace.** The model measures what it can see and reports each measurement
    with a confidence between 0 and 1. A property it cannot see is *omitted* or
    listed under `unmeasurable` — never given a plausible value.
-4. **Ingest.** Basal turns the result into a draft: measurements at or above the
+4. **Ingest.** Phyllum turns the result into a draft: measurements at or above the
    property's minimum confidence become draft properties with origin `image`;
    everything else becomes a follow-up question. Ingestion is the anti-fabrication
    gate, so it is deliberately strict — see "What ingestion refuses".
@@ -249,7 +249,7 @@ is the bar a measurement must clear to enter the draft; below it the reading
 becomes a question that quotes the reading rather than recording it.
 **Tolerance** is what the eval holds a trace to against known ground truth.
 
-<!-- basal:trace -->
+<!-- phyllum:trace -->
 
 | Property | Measured as | Min confidence | Tolerance |
 |----------|-------------|----------------|-----------|
@@ -316,7 +316,7 @@ lists, and custom component names. A signature is one element plus its classes
 candidate. A row's archetype of `—` means "resolve the matched word through the
 archetype aliases" — a `Chip` is a Badge, a `Dialog` is a Modal.
 
-<!-- basal:candidates -->
+<!-- phyllum:candidates -->
 
 | Signal | Matches | Archetype | Minimum |
 |--------|---------|-----------|---------|
@@ -337,7 +337,7 @@ of showing the picker — the drop *was* the pick.
 
 **Already in the system drops out.** A signature whose class or component name
 matches a component already in `DESIGN-SYSTEM.md` (by name or by the class name
-Basal would generate for it) is not a candidate — it is a component, and
+Phyllum would generate for it) is not a candidate — it is a component, and
 `create` on it opens a revision instead.
 
 ---
@@ -401,7 +401,7 @@ Then the user **accepts** or **edits**:
 Edits are prompts — "make the radius larger", "use brand blue instead" — and
 loop back through render → review. **Only the `review → accepted` transition
 writes anything to `DESIGN-SYSTEM.md`.** The draft is persisted in
-`.basal/session.json` at every step so a dropped session can be picked up.
+`.phyllum/session.json` at every step so a dropped session can be picked up.
 
 ---
 
@@ -445,7 +445,7 @@ skipped slot is the literal `TODO`, and also appears in the Backlog.
 
 ## What `create` must never do
 
-- Write any file other than `DESIGN-SYSTEM.md` (and Basal's own `.basal/`).
+- Write any file other than `DESIGN-SYSTEM.md` (and Phyllum's own `.phyllum/`).
 - Write anything at all before acceptance.
 - Invent a value for a slot the user did not fill (see the invariant above).
 - "Correct" a value the user gave, or reject one for being unconventional.

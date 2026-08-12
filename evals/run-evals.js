@@ -7,7 +7,7 @@
  * committed record of what each score was, so "never quietly worse" is a
  * checkable fact rather than a memory. The assertion suite reads that file.
  *
- * `--responder recorded` grades committed model recordings instead of Basal's
+ * `--responder recorded` grades committed model recordings instead of Phyllum's
  * own extraction. Nothing here calls a model: recordings are made offline (see
  * evals/run.md) and a missing recording is reported as missing, never guessed.
  *
@@ -62,7 +62,7 @@ function main() {
     const recorded = runAll('recorded');
     const baseline = {
       recordedAt: new Date().toISOString().slice(0, 10),
-      basalVersion: packageVersion(),
+      phyllumVersion: packageVersion(),
       milestone: MILESTONE,
       release: RELEASE,
       note:

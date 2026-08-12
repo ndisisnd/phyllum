@@ -40,7 +40,7 @@ test('the session opens on the init suggestion when there is no design system', 
   await withTempDir(async (dir) => {
     const out = await session(dir, ['exit']);
     assert.ok(out.includes('no DESIGN-SYSTEM.md yet'));
-    assert.ok(out.includes('basal init'));
+    assert.ok(out.includes('phyllum init'));
     assert.ok(out.includes('Type a command, or `exit` to leave.'));
     assert.deepEqual(snapshotPaths(dir), []);
   });
@@ -52,7 +52,7 @@ test('the session runs the same commands as the terminal', async () => {
     const out = await session(dir, ['menu', 'system tokens', 'help create', 'exit']);
     assert.ok(out.includes(renderMenu().trimEnd()));
     assert.ok(out.includes('color-primary'));
-    assert.ok(out.includes('basal create  (alias: build)'));
+    assert.ok(out.includes('phyllum create  (alias: build)'));
   });
 });
 
@@ -60,13 +60,13 @@ test('the session honours quoting, so "help" is prose and help is help', async (
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));
     const asHelp = await session(dir, ['create help', 'exit']);
-    assert.ok(asHelp.includes('basal create  (alias: build)'));
+    assert.ok(asHelp.includes('phyllum create  (alias: build)'));
 
     // Quoted, "help" is prose: create tries to read it as a component and,
     // finding no archetype in it, asks which kind rather than guessing.
     const asProse = await session(dir, ['create "help"', 'exit']);
     assert.ok(asProse.includes('could not tell which kind of component'));
-    assert.ok(!asProse.includes('basal create  (alias: build)'));
+    assert.ok(!asProse.includes('phyllum create  (alias: build)'));
   });
 });
 
@@ -74,7 +74,7 @@ test('an unknown command in the session points at the menu and keeps going', asy
   await withTempDir(async (dir) => {
     const out = await session(dir, ['wibble', 'menu', 'exit']);
     assert.ok(out.includes('no command called "wibble"'));
-    assert.ok(out.includes('basal system'));
+    assert.ok(out.includes('phyllum system'));
   });
 });
 
@@ -106,7 +106,7 @@ test('the session runs the whole create loop: questions, answer, acceptance', as
     const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
     assert.ok(file.includes('### Button/Danger'));
     assert.ok(file.includes('padding-top: 12px'));
-    assert.deepEqual(snapshotPaths(dir).sort(), ['.basal/session.json', 'DESIGN-SYSTEM.md']);
+    assert.deepEqual(snapshotPaths(dir).sort(), ['.phyllum/session.json', 'DESIGN-SYSTEM.md']);
   });
 });
 

@@ -117,7 +117,7 @@ test('a component the system already has is not offered as a candidate', async (
     const candidates = scanCandidates(dir, model());
     assert.ok(
       !candidates.some((candidate) => candidate.signature === 'button.button-primary'),
-      'button-primary is what Basal calls Button/Primary, which is registered',
+      'button-primary is what Phyllum calls Button/Primary, which is registered',
     );
     assert.ok(
       !candidates.some((candidate) => candidate.signature === 'button.btn.btn--ghost'),
@@ -270,7 +270,7 @@ test('nothing is written until the pick is accepted, and then only one file', as
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md']);
     assert.deepEqual(diff.removed, []);
     assert.deepEqual(
-      diff.added.filter((rel) => !rel.startsWith('.basal/')),
+      diff.added.filter((rel) => !rel.startsWith('.phyllum/')),
       [],
     );
   });

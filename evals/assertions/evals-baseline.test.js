@@ -54,7 +54,7 @@ test('every eval meets its threshold, and none has slipped below its baseline', 
 
 test('the baseline says when it was recorded and against which version', () => {
   assert.match(baseline.recordedAt, /^\d{4}-\d{2}-\d{2}$/);
-  assert.equal(baseline.basalVersion, JSON.parse(read('package.json')).version);
+  assert.equal(baseline.phyllumVersion, JSON.parse(read('package.json')).version);
   assert.ok(/never silently lowered/i.test(baseline.note));
 });
 

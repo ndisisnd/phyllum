@@ -48,17 +48,17 @@ test('a fresh init produces DESIGN-SYSTEM.md from the canonical template', async
   });
 });
 
-test('init copies every skill file into .claude/skills/basal/', async () => {
+test('init copies every skill file into .claude/skills/phyllum/', async () => {
   await withTempDir(async (dir) => {
     await run('init', dir);
-    const installed = snapshotPaths(path.join(dir, '.claude/skills/basal'));
+    const installed = snapshotPaths(path.join(dir, '.claude/skills/phyllum'));
     assert.deepEqual(installed, skillFiles().sort());
     assert.ok(installed.includes('SKILL.md'));
     assert.ok(installed.some((rel) => rel.startsWith('refs/')));
   });
 });
 
-test('init adds exactly one .basal/ line to .gitignore', async () => {
+test('init adds exactly one .phyllum/ line to .gitignore', async () => {
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules\n');
     await run('init', dir);
@@ -80,8 +80,8 @@ test('init never touches a path outside the permission model', async () => {
       const allowed =
         rel === 'DESIGN-SYSTEM.md' ||
         rel === '.gitignore' ||
-        rel.startsWith('.basal/') ||
-        rel.startsWith('.claude/skills/basal/');
+        rel.startsWith('.phyllum/') ||
+        rel.startsWith('.claude/skills/phyllum/');
       assert.ok(allowed, `init wrote a path outside the permission model: ${rel}`);
     }
     assert.ok(diff.added.includes('DESIGN-SYSTEM.md'));
@@ -163,8 +163,8 @@ test('init names the project from package.json when there is one', async () => {
 test('init finishes on the menu and the help hint', async () => {
   await withTempDir(async (dir) => {
     const { out } = await run('init', dir);
-    assert.ok(out.includes('basal menu'));
-    assert.ok(out.includes('basal help [command]'));
+    assert.ok(out.includes('phyllum menu'));
+    assert.ok(out.includes('phyllum help [command]'));
     assert.ok(out.includes('Step 5 — where to go next'));
   });
 });

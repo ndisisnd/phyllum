@@ -4,7 +4,7 @@
 
 ## What is being graded
 
-Basal governs **which** slots a component must fill, never **what** goes in
+Phyllum governs **which** slots a component must fill, never **what** goes in
 them. Four different corner radii on one button, a gradient where a flat colour
 was expected, a 3px font size, a lowercase hex — every one of them must land in
 the draft exactly as typed. No rounding, no unit conversion, no case fixing, no

@@ -8,7 +8,7 @@ prompts are pinned now; nothing here fakes a model call.
 
 ## What is being graded
 
-The per-command explanations printed by `basal help <command>` must stay
+The per-command explanations printed by `phyllum help <command>` must stay
 accurate to the §2.2 command table. This is the eval that fails when a
 command's behaviour changes and its help text does not — stale help is a
 failure, not a cosmetic issue.
@@ -22,7 +22,7 @@ assertions in `evals/assertions/help.test.js` and needs no model.
 For each command in the table, the grader is given:
 
 - the plan's §2.2 row for that command, and the relevant plan section (§3–§6.5),
-- the current output of `basal help <command>`,
+- the current output of `phyllum help <command>`,
 
 and asks: does the help text describe what the plan says this command does,
 with its real modes and arguments, and nothing it does not do?

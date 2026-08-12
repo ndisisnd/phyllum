@@ -14,7 +14,7 @@ contains — including the canonical example from the plan, "button primary with
 
 | Responder | What it grades | Needs a model? |
 |-----------|----------------|----------------|
-| `deterministic` | Basal's own extractor, running now | no |
+| `deterministic` | Phyllum's own extractor, running now | no |
 | `recorded` | a real `claude` run following `skill/refs/create.md`, committed under `evals/fixtures/recordings/` | only to re-record |
 
 Nothing here calls a model during a test run, and nothing invents what a model

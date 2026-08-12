@@ -1,9 +1,9 @@
 # Design System
 
-> Basal manages this file. It is the single source of truth for this project's design system.
+> Phyllum manages this file. It is the single source of truth for this project's design system.
 
 - Project: acme-web
-- Basal version: 0.1.0
+- Phyllum version: 0.1.0
 - Created: 2026-08-12
 
 Hand-written note from the team: our blues are deliberately two different
@@ -37,5 +37,5 @@ properties:
 
 ## Notes for reviewers
 
-This section is not part of the Basal template. It must survive a rerun of
-`basal init` untouched.
+This section is not part of the Phyllum template. It must survive a rerun of
+`phyllum init` untouched.

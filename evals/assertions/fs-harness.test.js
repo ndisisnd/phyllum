@@ -39,23 +39,23 @@ const HARNESS = path.join(PACKAGE_ROOT, 'evals', 'harness', 'fs-harness.js');
 
 test('the suite runs under the filesystem-diff harness, not beside it', () => {
   assert.ok(
-    globalThis.__basalFsHarness,
+    globalThis.__phyllumFsHarness,
     'the assertion suite must run with --import=./evals/harness/fs-harness.js (npm test does)',
   );
-  assert.equal(typeof globalThis.__basalFsHarness.enumerationLabel, 'function');
+  assert.equal(typeof globalThis.__phyllumFsHarness.enumerationLabel, 'function');
 });
 
 test('the harness recognises exactly the paths §1 enumerates', () => {
-  const { enumerationLabel } = globalThis.__basalFsHarness;
-  const project = '/tmp/basal-test-abc';
+  const { enumerationLabel } = globalThis.__phyllumFsHarness;
+  const project = '/tmp/phyllum-test-abc';
 
   assert.ok(enumerationLabel(`${project}/DESIGN-SYSTEM.md`));
-  assert.ok(enumerationLabel(`${project}/.basal/session.json`));
-  assert.ok(enumerationLabel(`${project}/.basal/uploads/shot.png`));
-  assert.ok(enumerationLabel(`${project}/.claude/skills/basal/SKILL.md`));
+  assert.ok(enumerationLabel(`${project}/.phyllum/session.json`));
+  assert.ok(enumerationLabel(`${project}/.phyllum/uploads/shot.png`));
+  assert.ok(enumerationLabel(`${project}/.claude/skills/phyllum/SKILL.md`));
   assert.ok(enumerationLabel(`${project}/.gitignore`));
   // The funnel's own temp file is the enumerated path mid-flight.
-  assert.ok(enumerationLabel(`${project}/DESIGN-SYSTEM.md.basal-tmp-4242-1`));
+  assert.ok(enumerationLabel(`${project}/DESIGN-SYSTEM.md.phyllum-tmp-4242-1`));
 
   for (const rel of [
     'src/Button.jsx',
@@ -79,7 +79,7 @@ async function withFakePackage(offenderSource, body, { withLib = false } = {}) {
     fs.mkdirSync(path.join(dir, 'lib'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'evals', 'harness'), { recursive: true });
     fs.copyFileSync(HARNESS, path.join(dir, 'evals', 'harness', 'fs-harness.js'));
-    // Some checks need Basal's own parser beside the harness; most do not, and
+    // Some checks need Phyllum's own parser beside the harness; most do not, and
     // the harness has to work either way.
     if (withLib) copyDir(path.join(PACKAGE_ROOT, 'lib'), path.join(dir, 'lib'));
     fs.writeFileSync(path.join(dir, 'lib', 'offender.js'), offenderSource);
@@ -104,7 +104,7 @@ test('a write outside the enumeration fails the run it happened in', async () =>
           "import os from 'node:os';",
           "import path from 'node:path';",
           "import { misbehave } from './lib/offender.js';",
-          "const sandbox = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'basal-test-'));",
+          "const sandbox = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-test-'));",
           'misbehave(sandbox);',
           'fs.rmSync(sandbox, { recursive: true, force: true });',
         ].join('\n'),
@@ -160,8 +160,8 @@ test('an allowed write passes the harness cleanly', async () => {
       "import fs from 'node:fs';",
       "import path from 'node:path';",
       'export function behave(dir) {',
-      "  fs.mkdirSync(path.join(dir, '.basal'), { recursive: true });",
-      "  fs.writeFileSync(path.join(dir, '.basal', 'session.json'), '{}');",
+      "  fs.mkdirSync(path.join(dir, '.phyllum'), { recursive: true });",
+      "  fs.writeFileSync(path.join(dir, '.phyllum', 'session.json'), '{}');",
       "  fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), '# Design System\\n');",
       '}',
     ].join('\n'),
@@ -173,7 +173,7 @@ test('an allowed write passes the harness cleanly', async () => {
           "import os from 'node:os';",
           "import path from 'node:path';",
           "import { behave } from './lib/offender.js';",
-          "const sandbox = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'basal-test-'));",
+          "const sandbox = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-test-'));",
           'behave(sandbox);',
           'fs.rmSync(sandbox, { recursive: true, force: true });',
         ].join('\n'),
@@ -208,7 +208,7 @@ test('a design system that stops validating fails the run that wrote it', async 
           "import os from 'node:os';",
           "import path from 'node:path';",
           "import { misbehave } from './lib/offender.js';",
-          "const sandbox = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'basal-test-'));",
+          "const sandbox = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-test-'));",
           'misbehave(sandbox);',
           'fs.rmSync(sandbox, { recursive: true, force: true });',
         ].join('\n'),
@@ -235,9 +235,9 @@ test('a design system that stops validating fails the run that wrote it', async 
 const ENUMERATED = (rel) =>
   rel === 'DESIGN-SYSTEM.md' ||
   rel === '.gitignore' ||
-  rel === '.basal' ||
-  rel.startsWith('.basal/') ||
-  rel.startsWith('.claude/skills/basal/');
+  rel === '.phyllum' ||
+  rel.startsWith('.phyllum/') ||
+  rel.startsWith('.claude/skills/phyllum/');
 
 test('a full session over a real codebase touches only the enumerated paths', async () => {
   await withTempDir(async (dir) => {
@@ -259,12 +259,12 @@ test('a full session over a real codebase touches only the enumerated paths', as
     const after = snapshotContents(dir);
     const { added, changed, removed } = diffSnapshots(before, after);
 
-    assert.deepEqual(removed, [], 'Basal never removes a file');
+    assert.deepEqual(removed, [], 'Phyllum never removes a file');
     for (const rel of [...added, ...changed]) {
       assert.ok(ENUMERATED(rel), `${rel} is outside the §1 enumeration`);
     }
     assert.ok(added.includes('DESIGN-SYSTEM.md'), 'the session did write the one file it may');
-    assert.ok(added.some((rel) => rel.startsWith('.claude/skills/basal/')), 'init installed the skill');
+    assert.ok(added.some((rel) => rel.startsWith('.claude/skills/phyllum/')), 'init installed the skill');
 
     // Every file of the user's codebase is byte-identical afterwards.
     for (const [rel, contents] of before) {

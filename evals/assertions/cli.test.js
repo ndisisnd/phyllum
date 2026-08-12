@@ -39,9 +39,9 @@ test('a bare invocation opens the interactive session', async () => {
 test('with no DESIGN-SYSTEM.md the session suggests init, then shows the menu', async () => {
   await withTempDir(async (dir) => {
     const greeting = renderGreeting(dir);
-    assert.ok(greeting.includes('basal init'));
+    assert.ok(greeting.includes('phyllum init'));
     assert.ok(greeting.includes('no DESIGN-SYSTEM.md yet'));
-    assert.ok(greeting.includes('basal menu'));
+    assert.ok(greeting.includes('phyllum menu'));
     for (const command of DISPATCHABLE) assert.ok(greeting.includes(command.invocation));
   });
 });
@@ -71,7 +71,7 @@ test('before init, the state-dependent commands point at init and create nothing
     await withTempDir(async (dir) => {
       const { out, code } = await run(command, dir);
       assert.equal(code, 0, `${command} should exit cleanly before init`);
-      assert.ok(out.includes('basal init'), `${command} should point at init`);
+      assert.ok(out.includes('phyllum init'), `${command} should point at init`);
       assert.ok(out.includes('no DESIGN-SYSTEM.md here yet'), `${command} should say why`);
       assert.deepEqual(snapshotPaths(dir), [], `${command} created a file before init`);
     });
@@ -169,14 +169,14 @@ test('the tokenizer keeps quoted arguments whole', () => {
 });
 
 test('the installed binary runs and prints the menu', async () => {
-  const bin = path.join(PACKAGE_ROOT, 'bin', 'basal.js');
+  const bin = path.join(PACKAGE_ROOT, 'bin', 'phyllum.js');
   const { stdout } = await execFileAsync(process.execPath, [bin, 'menu'], { cwd: PACKAGE_ROOT });
   assert.equal(stdout, renderMenu());
 });
 
 test('the binary detached from a terminal prints the greeting instead of hanging', async () => {
   await withTempDir(async (dir) => {
-    const bin = path.join(PACKAGE_ROOT, 'bin', 'basal.js');
+    const bin = path.join(PACKAGE_ROOT, 'bin', 'phyllum.js');
     const { stdout } = await execFileAsync(process.execPath, [bin], { cwd: dir });
     assert.equal(stdout, renderGreeting(dir));
     assert.deepEqual(snapshotPaths(dir), []);

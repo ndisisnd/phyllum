@@ -22,9 +22,9 @@ test('bare help is 2-3 lines plus a hint at per-command help', async () => {
   const bodyLines = body.split('\n');
   assert.ok(bodyLines.length >= 2 && bodyLines.length <= 3, `overview was ${bodyLines.length} lines`);
   assert.deepEqual(bodyLines, OVERVIEW_LINES);
-  assert.ok(hint.includes('basal help [command]'));
-  assert.ok(hint.includes('basal [command] help'));
-  assert.ok(hint.includes('basal menu'));
+  assert.ok(hint.includes('phyllum help [command]'));
+  assert.ok(hint.includes('phyllum [command] help'));
+  assert.ok(hint.includes('phyllum menu'));
 });
 
 test('`help <command>` and `<command> help` are byte-identical', async () => {
@@ -51,7 +51,7 @@ test('aliases resolve to the same help page as their canonical name', async () =
 test('every command in the table has a help page naming its modes and an example', async () => {
   for (const command of COMMANDS) {
     const { out } = await run(`help ${command.name}`);
-    assert.ok(out.startsWith(`basal ${command.name}`), `${command.name} help should lead with its name`);
+    assert.ok(out.startsWith(`phyllum ${command.name}`), `${command.name} help should lead with its name`);
     assert.ok(out.includes('Example'));
     assert.ok(out.includes(command.example));
     for (const mode of command.modes) assert.ok(out.includes(mode), `${command.name} help missing mode: ${mode}`);
@@ -81,14 +81,14 @@ test('help on an unknown command suggests the menu and exits cleanly', async () 
   const { out, code } = await run('help wibble');
   assert.equal(code, 0);
   assert.ok(out.includes('no command called "wibble"'));
-  assert.ok(out.includes('basal menu'));
+  assert.ok(out.includes('phyllum menu'));
 });
 
 test('an unknown command suggests the menu and exits cleanly', async () => {
   const { out, code } = await run('wibble');
   assert.equal(code, 0);
   assert.ok(out.includes('no command called "wibble"'));
-  assert.ok(out.includes('basal menu'));
+  assert.ok(out.includes('phyllum menu'));
 });
 
 test('help pages for unbuilt commands say which milestone they land in', async () => {

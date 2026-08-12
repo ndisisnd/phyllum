@@ -8,7 +8,7 @@
  *
  * Two responders exist, and the difference matters:
  *
- *   deterministic  Basal's own extraction, running here and now. No model is
+ *   deterministic  Phyllum's own extraction, running here and now. No model is
  *                  involved, so the score is reproducible on any machine.
  *   recorded       a draft captured from a real `claude` run and committed
  *                  under evals/fixtures/recordings/. Nothing here ever calls a
@@ -470,7 +470,7 @@ function clustering() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
-/** The proposed name for one pinned cluster, from Basal or from a recording. */
+/** The proposed name for one pinned cluster, from Phyllum or from a recording. */
 function nameFor(evalId, testCase, responder) {
   if (responder === 'recorded') {
     const recording = readRecording(evalId, testCase.id);

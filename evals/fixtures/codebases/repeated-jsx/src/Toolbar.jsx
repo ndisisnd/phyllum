@@ -3,7 +3,7 @@
 // The chip is the point: the same span/class pattern appears four times across
 // this file and Sidebar.jsx, and nothing in DESIGN-SYSTEM.md knows about it —
 // so it should turn up in the candidate list. The buttons are the control:
-// `button-primary` is exactly what Basal would call `Button/Primary`, which is
+// `button-primary` is exactly what Phyllum would call `Button/Primary`, which is
 // already registered, so it must not be proposed again.
 
 export function Toolbar({ items, onSave }) {

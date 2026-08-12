@@ -1,7 +1,7 @@
 /**
  * Assertions for the package layout and the skill definition (plan §7.2, §8.5).
  *
- * The skill is the intelligence half of Basal, so the checks here are about the
+ * The skill is the intelligence half of Phyllum, so the checks here are about the
  * promises it makes in writing: the permission rule, the command table, and a
  * reference file for every subskill.
  */
@@ -20,7 +20,7 @@ const read = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
 test('every path in the plan §7.2 layout exists', () => {
   const expected = [
     'package.json',
-    'bin/basal.js',
+    'bin/phyllum.js',
     'skill/SKILL.md',
     'skill/refs/create.md',
     'skill/refs/tokenise.md',
@@ -39,9 +39,9 @@ test('every path in the plan §7.2 layout exists', () => {
 
 test('package.json declares the bin, ESM, and no runtime dependencies', () => {
   const manifest = JSON.parse(read('package.json'));
-  assert.equal(manifest.name, 'basal');
+  assert.equal(manifest.name, 'phyllum');
   assert.equal(manifest.type, 'module');
-  assert.equal(manifest.bin.basal, 'bin/basal.js');
+  assert.equal(manifest.bin.phyllum, 'bin/phyllum.js');
   assert.deepEqual(manifest.dependencies, {});
   assert.deepEqual(manifest.devDependencies, {});
 });
@@ -57,10 +57,10 @@ test('the skill ships a reference file for every subskill with one', () => {
 test('SKILL.md states the permission rule and its three exceptions', () => {
   const skill = read('skill/SKILL.md');
   assert.ok(skill.startsWith('---'), 'SKILL.md needs frontmatter');
-  assert.ok(/^name: basal$/m.test(skill));
+  assert.ok(/^name: phyllum$/m.test(skill));
   assert.ok(/^description: /m.test(skill));
   assert.ok(skill.includes('exactly one file'));
-  for (const target of ['DESIGN-SYSTEM.md', '.basal/**', '.claude/skills/basal/**', '.gitignore']) {
+  for (const target of ['DESIGN-SYSTEM.md', '.phyllum/**', '.claude/skills/phyllum/**', '.gitignore']) {
     assert.ok(skill.includes(target), `permission rule missing ${target}`);
   }
 });

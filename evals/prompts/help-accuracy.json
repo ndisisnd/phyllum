@@ -13,8 +13,8 @@
   ],
   "cases": [
     {
-      "id": "help-basal",
-      "command": "basal",
+      "id": "help-phyllum",
+      "command": "phyllum",
       "planSection": "§2.2"
     },
     {
@@ -58,5 +58,5 @@
       "planSection": "§6.5"
     }
   ],
-  "promptTemplate": "Here is the plan section that defines the `{{command}}` command, and here is the output of `basal help {{command}}`. Grade the help text against the rubric: does it describe what the plan says this command does, with its real modes and arguments, and nothing it does not do?"
+  "promptTemplate": "Here is the plan section that defines the `{{command}}` command, and here is the output of `phyllum help {{command}}`. Grade the help text against the rubric: does it describe what the plan says this command does, with its real modes and arguments, and nothing it does not do?"
 }

@@ -73,7 +73,7 @@ test('an image path that resolves to nothing says so, and never becomes prose', 
     const { out, code } = await run('create shot.png', dir);
     assert.equal(code, 1);
     assert.ok(out.includes('There is no image at `shot.png`'));
-    assert.ok(out.includes('basal create "shot.png"'), 'it names the way to mean it as prose');
+    assert.ok(out.includes('phyllum create "shot.png"'), 'it names the way to mean it as prose');
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, []);
   });
 });
@@ -103,8 +103,8 @@ test('with no route to a model, create names both ways to get one', async () => 
     const { out, code } = await run('create "button danger with 12px padding-top"', dir);
     assert.equal(code, 1, 'the intelligent half could not run, and says so');
     assert.ok(out.includes('Install Claude Code'));
-    assert.ok(out.includes('run the Basal skill from inside a Claude Code session') ||
-      out.includes('Run the Basal skill from inside a Claude Code session'));
+    assert.ok(out.includes('run the Phyllum skill from inside a Claude Code session') ||
+      out.includes('Run the Phyllum skill from inside a Claude Code session'));
     assert.ok(out.includes('`menu`'), 'mechanics keep working, and it says so');
   });
 });
@@ -151,7 +151,7 @@ test('create before init still points at init and writes nothing', async () => {
   await withTempDir(async (dir) => {
     const { out, code } = await run('create "button primary"', dir);
     assert.equal(code, 0);
-    assert.ok(out.includes('basal init'));
+    assert.ok(out.includes('phyllum init'));
     assert.deepEqual([...snapshotContents(dir).keys()], []);
   });
 });

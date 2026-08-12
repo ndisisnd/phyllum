@@ -33,7 +33,7 @@
       "designSystem": "evals/fixtures/design-system/populated.md",
       "expect": "absent",
       "signature": "button.button-primary",
-      "note": "`button-primary` is what Basal calls Button/Primary, which the system already has — it is a component, not a candidate."
+      "note": "`button-primary` is what Phyllum calls Button/Primary, which the system already has — it is a component, not a candidate."
     },
     {
       "id": "one-sighting-is-not-a-pattern",

@@ -26,7 +26,7 @@ what they actually mean is your job.
 ## Step 2 — scaffold the template
 
 Create `DESIGN-SYSTEM.md` from the canonical template shipped in the package, so
-that every Basal install produces the same structure. Never write it from
+that every Phyllum install produces the same structure. Never write it from
 scratch.
 
 If the file already exists, **do not overwrite it**. Validate its section
@@ -35,7 +35,7 @@ User content is never dropped: a rerun's diff shows additions only.
 
 ## Step 3 — install the skill
 
-Copy the skill definition into `.claude/skills/basal/`, and add one `.basal/`
+Copy the skill definition into `.claude/skills/phyllum/`, and add one `.phyllum/`
 line to `.gitignore` so session state stays out of the repo. Ask before
 touching `.gitignore`.
 
@@ -60,5 +60,5 @@ of truth lives.
 | No `DESIGN-SYSTEM.md` | Created from the template |
 | File exists and is valid | Left byte-identical; init says so |
 | File exists, sections missing | Missing headings added back in canonical position; nothing removed |
-| Skill already installed | Files rewritten from the package (they are Basal-owned) |
-| `.basal/` already in `.gitignore` | Left alone |
+| Skill already installed | Files rewritten from the package (they are Phyllum-owned) |
+| `.phyllum/` already in `.gitignore` | Left alone |

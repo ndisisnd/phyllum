@@ -17,13 +17,13 @@ A read-only sweep of the project. Files are read; nothing is opened for writing,
 renamed, or created, and no value is ever changed in place — that is a codemod,
 and it is out of scope in v1 (see the bottom of this file).
 
-<!-- basal:sources -->
+<!-- phyllum:sources -->
 
 | Source | Extensions | Read for |
 |--------|------------|----------|
 | stylesheets | `.css`, `.scss`, `.sass`, `.less` | declarations grouped by rule block |
 | markup | `.html`, `.jsx`, `.tsx`, `.vue`, `.svelte`, `.astro` | inline `style="…"` attributes and Tailwind arbitrary values |
-| skipped | `node_modules`, `.git`, `dist`, `build`, `.next`, `.basal`, `coverage`, `.claude` | — |
+| skipped | `node_modules`, `.git`, `dist`, `build`, `.next`, `.phyllum`, `coverage`, `.claude` | — |
 
 Three shapes of evidence, all read the same way once extracted:
 
@@ -38,7 +38,7 @@ Three shapes of evidence, all read the same way once extracted:
 A prefix that maps to two properties is resolved by the shape of the value —
 `text-[#111827]` is a colour, `text-[12px]` is a font size.
 
-<!-- basal:tailwind -->
+<!-- phyllum:tailwind -->
 
 | Prefix | Property |
 |--------|----------|
@@ -73,7 +73,7 @@ review order, so a value seen once is kept and counted, not dropped.
 
 ## The three passes
 
-<!-- basal:passes -->
+<!-- phyllum:passes -->
 
 | Pass | Token section | Value shapes | Properties |
 |------|---------------|--------------|------------|
@@ -85,7 +85,7 @@ The numbers pass does not treat every length alike. A 12px corner radius and a
 12px padding are the same number and different facts, so each length carries a
 **role**, and clustering and naming both happen inside a role.
 
-<!-- basal:roles -->
+<!-- phyllum:roles -->
 
 | Role | Properties | Applies to | Ladder |
 |------|------------|------------|--------|
@@ -93,7 +93,7 @@ The numbers pass does not treat every length alike. A 12px corner radius and a
 | spacing | padding, padding-top, padding-right, padding-bottom, padding-left, margin, margin-top, margin-right, margin-bottom, margin-left, gap, row-gap, column-gap, p, px, py, pt, pr, pb, pl, m, mt, mr, mb, ml | spacing | spacing |
 | border | border, border-width, border-top-width, border-right-width, border-bottom-width, border-left-width, outline-width | border width | border |
 
-The last few spellings in each row are Basal's own spec keys rather than CSS
+The last few spellings in each row are Phyllum's own spec keys rather than CSS
 properties. They are here because the same table answers both questions: which
 sighting in the code belongs to which role, and which slot in a component spec a
 newly named token is allowed to replace. A `rounded-md` token may fill a
@@ -118,7 +118,7 @@ entropy already in the code. Sixteen sightings of a blue that is `#2563EB`
 fourteen times and `#2564EC` twice is one token with a merge note, not two
 tokens.
 
-<!-- basal:clustering -->
+<!-- phyllum:clustering -->
 
 | Cluster | Compared on | Threshold | Also required |
 |---------|-------------|-----------|---------------|
@@ -130,7 +130,7 @@ tokens.
 Rules that keep clustering honest:
 
 - **The representative is the most-used member**, ties broken by the value that
-  sorts first. It is never an average: Basal proposes a value that actually
+  sorts first. It is never an average: Phyllum proposes a value that actually
   exists in the code, never a number nobody wrote.
 - **Grouping is not rewriting.** The members that were folded in are listed on
   the proposal so the user can see exactly what they are agreeing to, and
@@ -145,7 +145,7 @@ Rules that keep clustering honest:
 Proposals are ordered by total sightings across the cluster, most-used first,
 ties broken by value. The user is asked about one proposal at a time.
 
-<!-- basal:review -->
+<!-- phyllum:review -->
 
 | Action | Answer | Effect |
 |--------|--------|--------|
@@ -171,7 +171,7 @@ name — near-white is a surface, near-black is text, grey is muted. Everything
 else is ranked by how much the codebase leans on it. Rows are tested in order
 and the first match wins; lightness and saturation are HSL percentages.
 
-<!-- basal:colour-names -->
+<!-- phyllum:colour-names -->
 
 | Name | Lightness | Saturation | Rank |
 |------|-----------|------------|------|
@@ -188,7 +188,7 @@ to largest and laid onto the ladder so that the middle one lands on the ladder's
 centre — a codebase with exactly one radius gets `rounded-md`, not `rounded-xs`.
 Roles with more clusters than rungs number the overflow (`rounded-6`, `rounded-7`).
 
-<!-- basal:ladders -->
+<!-- phyllum:ladders -->
 
 | Ladder | Rungs | Centre |
 |--------|-------|--------|
@@ -200,7 +200,7 @@ Roles with more clusters than rungs number the overflow (`rounded-6`, `rounded-7
 decides the band, and `12px / 700` therefore comes out as `highlight-small` —
 the plan's own example. Both tables are tested in order, first match wins.
 
-<!-- basal:type-roles -->
+<!-- phyllum:type-roles -->
 
 | Role | Weight |
 |------|--------|
@@ -208,7 +208,7 @@ the plan's own example. Both tables are tested in order, first match wins.
 | highlight | >= 600 |
 | body | — |
 
-<!-- basal:type-bands -->
+<!-- phyllum:type-bands -->
 
 | Band | Size | Suffix |
 |------|------|--------|
@@ -218,7 +218,7 @@ the plan's own example. Both tables are tested in order, first match wins.
 | display | — | -display |
 
 **Collisions.** A proposed name already taken by a token, or by an earlier
-proposal in the same run, gets a numeric suffix (`color-primary-2`). Basal never
+proposal in the same run, gets a numeric suffix (`color-primary-2`). Phyllum never
 silently reuses a name for a second value.
 
 ---
@@ -271,8 +271,8 @@ On acceptance, and only then:
 3. The whole file is rendered through the one renderer and written through the
    one funnel — atomically, and to no other path.
 
-Nothing is written before acceptance. Proposals live in `.basal/session.json` —
-Basal's own state, gitignored — until then.
+Nothing is written before acceptance. Proposals live in `.phyllum/session.json` —
+Phyllum's own state, gitignored — until then.
 
 ---
 
@@ -281,7 +281,7 @@ Basal's own state, gitignored — until then.
 - **Rewrite the codebase to use the tokens it names.** That is a codemod, it is
   v1's most tempting boundary, and crossing it would break the permission model.
   The values in the code stay exactly as they are.
-- Write any file other than `DESIGN-SYSTEM.md` (and Basal's own `.basal/`).
+- Write any file other than `DESIGN-SYSTEM.md` (and Phyllum's own `.phyllum/`).
 - Write anything at all before acceptance.
 - Propose a value that is not in the codebase — no averaged colours, no rounded
   numbers, no "tidied" scale with rungs nobody uses.

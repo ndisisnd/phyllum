@@ -1,11 +1,11 @@
 ---
-name: basal
-description: Design system companion. Turns prose, images, or the styles already in the codebase into named design tokens and components, and records all of it in a single DESIGN-SYSTEM.md. Use when the user asks to create a component, extract or name tokens, view the design system, or set Basal up in a project.
+name: phyllum
+description: Design system companion. Turns prose, images, or the styles already in the codebase into named design tokens and components, and records all of it in a single DESIGN-SYSTEM.md. Use when the user asks to create a component, extract or name tokens, view the design system, or set Phyllum up in a project.
 ---
 
-# Basal
+# Phyllum
 
-Basal is a design system companion. It reads a codebase, or takes prose and
+Phyllum is a design system companion. It reads a codebase, or takes prose and
 images straight from the user, and turns that input into **tokens** and
 **components** recorded in one file: `DESIGN-SYSTEM.md`.
 
@@ -16,20 +16,20 @@ Three ideas govern every command:
 2. **Conversational, not form-driven.** Missing information is gathered through
    follow-up questions with smart suggestions — never a blank required field.
 3. **One write target.** `DESIGN-SYSTEM.md` is the only file in the user's
-   codebase Basal may modify.
+   codebase Phyllum may modify.
 
 ## Permission rule — hard, no exceptions
 
-Basal writes **exactly one file** in the user's codebase: `DESIGN-SYSTEM.md`.
+Phyllum writes **exactly one file** in the user's codebase: `DESIGN-SYSTEM.md`.
 
-Three operational exceptions exist, all Basal-owned:
+Three operational exceptions exist, all Phyllum-owned:
 
 | Path | When |
 |------|------|
 | `DESIGN-SYSTEM.md` | any command, after the user accepts a change |
-| `.basal/**` | session state; gitignored |
-| `.claude/skills/basal/**` | `init` only — the skill install |
-| one `.basal/` line in `.gitignore` | `init` only, with the user's confirmation |
+| `.phyllum/**` | session state; gitignored |
+| `.claude/skills/phyllum/**` | `init` only — the skill install |
+| one `.phyllum/` line in `.gitignore` | `init` only, with the user's confirmation |
 
 Nothing else, ever. Do not write generated component code into the codebase,
 do not rewrite existing styles to use tokens, do not touch config files. If a
@@ -39,9 +39,9 @@ task seems to need a write outside this list, stop and tell the user instead.
 
 | Command | Alias | What it does |
 |---------|-------|--------------|
-| `basal` | — | Interactive session; a menu of the commands below |
+| `phyllum` | — | Interactive session; a menu of the commands below |
 | `menu` | — | List every subskill, one line per command |
-| `help` | — | Explain Basal; `help [command]` explains one command in depth |
+| `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
 | `tokenise` | `tokenize` | Extract and name tokens from the codebase |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
@@ -72,8 +72,8 @@ and `gui`, and default to `all`.
 `DESIGN-SYSTEM.md` is human-readable Markdown with machine-parseable structure.
 Its skeleton is fixed and every section is always present, even when empty:
 
-1. **Header block** — project name, Basal version, created date, and a one-line
-   warning that Basal manages the file.
+1. **Header block** — project name, Phyllum version, created date, and a one-line
+   warning that Phyllum manages the file.
 2. **Tokens** — three fixed subsections: Colours, Numbers, Typography. Empty
    tables still ship their header rows.
 3. **Components** — one `###` heading per component, holding a fenced YAML spec
@@ -82,7 +82,7 @@ Its skeleton is fixed and every section is always present, even when empty:
    contract slots, so the debt is visible at the bottom of the file.
 
 **Fencing rule.** Component entries nest fenced code blocks inside the file, so
-every block Basal writes uses one more backtick than the longest run of
+every block Phyllum writes uses one more backtick than the longest run of
 backticks it contains — minimum three, four when the block itself contains a
 three-backtick block. Fence length is significant to the parser.
 
@@ -112,7 +112,7 @@ input, an image you traced, an answered follow-up, or a token they picked. A
 slot nobody filled is a question or a `TODO` — never a plausible guess, never a
 value carried over from a neighbouring component without asking.
 
-**Never correct a value.** Basal governs *which* slots must be filled, never
+**Never correct a value.** Phyllum governs *which* slots must be filled, never
 *what* goes in them. Four radii on one button, a gradient background, a 3px
 font: record it exactly as given.
 

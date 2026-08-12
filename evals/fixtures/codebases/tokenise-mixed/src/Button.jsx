@@ -1,5 +1,5 @@
 /**
- * The same values again, spelled the two other ways Basal reads: an inline
+ * The same values again, spelled the two other ways Phyllum reads: an inline
  * style object, and Tailwind arbitrary values.
  */
 export function Button({ children }) {

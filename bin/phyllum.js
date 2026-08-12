@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * The `basal` entry point (plan §7.2).
+ * The `phyllum` entry point (plan §7.2).
  *
  * Argument parsing, one call into `execute`, one write to stdout. When nothing
  * is typed and a terminal is attached, the interactive session takes over
  * instead; without a terminal (CI, pipes, the assertion suite) the same bare
- * invocation prints the greeting and exits, so Basal never hangs on a prompt.
+ * invocation prints the greeting and exits, so Phyllum never hangs on a prompt.
  */
 
 import process from 'node:process';
@@ -16,7 +16,7 @@ import { runSession } from '../lib/session.js';
 const argv = process.argv.slice(2);
 const attachedToTerminal = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 const assumeYes =
-  !attachedToTerminal || argv.includes('--yes') || argv.includes('-y') || process.env.BASAL_YES === '1';
+  !attachedToTerminal || argv.includes('--yes') || argv.includes('-y') || process.env.PHYLLUM_YES === '1';
 
 async function main() {
   if (argv.length === 0 && attachedToTerminal) {

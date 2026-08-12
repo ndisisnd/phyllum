@@ -24,7 +24,7 @@ export function readFixture(file) {
 /** Make a temp directory and hand it to `body`, cleaning up afterwards. */
 export async function withTempDir(body) {
   // realpath so macOS's /var -> /private/var symlink cannot break path comparisons.
-  const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'basal-test-'));
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-test-'));
   try {
     return await body(dir);
   } finally {

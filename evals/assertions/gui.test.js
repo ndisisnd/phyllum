@@ -9,7 +9,7 @@
  * failure never leaves one behind.
  *
  * Without a `python3` on PATH the whole file skips with a plain message rather
- * than failing: the GUI is the one part of Basal that needs something beyond
+ * than failing: the GUI is the one part of Phyllum that needs something beyond
  * Node, and saying so is more honest than a red suite.
  */
 
@@ -89,12 +89,12 @@ test('gui starts a server, records its PID and port, and answers on localhost', 
       assert.ok(processAlive(record.pid), 'the recorded PID should be a live process');
 
       const recorded = guiRecord(dir);
-      assert.deepEqual(recorded, record, '.basal/session.json holds the same record');
+      assert.deepEqual(recorded, record, '.phyllum/session.json holds the same record');
 
       const response = await fetch(url(record, '/'));
       assert.equal(response.status, 200);
       const page = await response.text();
-      assert.ok(page.includes('Basal'), 'the dashboard page is served');
+      assert.ok(page.includes('Phyllum'), 'the dashboard page is served');
       for (const view of ['Library', 'Workbench', 'Token view']) {
         assert.ok(page.includes(view), `the page ships the ${view} view`);
       }
@@ -184,14 +184,14 @@ test('kill with nothing running reports cleanly rather than erroring', async () 
 test('kill with a stale PID clears the record and says so', async () => {
   await withTempDir(async (dir) => {
     project(dir);
-    // A PID that is certainly not a running Basal server: one that has already
+    // A PID that is certainly not a running Phyllum server: one that has already
     // exited. Node reports it dead, which is exactly the crash case.
     const child = execFile(process.execPath, ['-e', '0']);
     const dead = child.pid;
     await new Promise((resolve) => child.on('exit', resolve));
-    fs.mkdirSync(path.join(dir, '.basal'), { recursive: true });
+    fs.mkdirSync(path.join(dir, '.phyllum'), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, '.basal', 'session.json'),
+      path.join(dir, '.phyllum', 'session.json'),
       JSON.stringify({ version: 1, gui: { pid: dead, port: 65000, url: 'http://localhost:65000' } }),
     );
 
@@ -206,9 +206,9 @@ test('kill with a stale PID clears the record and says so', async () => {
 test('gui on a stale record starts a fresh server rather than trusting it', { skip }, async () => {
   await withTempDir(async (dir) => {
     project(dir);
-    fs.mkdirSync(path.join(dir, '.basal'), { recursive: true });
+    fs.mkdirSync(path.join(dir, '.phyllum'), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, '.basal', 'session.json'),
+      path.join(dir, '.phyllum', 'session.json'),
       JSON.stringify({ version: 1, gui: { pid: 2, port: 65001, url: 'http://localhost:65001' } }),
     );
     await withServer(dir, 'all', async (record) => {
@@ -273,9 +273,9 @@ test('GET /state carries the session state, the draft and the opening filter', {
   await withTempDir(async (dir) => {
     project(dir);
     // A draft written by the terminal is what the workbench view reads.
-    fs.mkdirSync(path.join(dir, '.basal'), { recursive: true });
+    fs.mkdirSync(path.join(dir, '.phyllum'), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, '.basal', 'session.json'),
+      path.join(dir, '.phyllum', 'session.json'),
       JSON.stringify({ version: 1, draft: { name: 'Button/Danger', status: 'review' } }),
     );
 
@@ -342,20 +342,20 @@ test('a prompt never clobbers the rest of the session state', { skip }, async ()
   });
 });
 
-test('POST /upload lands in .basal/ and enqueues an image-mode create', { skip }, async () => {
+test('POST /upload lands in .phyllum/ and enqueues an image-mode create', { skip }, async () => {
   await withTempDir(async (dir) => {
     project(dir);
     await withServer(dir, 'all', async (record) => {
       const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
       const response = await fetch(url(record, '/upload'), {
         method: 'POST',
-        headers: { 'X-Basal-Filename': 'Button Shot.PNG', 'Content-Type': 'application/octet-stream' },
+        headers: { 'X-Phyllum-Filename': 'Button Shot.PNG', 'Content-Type': 'application/octet-stream' },
         body: bytes,
       });
       assert.equal(response.status, 201);
       const { queued } = await response.json();
 
-      assert.ok(queued.file.startsWith('.basal/uploads/'), queued.file);
+      assert.ok(queued.file.startsWith('.phyllum/uploads/'), queued.file);
       assert.ok(queued.file.endsWith('.png'), 'the extension is kept, lower-cased');
       assert.equal(queued.kind, 'create-image');
       assert.equal(queued.bytes, bytes.length);
@@ -371,17 +371,17 @@ test('POST /upload lands in .basal/ and enqueues an image-mode create', { skip }
   });
 });
 
-test('an upload filename cannot escape .basal/uploads/', { skip }, async () => {
+test('an upload filename cannot escape .phyllum/uploads/', { skip }, async () => {
   await withTempDir(async (dir) => {
     project(dir);
     await withServer(dir, 'all', async (record) => {
       const response = await fetch(url(record, '/upload'), {
         method: 'POST',
-        headers: { 'X-Basal-Filename': '../../DESIGN-SYSTEM.md' },
+        headers: { 'X-Phyllum-Filename': '../../DESIGN-SYSTEM.md' },
         body: Buffer.from('nope'),
       });
       const { queued } = await response.json();
-      assert.ok(queued.file.startsWith('.basal/uploads/'), queued.file);
+      assert.ok(queued.file.startsWith('.phyllum/uploads/'), queued.file);
       assert.equal(
         fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8'),
         readFixture(POPULATED_FIXTURE),
@@ -391,7 +391,7 @@ test('an upload filename cannot escape .basal/uploads/', { skip }, async () => {
   });
 });
 
-test('the server writes only inside .basal/', { skip }, async () => {
+test('the server writes only inside .phyllum/', { skip }, async () => {
   await withTempDir(async (dir) => {
     project(dir);
     const before = snapshotContents(dir);
@@ -403,20 +403,20 @@ test('the server writes only inside .basal/', { skip }, async () => {
       });
       await fetch(url(record, '/upload'), {
         method: 'POST',
-        headers: { 'X-Basal-Filename': 'shot.png' },
+        headers: { 'X-Phyllum-Filename': 'shot.png' },
         body: Buffer.from([1, 2, 3]),
       });
     });
     const diff = diffSnapshots(before, snapshotContents(dir));
     for (const rel of [...diff.added, ...diff.changed]) {
-      assert.ok(rel.startsWith('.basal/'), `the server wrote outside .basal/: ${rel}`);
+      assert.ok(rel.startsWith('.phyllum/'), `the server wrote outside .phyllum/: ${rel}`);
     }
     assert.deepEqual(diff.removed, []);
     assert.ok(snapshotPaths(dir).includes('DESIGN-SYSTEM.md'));
   });
 });
 
-test('the server refuses a write outside .basal/ at the source', { skip }, async () => {
+test('the server refuses a write outside .phyllum/ at the source', { skip }, async () => {
   const probe = [
     'import sys, os',
     `sys.path.insert(0, ${JSON.stringify(path.join(PACKAGE_ROOT, 'server'))})`,
@@ -442,7 +442,7 @@ test('a request with a foreign Host header is refused', { skip }, async () => {
       // the case it guards against is a DNS rebind, which is not a browser fetch.
       const status = await new Promise((resolve, reject) => {
         const request = http.get(
-          { host: '127.0.0.1', port: record.port, path: '/state', headers: { Host: 'basal.example.com' } },
+          { host: '127.0.0.1', port: record.port, path: '/state', headers: { Host: 'phyllum.example.com' } },
           (response) => {
             response.resume();
             resolve(response.statusCode);
@@ -495,9 +495,9 @@ test('an unrecognised dashboard scope prints the valid ones and starts nothing',
     project(dir);
     const { out, code } = await run('dashboard sideways', dir);
     assert.equal(code, 0);
-    assert.ok(out.includes('is not a scope Basal knows'), out);
+    assert.ok(out.includes('is not a scope Phyllum knows'), out);
     assert.ok(out.includes('tokens, components, all'));
-    assert.ok(out.includes('basal dashboard'), 'named as the user typed it');
+    assert.ok(out.includes('phyllum dashboard'), 'named as the user typed it');
     assert.equal(guiRecord(dir), null, 'nothing was started');
     assert.deepEqual(snapshotPaths(dir), ['DESIGN-SYSTEM.md']);
   });
@@ -508,7 +508,7 @@ test('gui and dashboard are one command, before init as well', async () => {
     const a = await run('gui', dir);
     const b = await run('dashboard', dir);
     assert.deepEqual(b, a);
-    assert.ok(a.out.includes('basal init'));
+    assert.ok(a.out.includes('phyllum init'));
     assert.deepEqual(snapshotPaths(dir), [], 'nothing is created before init');
   });
 });
@@ -519,7 +519,7 @@ test('without a python3 on PATH, gui says so instead of half-starting', async ()
     const result = await runGui({ cwd: dir, env: { PATH: '' } });
     assert.equal(result.code, 1);
     assert.ok(result.out.includes('Python 3'), result.out);
-    assert.ok(result.out.includes('basal system'), 'and points at the terminal listing');
+    assert.ok(result.out.includes('phyllum system'), 'and points at the terminal listing');
     assert.equal(guiRecord(dir), null);
   });
 });

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Basal's dashboard server (plan §5, §8 milestone 4).
+Phyllum's dashboard server (plan §5, §8 milestone 4).
 
 What this is, in one line: a viewer and a prompt relay. It shows the design
 system the terminal already reads, and it hands typed prompts back to the
@@ -14,17 +14,17 @@ Contract:
     rejected, so a DNS rebind cannot reach the API either.
   * Serves the static page in ../gui/index.html.
   * JSON API:
-      GET  /state    the shared session state read from .basal/session.json,
+      GET  /state    the shared session state read from .phyllum/session.json,
                      including the workbench draft and the opening filter
       GET  /system   tokens + components of DESIGN-SYSTEM.md
       POST /prompt   enqueue a prompt into the same session state the terminal
                      reads
-      POST /upload   save an image into .basal/uploads/ and enqueue it as an
+      POST /upload   save an image into .phyllum/uploads/ and enqueue it as an
                      image-mode `create` input
   * One parse contract. This server does not parse DESIGN-SYSTEM.md itself: it
     shells out to `node ../lib/system-json.js <root>`, the same parser
-    `basal system` uses. Two parsers would be two truths about one file.
-  * Writes only inside .basal/ — enforced by _write_under_state_dir below, not
+    `phyllum system` uses. Two parsers would be two truths about one file.
+  * Writes only inside .phyllum/ — enforced by _write_under_state_dir below, not
     by convention. The Node write funnel (lib/write.js) stays the only path to
     DESIGN-SYSTEM.md; this process cannot reach it.
 
@@ -51,7 +51,7 @@ PACKAGE_ROOT = os.path.dirname(HERE)
 GUI_DIR = os.path.join(PACKAGE_ROOT, "gui")
 SYSTEM_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "system-json.js")
 
-STATE_DIR = ".basal"
+STATE_DIR = ".phyllum"
 STATE_FILE = os.path.join(STATE_DIR, "session.json")
 UPLOAD_DIR = os.path.join(STATE_DIR, "uploads")
 STATE_VERSION = 1
@@ -80,7 +80,7 @@ _state_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
-# State — .basal/session.json, the file the terminal reads
+# State — .phyllum/session.json, the file the terminal reads
 # ---------------------------------------------------------------------------
 
 
@@ -102,7 +102,7 @@ def read_state(root):
 
 def _write_under_state_dir(root, rel_path, data):
     """
-    Write one file inside .basal/, atomically, and refuse anything else.
+    Write one file inside .phyllum/, atomically, and refuse anything else.
 
     This is the whole of this process's write permission. DESIGN-SYSTEM.md is
     written by the Node funnel after the user accepts a change — never here.
@@ -112,11 +112,11 @@ def _write_under_state_dir(root, rel_path, data):
     target = os.path.realpath(os.path.join(root_abs, rel_path))
     if target != state_dir and not target.startswith(state_dir + os.sep):
         raise PermissionError(
-            "the Basal server writes only inside %s/ — refused %s" % (STATE_DIR, rel_path)
+            "the Phyllum server writes only inside %s/ — refused %s" % (STATE_DIR, rel_path)
         )
 
     os.makedirs(os.path.dirname(target), exist_ok=True)
-    temp = "%s.basal-tmp-%d" % (target, os.getpid())
+    temp = "%s.phyllum-tmp-%d" % (target, os.getpid())
     with open(temp, "wb") as handle:
         handle.write(data)
     os.replace(temp, target)
@@ -150,7 +150,7 @@ def enqueue(root, entry):
 
 
 def safe_upload_name(raw):
-    """A filename that can only ever land inside .basal/uploads/."""
+    """A filename that can only ever land inside .phyllum/uploads/."""
     base = os.path.basename(str(raw or "").replace("\\", "/")).strip()
     stem, ext = os.path.splitext(base)
     ext = ext.lower()
@@ -200,11 +200,11 @@ def system_json(root, node_bin):
 # ---------------------------------------------------------------------------
 
 
-class BasalHandler(BaseHTTPRequestHandler):
+class PhyllumHandler(BaseHTTPRequestHandler):
     """The whole API. Small on purpose: it relays, it does not reason."""
 
     protocol_version = "HTTP/1.1"
-    server_version = "Basal/1"
+    server_version = "Phyllum/1"
     sys_version = ""
 
     root = os.getcwd()
@@ -334,7 +334,7 @@ class BasalHandler(BaseHTTPRequestHandler):
             self._json({"error": "bad-request", "message": "no file in the upload"}, 400)
             return
 
-        name = safe_upload_name(self.headers.get("X-Basal-Filename"))
+        name = safe_upload_name(self.headers.get("X-Phyllum-Filename"))
         rel = os.path.join(UPLOAD_DIR, name)
         try:
             written = _write_under_state_dir(self.root, rel, body)
@@ -342,7 +342,7 @@ class BasalHandler(BaseHTTPRequestHandler):
             self._json({"error": "refused", "message": str(error)}, 403)
             return
 
-        note = str(self.headers.get("X-Basal-Prompt") or "").strip()
+        note = str(self.headers.get("X-Phyllum-Prompt") or "").strip()
         entry = {
             "id": uuid.uuid4().hex[:12],
             "kind": "create-image",
@@ -371,7 +371,7 @@ class BasalHandler(BaseHTTPRequestHandler):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Basal dashboard server (localhost only)")
+    parser = argparse.ArgumentParser(description="Phyllum dashboard server (localhost only)")
     parser.add_argument("--root", default=os.getcwd(), help="project root")
     parser.add_argument("--host", default="127.0.0.1", help="loopback host only")
     parser.add_argument("--port", type=int, default=0, help="0 picks a free port")
@@ -382,16 +382,16 @@ def main(argv=None):
 
     if args.host not in LOOPBACK_HOSTS:
         sys.stderr.write(
-            "basal: refusing to bind %s — the dashboard is localhost only.\n" % args.host
+            "phyllum: refusing to bind %s — the dashboard is localhost only.\n" % args.host
         )
         return 2
 
-    BasalHandler.root = os.path.realpath(args.root)
-    BasalHandler.scope = args.scope
-    BasalHandler.node_bin = args.node
-    BasalHandler.verbose = args.verbose
+    PhyllumHandler.root = os.path.realpath(args.root)
+    PhyllumHandler.scope = args.scope
+    PhyllumHandler.node_bin = args.node
+    PhyllumHandler.verbose = args.verbose
 
-    httpd = ThreadingHTTPServer((args.host, args.port), BasalHandler)
+    httpd = ThreadingHTTPServer((args.host, args.port), PhyllumHandler)
     httpd.daemon_threads = True
     port = httpd.server_address[1]
 

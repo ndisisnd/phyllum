@@ -1,9 +1,9 @@
 /**
  * The filesystem-diff harness (plan §8.5, "cross-cutting invariants").
  *
- * The promise Basal makes is small enough to check mechanically: the only paths
+ * The promise Phyllum makes is small enough to check mechanically: the only paths
  * it may ever create or modify in a user's project are `DESIGN-SYSTEM.md`,
- * `.basal/**`, and — during `init` only — `.claude/skills/basal/**` plus one
+ * `.phyllum/**`, and — during `init` only — `.claude/skills/phyllum/**` plus one
  * line in `.gitignore`. This file turns that promise into something the whole
  * assertion suite runs under, rather than something individual tests remember
  * to check.
@@ -13,7 +13,7 @@
  * per-file. Two guards run at once:
  *
  *   1. **Write interception.** Every filesystem-mutating call in `node:fs` and
- *      `node:fs/promises` is wrapped. Calls made from `lib/` or `bin/` (Basal's
+ *      `node:fs/promises` is wrapped. Calls made from `lib/` or `bin/` (Phyllum's
  *      own code) must land on an enumerated path inside a sandbox; calls made
  *      from `evals/` are the test's own scaffolding and are only checked for
  *      staying out of the repository.
@@ -34,23 +34,23 @@ import { fileURLToPath } from 'node:url';
 
 const HARNESS_FILE = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(HARNESS_FILE), '..', '..');
-const BASAL_DIRS = [path.join(PACKAGE_ROOT, 'lib'), path.join(PACKAGE_ROOT, 'bin')];
+const PHYLLUM_DIRS = [path.join(PACKAGE_ROOT, 'lib'), path.join(PACKAGE_ROOT, 'bin')];
 const TEST_DIRS = [path.join(PACKAGE_ROOT, 'evals')];
 const TMP_ROOT = fs.realpathSync(os.tmpdir());
 
-/** Paths Basal is allowed to write, as suffix rules on an absolute path. */
+/** Paths Phyllum is allowed to write, as suffix rules on an absolute path. */
 const ALLOWED = [
   { label: 'DESIGN-SYSTEM.md', test: (rel) => rel === 'DESIGN-SYSTEM.md' },
-  { label: '.basal/**', test: (rel) => rel === '.basal' || rel.startsWith('.basal/') },
+  { label: '.phyllum/**', test: (rel) => rel === '.phyllum' || rel.startsWith('.phyllum/') },
   {
-    label: '.claude/skills/basal/** (init only)',
-    test: (rel) => rel === '.claude/skills/basal' || rel.startsWith('.claude/skills/basal/'),
+    label: '.claude/skills/phyllum/** (init only)',
+    test: (rel) => rel === '.claude/skills/phyllum' || rel.startsWith('.claude/skills/phyllum/'),
   },
   { label: '.gitignore (init only)', test: (rel) => rel === '.gitignore' },
 ];
 
 /** The funnel's temp file sits beside its target and is renamed onto it. */
-const TEMP_SUFFIX = /\.basal-tmp-[0-9]+-[0-9]+$/;
+const TEMP_SUFFIX = /\.phyllum-tmp-[0-9]+-[0-9]+$/;
 
 const violations = [];
 
@@ -63,7 +63,7 @@ function record(kind, detail) {
 // ---------------------------------------------------------------------------
 
 /**
- * 'basal' when the nearest project frame is in lib/ or bin/, 'test' when it is
+ * 'phyllum' when the nearest project frame is in lib/ or bin/, 'test' when it is
  * in evals/, 'foreign' for anything else (node internals only, in practice).
  */
 function callerKind() {
@@ -79,7 +79,7 @@ function callerKind() {
     if (!file || file.startsWith('node:')) continue;
     const abs = file.startsWith('file:') ? fileURLToPath(file) : file;
     if (abs === HARNESS_FILE) continue;
-    if (BASAL_DIRS.some((dir) => abs.startsWith(`${dir}${path.sep}`))) return 'basal';
+    if (PHYLLUM_DIRS.some((dir) => abs.startsWith(`${dir}${path.sep}`))) return 'phyllum';
     if (TEST_DIRS.some((dir) => abs.startsWith(`${dir}${path.sep}`))) return 'test';
     if (abs.startsWith(`${PACKAGE_ROOT}${path.sep}`)) return 'test';
     return 'foreign';
@@ -119,7 +119,7 @@ function enumerationLabel(abs) {
 }
 
 /**
- * Directories Basal creates on the way to an enumerated path: the sandbox root
+ * Directories Phyllum creates on the way to an enumerated path: the sandbox root
  * itself (`fs.mkdirSync(dirname(DESIGN-SYSTEM.md))`) and the `.claude/skills`
  * spine above the skill install.
  */
@@ -129,7 +129,7 @@ function isEnumerationParent(abs) {
   return tail2 === '.claude/skills' || parts.at(-1) === '.claude';
 }
 
-function checkBasalWrite(api, abs) {
+function checkPhyllumWrite(api, abs) {
   if (insideRepo(abs)) {
     record('repo write', `${api} wrote inside the repository: ${path.relative(PACKAGE_ROOT, abs)}`);
     return;
@@ -142,11 +142,11 @@ function checkBasalWrite(api, abs) {
   if (isEnumerationParent(abs)) return;
   // A directory that *is* a sandbox root (the parent of DESIGN-SYSTEM.md) is
   // created by the funnel with `recursive: true`; it is the sandbox itself.
-  if (path.basename(abs).startsWith('basal-test-')) return;
+  if (path.basename(abs).startsWith('phyllum-test-')) return;
   record(
     'outside the permission model',
-    `${api} touched ${abs} — the enumeration is DESIGN-SYSTEM.md, .basal/**, ` +
-      '.claude/skills/basal/** and .gitignore',
+    `${api} touched ${abs} — the enumeration is DESIGN-SYSTEM.md, .phyllum/**, ` +
+      '.claude/skills/phyllum/** and .gitignore',
   );
 }
 
@@ -160,7 +160,7 @@ function checkPath(api, target) {
   const abs = resolveTarget(target);
   if (abs === null) return;
   const kind = callerKind();
-  if (kind === 'basal') checkBasalWrite(api, abs);
+  if (kind === 'phyllum') checkPhyllumWrite(api, abs);
   else if (kind === 'test') checkTestWrite(api, abs);
   return kind;
 }
@@ -173,11 +173,11 @@ function checkPath(api, target) {
  * Plan §8.5 asks that `DESIGN-SYSTEM.md` still validates against the §7.1.1
  * section contract — the four-backtick fencing rule included — after any suite
  * run. Rather than checking the file at the end of a run (by which time every
- * sandbox is gone), this checks every design system Basal lands on disk, the
- * moment it lands. The validator is Basal's own, imported lazily so the harness
+ * sandbox is gone), this checks every design system Phyllum lands on disk, the
+ * moment it lands. The validator is Phyllum's own, imported lazily so the harness
  * costs nothing until the first write.
  */
-// Basal's own validator, or nothing: the harness is copied on its own into a
+// Phyllum's own validator, or nothing: the harness is copied on its own into a
 // miniature package by its self-test, and must still run there.
 const validateStructure = await import(path.join(PACKAGE_ROOT, 'lib', 'design-system.js')).then(
   (module) => module.validateStructure,
@@ -258,7 +258,7 @@ function wrap(target, name, positions, label) {
     // read back — the template contract, checked where it is written.
     if (lands) {
       for (const [target, kind] of kinds) {
-        if (kind !== 'basal') continue;
+        if (kind !== 'phyllum') continue;
         const abs = resolveTarget(target);
         if (abs) checkDesignSystemIntegrity(`${label}.${name}`, abs);
       }
@@ -359,7 +359,7 @@ export function clearHarnessViolations() {
   violations.length = 0;
 }
 
-globalThis.__basalFsHarness = {
+globalThis.__phyllumFsHarness = {
   violations: harnessViolations,
   clear: clearHarnessViolations,
   enumerationLabel,

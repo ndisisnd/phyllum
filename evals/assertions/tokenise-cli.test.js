@@ -97,7 +97,7 @@ test('the scan reads the extensions the sources table lists, and no others', () 
   assert.deepEqual(extensions, [...stylesheets, ...markup]);
   for (const extension of extensions) assert.match(extension, /^\.[a-z]+$/);
   assert.ok(skipped.includes('node_modules'));
-  assert.ok(skipped.includes('.basal'), 'Basal never reads its own state as evidence');
+  assert.ok(skipped.includes('.phyllum'), 'Phyllum never reads its own state as evidence');
 });
 
 test('the review answers come from the review table', () => {
@@ -182,7 +182,7 @@ test('tokenise before init points at init and creates nothing', async () => {
     const before = snapshotPaths(dir);
     const { out, code } = await run('tokenise', dir);
     assert.equal(code, 0);
-    assert.ok(out.includes('basal init'));
+    assert.ok(out.includes('phyllum init'));
     assert.deepEqual(snapshotPaths(dir), before);
   });
 });
@@ -209,7 +209,7 @@ test('init offers a first tokenise pass and reports what it found', async () => 
     assert.ok(out.includes('Step 4 — seed the system'));
     assert.ok(out.includes('read-only'));
     assert.ok(out.includes('color-primary'), 'the most-used value leads the preview');
-    assert.ok(out.includes('Run `basal tokenise` to review them'));
+    assert.ok(out.includes('Run `phyllum tokenise` to review them'));
     assert.ok(actions.some((action) => action.startsWith('tokenise-seed-')));
   });
 });
@@ -236,7 +236,7 @@ test('declining the seed skips it, and says how to run it later', async () => {
       today: '2026-08-12',
     });
     assert.ok(actions.includes('tokenise-seed-skipped'));
-    assert.ok(out.includes('`basal tokenise` runs the same pass whenever you want it'));
+    assert.ok(out.includes('`phyllum tokenise` runs the same pass whenever you want it'));
   });
 });
 

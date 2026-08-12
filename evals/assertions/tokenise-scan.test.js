@@ -213,7 +213,7 @@ test('a name already taken gets a suffix rather than being reused', () => {
 
 test('the role table decides which spec key a number token may fill', () => {
   assert.equal(roleForProperty('border-radius'), 'radius');
-  assert.equal(roleForProperty('radius'), 'radius', 'Basal’s own spec key, same role');
+  assert.equal(roleForProperty('radius'), 'radius', 'Phyllum’s own spec key, same role');
   assert.equal(roleForProperty('padding-top'), 'spacing');
   assert.equal(roleForProperty('font-size'), null, 'type is the typography pass’s business');
 });

@@ -4,7 +4,7 @@
  *
  * The evals that are really about judgement — `create`'s extraction,
  * anti-fabrication and values-are-free, and `tokenise`'s naming — can be graded
- * two ways: against Basal's own deterministic answer, which needs no model, and
+ * two ways: against Phyllum's own deterministic answer, which needs no model, and
  * against a real model run following the same reference file the skill follows.
  * This script produces the second kind, **offline**: it shells out to the
  * `claude` CLI once per case and commits the answer under
@@ -55,9 +55,9 @@ const CONTRACTS = {
 };
 
 const OPENING = {
-  create: 'You are running the Basal `create` subskill in prose mode (Mode A).',
-  image: 'You are running the Basal `create` subskill in image mode (Mode B).',
-  tokenise: 'You are running the Basal `tokenise` subskill.',
+  create: 'You are running the Phyllum `create` subskill in prose mode (Mode A).',
+  image: 'You are running the Phyllum `create` subskill in image mode (Mode B).',
+  tokenise: 'You are running the Phyllum `tokenise` subskill.',
 };
 
 function promptFor(spec, testCase) {
@@ -102,7 +102,7 @@ function promptFor(spec, testCase) {
 
 /**
  * An image reply: the measurements as they came back, untouched. Ingestion is
- * Basal's job and is what the eval grades, so nothing is normalised here beyond
+ * Phyllum's job and is what the eval grades, so nothing is normalised here beyond
  * the shape — a malformed measurement stays malformed and is graded as such.
  */
 function normaliseTrace(reply) {

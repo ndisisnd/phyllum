@@ -19,9 +19,9 @@ test('menu lists every subskill exactly once, one line per command', () => {
   const lines = renderMenu().split('\n');
   const width = Math.max(...COMMANDS.map((c) => c.invocation.length));
   // Each command line is "  <invocation padded>  <summary>"; compare the first
-  // column so that `basal` does not match `basal menu` and friends.
+  // column so that `phyllum` does not match `phyllum menu` and friends.
   const invocations = lines
-    .filter((line) => line.startsWith('  basal'))
+    .filter((line) => line.startsWith('  phyllum'))
     .map((line) => line.slice(2, 2 + width).trim());
 
   for (const command of COMMANDS) {
@@ -42,12 +42,12 @@ test('menu includes every alias from the command table', () => {
 
 test('menu is a pointer: one line per command plus a header and a hint', () => {
   const lines = renderMenu().trimEnd().split('\n');
-  const commandLines = lines.filter((line) => line.startsWith('  basal'));
+  const commandLines = lines.filter((line) => line.startsWith('  phyllum'));
   assert.equal(commandLines.length, COMMANDS.length);
-  assert.ok(lines.at(-1).includes('basal help [command]'));
+  assert.ok(lines.at(-1).includes('phyllum help [command]'));
 });
 
-test('`basal menu` prints the menu and exits cleanly', async () => {
+test('`phyllum menu` prints the menu and exits cleanly', async () => {
   const result = await run('menu');
   assert.equal(result.code, 0);
   assert.equal(result.out, renderMenu());

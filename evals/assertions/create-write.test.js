@@ -50,7 +50,7 @@ test('a draft with no acceptance writes nothing to the design system', async () 
     const diff = diffSnapshots(before, after);
     assert.deepEqual(diff.changed, [], 'DESIGN-SYSTEM.md must not change before acceptance');
     assert.deepEqual(diff.removed, []);
-    assert.deepEqual(diff.added, ['.basal/session.json'], 'only Basal-owned state may appear');
+    assert.deepEqual(diff.added, ['.phyllum/session.json'], 'only Phyllum-owned state may appear');
   });
 });
 
@@ -81,7 +81,7 @@ test('accepting changes exactly one file in the codebase', async () => {
 
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md']);
-    assert.deepEqual(diff.added, ['.basal/session.json']);
+    assert.deepEqual(diff.added, ['.phyllum/session.json']);
     assert.deepEqual(diff.removed, []);
     assert.ok(validateStructure(read(dir)).valid, 'the template contract still holds');
   });
@@ -213,7 +213,7 @@ test('the follow-up answers reach the file, tokens as tokens and values as debt'
   });
 });
 
-test('the draft is persisted in .basal/session.json at every step', async () => {
+test('the draft is persisted in .phyllum/session.json at every step', async () => {
   await withProject(async (dir) => {
     await runCreate(tokens('button danger with 12px padding-top'), { cwd: dir, env: {} });
     const draft = readDraft(dir);
@@ -226,7 +226,7 @@ test('the draft is persisted in .basal/session.json at every step', async () => 
 
 test('the state file keeps whatever else is in it', async () => {
   await withProject(async (dir) => {
-    writeGuarded(dir, '.basal/session.json', JSON.stringify({ version: 1, gui: { pid: 42 } }));
+    writeGuarded(dir, '.phyllum/session.json', JSON.stringify({ version: 1, gui: { pid: 42 } }));
     await runCreate(tokens('button danger with 12px padding-top'), { cwd: dir, env: {} });
     assert.deepEqual(readState(dir).gui, { pid: 42 }, 'the GUI record survives a create run');
   });
@@ -255,7 +255,7 @@ test('accepting a draft writes through the funnel and nowhere else', async () =>
     advance(draft, 'review');
 
     acceptDraft(dir, draft, { model });
-    assert.deepEqual(snapshotPaths(dir).sort(), ['.basal/session.json', 'DESIGN-SYSTEM.md']);
+    assert.deepEqual(snapshotPaths(dir).sort(), ['.phyllum/session.json', 'DESIGN-SYSTEM.md']);
     assert.equal(draft.status, 'accepted');
     assert.throws(() => writeGuarded(dir, 'src/Badge.jsx', 'nope'), PermissionError);
   });

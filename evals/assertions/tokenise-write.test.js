@@ -50,7 +50,7 @@ test('a scan with no acceptance leaves the design system alone', async () => {
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, [], 'DESIGN-SYSTEM.md must not change before acceptance');
     assert.deepEqual(diff.removed, []);
-    assert.deepEqual(diff.added, ['.basal/session.json'], 'only Basal-owned state may appear');
+    assert.deepEqual(diff.added, ['.phyllum/session.json'], 'only Phyllum-owned state may appear');
   });
 });
 
@@ -91,7 +91,7 @@ test('accepting changes exactly one file in the codebase', async () => {
 
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'the codebase itself is untouched');
-    assert.deepEqual(diff.added, ['.basal/session.json']);
+    assert.deepEqual(diff.added, ['.phyllum/session.json']);
     assert.deepEqual(diff.removed, []);
     assert.ok(validateStructure(read(dir)).valid, 'the template contract still holds');
   });
@@ -298,11 +298,11 @@ test('accepted() turns decisions into exactly what will be written', () => {
   );
 });
 
-test('the proposals are kept in .basal/session.json, and nothing else is clobbered', async () => {
+test('the proposals are kept in .phyllum/session.json, and nothing else is clobbered', async () => {
   await withProject(async (dir) => {
-    fs.mkdirSync(path.join(dir, '.basal'), { recursive: true });
+    fs.mkdirSync(path.join(dir, '.phyllum'), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, '.basal', 'session.json'),
+      path.join(dir, '.phyllum', 'session.json'),
       JSON.stringify({ version: 1, gui: { pid: 42 } }),
     );
     await runTokenise([], { cwd: dir, env: {} });

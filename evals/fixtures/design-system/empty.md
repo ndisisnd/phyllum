@@ -1,9 +1,9 @@
 # Design System
 
-> Basal manages this file. It is the single source of truth for this project's design system.
+> Phyllum manages this file. It is the single source of truth for this project's design system.
 
 - Project: empty-fixture
-- Basal version: 0.1.0
+- Phyllum version: 0.1.0
 - Created: 2026-08-12
 
 ## Tokens
@@ -25,7 +25,7 @@
 
 ## Components
 
-_No components yet. Run `basal create` to add one._
+_No components yet. Run `phyllum create` to add one._
 
 ## Backlog
 

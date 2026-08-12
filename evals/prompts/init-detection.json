@@ -10,7 +10,7 @@
     {
       "id": "react-css",
       "fixture": "evals/fixtures/codebases/react-css",
-      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "prompt": "Run step 1 of the Phyllum init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
       "expected": {
         "framework": "React",
         "styling": "CSS",
@@ -21,7 +21,7 @@
     {
       "id": "tailwind",
       "fixture": "evals/fixtures/codebases/tailwind",
-      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "prompt": "Run step 1 of the Phyllum init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
       "expected": {
         "framework": "React (Next.js)",
         "styling": "Tailwind",
@@ -32,7 +32,7 @@
     {
       "id": "plain-html",
       "fixture": "evals/fixtures/codebases/plain-html",
-      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "prompt": "Run step 1 of the Phyllum init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
       "expected": {
         "framework": "none — plain HTML and CSS",
         "styling": "CSS",
@@ -43,7 +43,7 @@
     {
       "id": "vue-unsupported",
       "fixture": "evals/fixtures/codebases/vue-app",
-      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "prompt": "Run step 1 of the Phyllum init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
       "expected": {
         "framework": "Vue",
         "styling": "CSS",
@@ -54,7 +54,7 @@
     {
       "id": "unrecognisable",
       "fixture": "evals/fixtures/codebases/unknown-lang",
-      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "prompt": "Run step 1 of the Phyllum init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
       "expected": {
         "framework": "unknown",
         "styling": "CSS",
@@ -65,7 +65,7 @@
     {
       "id": "empty",
       "fixture": "evals/fixtures/codebases/empty-project",
-      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "prompt": "Run step 1 of the Phyllum init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
       "expected": {
         "framework": "unknown",
         "styling": "CSS",

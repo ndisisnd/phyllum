@@ -1,6 +1,6 @@
 # Running the checks
 
-Basal has two kinds of behaviour, so it has two kinds of check (plan §8.5).
+Phyllum has two kinds of behaviour, so it has two kinds of check (plan §8.5).
 
 | | **Assertions** | **Evals** |
 |---|---|---|
@@ -44,7 +44,7 @@ Two guards run for the length of every run:
 
 | Guard | What it catches |
 |-------|-----------------|
-| Write interception | Every mutating call in `node:fs` and `node:fs/promises`. A call made from `lib/` or `bin/` must land on an enumerated path — `DESIGN-SYSTEM.md`, `.basal/**`, `.claude/skills/basal/**`, `.gitignore` — inside a temp sandbox. Anything else fails the run it happened in. |
+| Write interception | Every mutating call in `node:fs` and `node:fs/promises`. A call made from `lib/` or `bin/` must land on an enumerated path — `DESIGN-SYSTEM.md`, `.phyllum/**`, `.claude/skills/phyllum/**`, `.gitignore` — inside a temp sandbox. Anything else fails the run it happened in. |
 | Repository snapshot | The repo tree is recorded at start and compared at exit. One file added, changed or removed in the package fails the run. |
 
 The harness is checked in `evals/assertions/fs-harness.test.js`, which also
@@ -57,7 +57,7 @@ One file needs more than Node: `gui.test.js` starts the real Python server on an
 ephemeral port inside a temp directory, talks HTTP to it, and stops it again in
 a `finally` so a failure never leaves a process behind. Without a `python3` on
 PATH those tests skip with a plain message rather than fail — the GUI is the one
-part of Basal that needs something beyond Node.
+part of Phyllum that needs something beyond Node.
 
 ## Evals
 
@@ -80,7 +80,7 @@ against either of two answers to the same pinned prompt:
 
 | Responder | What it grades | Needs a model? |
 |-----------|----------------|----------------|
-| `deterministic` (default) | Basal's own answer, running now | no |
+| `deterministic` (default) | Phyllum's own answer, running now | no |
 | `recorded` | a real `claude` run following the same reference file the skill follows, committed under `evals/fixtures/recordings/` | only to record |
 
 ```
@@ -112,7 +112,7 @@ recording holds the names it proposed. All three are graded exactly as they came
 back.
 
 Image mode is the one eval where the deterministic responder does not run the
-model's half of the job at all: what it grades is Basal's *ingestion* of a
+model's half of the job at all: what it grades is Phyllum's *ingestion* of a
 pinned trace result from `evals/fixtures/traces/`, against the ground truth in
 `evals/fixtures/images/ground-truth.json`. The images themselves are painted
 from that ground truth by `evals/fixtures/images/make-images.js`, so the numbers

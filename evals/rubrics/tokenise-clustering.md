@@ -8,7 +8,7 @@
 
 The reason `tokenise` clusters at all is that a codebase is messier than the
 system it deserves. One brand blue gets typed two ways; one corner radius drifts
-by a pixel. If Basal proposed a token per distinct string, it would mirror the
+by a pixel. If Phyllum proposed a token per distinct string, it would mirror the
 entropy instead of converging it, and the user would end up hand-merging the
 mess they came here to escape.
 

@@ -1,7 +1,7 @@
 /**
  * Cross-cutting invariants (plan §1, §7.1, §8.5).
  *
- * The permission model is the promise Basal makes to earn trust, so it is
+ * The permission model is the promise Phyllum makes to earn trust, so it is
  * checked two ways: dynamically, by trying to write forbidden paths, and
  * statically, by grepping the CLI for filesystem writes that bypass the funnel.
  */
@@ -24,12 +24,12 @@ import { PACKAGE_ROOT, POPULATED_FIXTURE, readFixture, snapshotPaths, withTempDi
 
 test('the permission model allows exactly the four enumerated targets', () => {
   assert.ok(isAllowedPath('DESIGN-SYSTEM.md'));
-  assert.ok(isAllowedPath('.basal/session.json'));
-  assert.ok(isAllowedPath('.claude/skills/basal/SKILL.md', { init: true }));
+  assert.ok(isAllowedPath('.phyllum/session.json'));
+  assert.ok(isAllowedPath('.claude/skills/phyllum/SKILL.md', { init: true }));
   assert.ok(isAllowedPath('.gitignore', { init: true }));
 
   // The init-only exceptions are closed outside init.
-  assert.ok(!isAllowedPath('.claude/skills/basal/SKILL.md'));
+  assert.ok(!isAllowedPath('.claude/skills/phyllum/SKILL.md'));
   assert.ok(!isAllowedPath('.gitignore'));
 
   // Everything else, always.
@@ -175,7 +175,7 @@ test('no child process is used to write around the funnel', () => {
   assert.deepEqual(offenders, [], `child-process writes:\n${offenders.join('\n')}`);
 });
 
-test('the one process Basal does spawn is the GUI server, with arguments, not a shell', () => {
+test('the one process Phyllum does spawn is the GUI server, with arguments, not a shell', () => {
   const gui = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'gui-command.js'), 'utf8');
   assert.match(gui, /spawn\(\s*\n?\s*python/, 'the server is spawned by path, with an argument array');
   assert.ok(!/shell/.test(gui.replace(/\/\*[\s\S]*?\*\//g, '')), 'and never through a shell');
@@ -248,9 +248,9 @@ test('an interrupted first write leaves no file at all', async () => {
 test('the .gitignore append adds one line and is idempotent', async () => {
   await withTempDir(async (dir) => {
     assert.equal(appendGitignoreLine(dir), 'created');
-    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), '.basal/\n');
+    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), '.phyllum/\n');
     assert.equal(appendGitignoreLine(dir), 'already-present');
-    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), '.basal/\n');
+    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), '.phyllum/\n');
   });
 });
 
@@ -258,6 +258,6 @@ test('the .gitignore append tolerates a file with no trailing newline', async ()
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, '.gitignore'), 'dist');
     assert.equal(appendGitignoreLine(dir), 'added');
-    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), 'dist\n.basal/\n');
+    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), 'dist\n.phyllum/\n');
   });
 });

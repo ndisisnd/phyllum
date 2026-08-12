@@ -1,9 +1,9 @@
 # Design System
 
-> Basal manages this file. It is the single source of truth for this project's design system.
+> Phyllum manages this file. It is the single source of truth for this project's design system.
 
 - Project: focus-ring-fixture
-- Basal version: 0.1.0
+- Phyllum version: 0.1.0
 - Created: 2026-08-12
 
 ## Tokens

@@ -12,7 +12,7 @@ modes around it are just as important:
 
 - **Missing it.** A pattern used four times across two files is exactly what the
   picker exists to surface.
-- **Proposing what is already registered.** `button-primary` is the class Basal
+- **Proposing what is already registered.** `button-primary` is the class Phyllum
   itself generates for `Button/Primary`. Offering it again would invite a
   duplicate of a component the system already has.
 - **Inventing a pattern.** One sighting is not a pattern. A picker padded with
@@ -24,7 +24,7 @@ model and grades the same on any machine.
 ## Scoring
 
 For a case expecting a candidate: one point for the signature appearing, one for
-the name Basal derives from it, one for the archetype it resolves to, and one
+the name Phyllum derives from it, one for the archetype it resolves to, and one
 for the count being at least what the fixture repeats. For a case expecting
 absence: one point for it being absent.
 

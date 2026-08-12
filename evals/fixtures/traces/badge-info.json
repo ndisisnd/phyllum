@@ -1,5 +1,5 @@
 {
-  "note": "A pinned trace result for evals/fixtures/images/badge-info.png. As with the button, this is the eval's input: the grading is of Basal's ingestion, not of a model's eyesight.",
+  "note": "A pinned trace result for evals/fixtures/images/badge-info.png. As with the button, this is the eval's input: the grading is of Phyllum's ingestion, not of a model's eyesight.",
   "file": "evals/fixtures/images/badge-info.png",
   "name": "Badge/Info",
   "archetype": "badge",

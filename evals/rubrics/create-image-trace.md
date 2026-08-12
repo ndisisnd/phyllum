@@ -11,7 +11,7 @@ division of labour matters:
 
 - **The measuring is not graded here.** Vision belongs to Claude Code (plan
   §7.3), and no eval in this repo calls a model. What is graded is the frame
-  Basal puts around a trace: which measurements it lets become values, which it
+  Phyllum puts around a trace: which measurements it lets become values, which it
   turns into questions, and what it refuses outright.
 - **The input is a pinned trace result** under `evals/fixtures/traces/` — a
   plausible reply in the documented shape, deliberately including readings that

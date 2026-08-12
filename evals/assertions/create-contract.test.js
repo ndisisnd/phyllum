@@ -138,7 +138,7 @@ test('every mandatory slot has a labelled default to fall back on', () => {
 
 test('the contract tables are read from refs/create.md, not from the code', () => {
   const text = fs.readFileSync(CONTRACT_FILE, 'utf8');
-  for (const marker of ['<!-- basal:contracts -->', '<!-- basal:vocabulary -->', '<!-- basal:defaults -->']) {
+  for (const marker of ['<!-- phyllum:contracts -->', '<!-- phyllum:vocabulary -->', '<!-- phyllum:defaults -->']) {
     assert.ok(text.includes(marker), `refs/create.md lost its ${marker} marker`);
   }
 });
@@ -265,7 +265,7 @@ test('every candidate signal resolves to an archetype the contract table has', (
 
 test('the tables are read from the file, not restated in code', () => {
   const text = fs.readFileSync(CONTRACT_FILE, 'utf8');
-  for (const marker of ['<!-- basal:trace -->', '<!-- basal:candidates -->']) {
+  for (const marker of ['<!-- phyllum:trace -->', '<!-- phyllum:candidates -->']) {
     assert.ok(text.includes(marker), `refs/create.md is missing ${marker}`);
   }
 });

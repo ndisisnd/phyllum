@@ -1,9 +1,9 @@
 # Design System
 
-> Basal manages this file. It is the single source of truth for this project's design system.
+> Phyllum manages this file. It is the single source of truth for this project's design system.
 
 - Project: {{PROJECT}}
-- Basal version: {{VERSION}}
+- Phyllum version: {{VERSION}}
 - Created: {{CREATED}}
 
 ## Tokens
@@ -25,7 +25,7 @@
 
 ## Components
 
-_No components yet. Run `basal create` to add one._
+_No components yet. Run `phyllum create` to add one._
 
 ## Backlog
 

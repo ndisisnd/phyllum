@@ -75,7 +75,7 @@ test('an empty project says there is nothing to detect yet', () => {
   assert.match(detection.codeView.reason, /nothing here to detect/i);
 });
 
-test('a codebase in a language Basal has no opinion about falls back cleanly', () => {
+test('a codebase in a language Phyllum has no opinion about falls back cleanly', () => {
   const detection = detectProject(codebase('unknown-lang'));
   assert.equal(detection.empty, false, 'there are files here — it is not an empty project');
   assert.match(detection.codeView.reason, /No framework was detected/i);

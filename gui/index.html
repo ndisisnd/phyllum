@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  The Basal dashboard (plan §5).
+  The Phyllum dashboard (plan §5).
 
   One page, no build step, no framework, no CDN — vanilla HTML, CSS and JS,
   served by ../server/serve.py. Three views:
@@ -17,7 +17,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Basal — dashboard</title>
+    <title>Phyllum — dashboard</title>
     <style>
       :root {
         --bg: #f6f7f9;
@@ -104,7 +104,7 @@
   </head>
   <body>
     <header>
-      <h1>Basal</h1>
+      <h1>Phyllum</h1>
       <nav id="views">
         <button data-view="library" aria-selected="true">Library</button>
         <button data-view="workbench" aria-selected="false">Workbench</button>
@@ -153,7 +153,7 @@
       <section class="view" id="view-tokens" hidden>
         <div class="panel">
           <h2>Token view</h2>
-          <p class="muted">Which tokens a component consumes, and which values are still raw — the candidates for your next <code>basal tokenise</code> run.</p>
+          <p class="muted">Which tokens a component consumes, and which values are still raw — the candidates for your next <code>phyllum tokenise</code> run.</p>
           <div class="list" id="token-view-list"></div>
           <div id="token-view-detail" class="muted">Pick a component.</div>
         </div>
@@ -228,7 +228,7 @@
         const list = system.components
           .map((component, index) => '<button data-index="' + index + '">' + esc(component.name) + '</button>')
           .join('');
-        el('component-list').innerHTML = list || '<p class="muted">No components yet. Run <code>basal create</code>.</p>';
+        el('component-list').innerHTML = list || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
         el('token-view-list').innerHTML = list || '<p class="muted">No components yet.</p>';
 
         el('backlog').innerHTML = system.backlog.length
@@ -275,7 +275,7 @@
           (used.length
             ? used.map((u) => '<span class="chip token">' + esc(u.slot) + ': ' + esc(u.value) + '</span>').join(' ')
             : '<span class="muted">none — every value is still raw</span>') +
-          '</p><p>Raw values, candidates for <code>basal tokenise</code>: ' +
+          '</p><p>Raw values, candidates for <code>phyllum tokenise</code>: ' +
           (raw.length
             ? raw.map((r) => '<span class="chip raw">' + esc(r.slot) + ': ' + esc(r.value) + '</span>').join(' ')
             : '<span class="muted">none</span>') +
@@ -325,7 +325,7 @@
           el('status').textContent = 'connected · filter: ' + state.scope;
           renderSession();
         } catch (error) {
-          el('status').textContent = 'server gone — run `basal gui` again';
+          el('status').textContent = 'server gone — run `phyllum gui` again';
         }
       }
 
@@ -366,7 +366,7 @@
         if (!file) return;
         await fetch('/upload', {
           method: 'POST',
-          headers: { 'X-Basal-Filename': file.name, 'Content-Type': 'application/octet-stream' },
+          headers: { 'X-Phyllum-Filename': file.name, 'Content-Type': 'application/octet-stream' },
           body: file,
         });
         poll();

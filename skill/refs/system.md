@@ -8,7 +8,7 @@ truthful to the source file. Running it writes nothing.
 
 ```
 Design System — <project name>
-(read from DESIGN-SYSTEM.md — Basal keeps no state of its own)
+(read from DESIGN-SYSTEM.md — Phyllum keeps no state of its own)
 
 Tokens
   Colours (1)
@@ -37,9 +37,9 @@ and line count, because the file itself is the place to read code.
 
 | Invocation | Shows |
 |------------|-------|
-| `basal system tokens` | tokens only |
-| `basal system components` | components only |
-| `basal system all` | everything — identical to bare `basal system` |
+| `phyllum system tokens` | tokens only |
+| `phyllum system components` | components only |
+| `phyllum system all` | everything — identical to bare `phyllum system` |
 
 `all` is the default, so `system` and `system all` produce byte-identical
 output. An unrecognised scope word prints the valid scopes rather than erroring.
@@ -50,5 +50,5 @@ listing plus the three scopes.
 
 ## Before init
 
-If there is no `DESIGN-SYSTEM.md`, `system` says so, points at `basal init`, and
+If there is no `DESIGN-SYSTEM.md`, `system` says so, points at `phyllum init`, and
 exits cleanly. It never creates the file implicitly.

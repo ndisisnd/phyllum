@@ -5,7 +5,7 @@
   "planSections": ["§3.1", "§8.5"],
   "threshold": 0.95,
   "status": "runnable — `pnpm run evals`; the recorded responder needs evals/fixtures/recordings/",
-  "recordingPrompt": "Load the Basal skill (skill/refs/create.md) and run Mode A on the description below. Return only the draft as JSON: { \"draft\": { \"name\", \"archetype\", \"properties\": [{ \"key\", \"slot\", \"value\", \"origin\" }], \"states\": [] } }. Extract only what the sentence says; invent nothing.",
+  "recordingPrompt": "Load the Phyllum skill (skill/refs/create.md) and run Mode A on the description below. Return only the draft as JSON: { \"draft\": { \"name\", \"archetype\", \"properties\": [{ \"key\", \"slot\", \"value\", \"origin\" }], \"states\": [] } }. Extract only what the sentence says; invent nothing.",
   "cases": [
     {
       "id": "canonical",
