@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { EVALS_DIR, PACKAGE_ROOT, runAll } from './graders.js';
+import { EVALS_DIR, MILESTONE, PACKAGE_ROOT, RELEASE, runAll } from './graders.js';
 
 export const BASELINE_PATH = path.join(EVALS_DIR, 'baseline.json');
 
@@ -63,10 +63,19 @@ function main() {
     const baseline = {
       recordedAt: new Date().toISOString().slice(0, 10),
       basalVersion: packageVersion(),
-      milestone: 'M5',
+      milestone: MILESTONE,
+      release: RELEASE,
       note:
-        'Scores recorded by `node evals/run-evals.js --record`. Thresholds may be raised, ' +
-        'never silently lowered: a lowered threshold needs a note in the change explaining why.',
+        'Scores recorded by `node evals/run-evals.js --record`. This is the v1 regression ' +
+        'baseline (plan §8.5): every future change must clear it — assertions at 100%, every ' +
+        'eval at or above both its threshold and the score recorded here. Thresholds may be ' +
+        'raised, never silently lowered: a lowered threshold needs a note in the change ' +
+        'explaining why.',
+      assertions: {
+        command: 'npm test',
+        harness: 'evals/harness/fs-harness.js',
+        bar: '100% — no failures, no skips beyond a missing python3',
+      },
       evals: Object.fromEntries(
         Object.entries(results).map(([id, result]) => [
           id,

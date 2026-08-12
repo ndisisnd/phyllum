@@ -1,9 +1,22 @@
 {
   "recordedAt": "2026-08-12",
   "basalVersion": "0.1.0",
-  "milestone": "M5",
-  "note": "Scores recorded by `node evals/run-evals.js --record`. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why.",
+  "milestone": "M6",
+  "release": "v1",
+  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v1 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why.",
+  "assertions": {
+    "command": "npm test",
+    "harness": "evals/harness/fs-harness.js",
+    "bar": "100% — no failures, no skips beyond a missing python3"
+  },
   "evals": {
+    "init-detection": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 24,
+      "max": 24
+    },
     "create-prose-extraction": {
       "responder": "deterministic",
       "score": 1,

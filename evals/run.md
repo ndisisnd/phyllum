@@ -31,6 +31,28 @@ Every test that writes anything works inside a throwaway temp directory. The
 repository is never a test subject — `init` and `create` in particular only ever
 run against a sandbox.
 
+### The filesystem-diff harness
+
+`npm test` runs the whole suite under `evals/harness/fs-harness.js`, loaded with
+`--import` so Node passes it to every test child process. It is not optional and
+not per-file: one test asserts the harness is loaded, so a bare `node --test`
+fails immediately. `npm run test:bare` is that bare run, kept for debugging a
+harness problem — it fails the two harness-presence checks by design, and is
+never the run that certifies anything.
+
+Two guards run for the length of every run:
+
+| Guard | What it catches |
+|-------|-----------------|
+| Write interception | Every mutating call in `node:fs` and `node:fs/promises`. A call made from `lib/` or `bin/` must land on an enumerated path — `DESIGN-SYSTEM.md`, `.basal/**`, `.claude/skills/basal/**`, `.gitignore` — inside a temp sandbox. Anything else fails the run it happened in. |
+| Repository snapshot | The repo tree is recorded at start and compared at exit. One file added, changed or removed in the package fails the run. |
+
+The harness is checked in `evals/assertions/fs-harness.test.js`, which also
+proves it bites: a miniature package with a deliberately misbehaving module is
+run under it and must exit non-zero. On top of that sits a whole-project sweep —
+a real fixture codebase driven through `init`, `create`, `tokenise` and `system`
+with the entire tree diffed before and after.
+
 One file needs more than Node: `gui.test.js` starts the real Python server on an
 ephemeral port inside a temp directory, talks HTTP to it, and stops it again in
 a `finally` so a failure never leaves a process behind. Without a `python3` on
@@ -100,7 +122,35 @@ the tolerances are measured against are the numbers in the pixels.
 you move to a newer model. Commit the recordings with the change that caused
 them, and re-run `npm run evals:record` so the baseline matches.
 
-## What is covered today (M1 + M2 + M3 + M4 + M5)
+## The v1 regression baseline (M6)
+
+`evals/baseline.json` is stamped `"milestone": "M6"`, `"release": "v1"`. It is
+the bar every future change has to clear, and it has two halves:
+
+| | Bar |
+|---|---|
+| Assertions | `npm test`, run under the filesystem-diff harness, **100% — 315 tests, no failures** (the GUI tests skip only when there is no `python3` on PATH) |
+| Evals | every eval at or above **both** its threshold **and** the score recorded in `evals/baseline.json` |
+
+The second half is what makes "never quietly worse" mechanical rather than
+remembered: `evals/assertions/evals-baseline.test.js` re-runs every eval and
+fails if a score is below its threshold *or* below the recorded number, and it
+also fails if an eval disappears from the baseline — a deleted eval is a
+lowered bar by another name.
+
+Rules that go with the baseline (plan §8.5):
+
+1. Every future change ships its own assertions and evals in the same change.
+2. A change passes only when its new checks and every prior check are green.
+3. No green, no merge. There is no waiver path in v1.
+4. Thresholds may be raised at any time and **never silently lowered**. Lowering
+   one means editing `evals/baseline.json` and the rubric, and writing down in
+   the change why — a visible, reviewable act.
+
+Re-record with `npm run evals:record` only when the change legitimately moves a
+score, and commit the new baseline with that change.
+
+## What is covered today (M1 + M2 + M3 + M4 + M5 + M6)
 
 | File | Covers |
 |------|--------|
@@ -123,12 +173,16 @@ them, and re-run `npm run evals:record` so the baseline matches.
 | `evals/assertions/tokenise-write.test.js` | Nothing before acceptance, one file changes, tokens in the right section, Backlog reconciliation |
 | `evals/assertions/tokenise-cli.test.js` | The spec tables as contract, `tokenise`/`tokenize` on a real flow, `init`'s step-4 seeding |
 | `evals/assertions/gui.test.js` | The server lifecycle against a real process — localhost-only binding, PID + port record, a second `gui` reusing the first, `kill` on both the live and the stale path — plus the JSON API, the one parse contract, and the scope word as opening filter |
-| `evals/assertions/evals-baseline.test.js` | Every eval has a rubric, a prompt set and a baseline it has not slipped below |
+| `evals/assertions/evals-baseline.test.js` | Every eval has a rubric, a prompt set and a baseline it has not slipped below; the baseline is the stamped v1 bar; an unscored eval says so |
+| `evals/assertions/fs-harness.test.js` | The filesystem-diff harness is loaded, classifies the §1 enumeration correctly, fails a run that writes outside it or into the repo, and a whole session over a real codebase touches nothing else |
+| `evals/assertions/fault-injection.test.js` | The atomic-write sweep — every stage of the write path interrupted, including a process killed outright, and the stale temp file the next write clears |
+| `evals/assertions/detect.test.js` | Language and framework detection (§3.3): manifest first, files second, and the labelled React + CSS fallback for HTML, Vue, Svelte, unknown and empty projects |
 
 ### Evals
 
 | Eval | Grades | Threshold |
 |------|--------|-----------|
+| `init-detection` | the framework, styling, artefacts and code-view fallback reported for six pinned codebases | 1.0 |
 | `create-prose-extraction` | name, archetype and properties pulled out of a description | ≥ 0.95 |
 | `create-anti-fabrication` | no value in a draft that the input did not supply | 1.0 |
 | `create-token-first` | an existing token leads the suggestions for its slot | 1.0 |
@@ -142,9 +196,21 @@ them, and re-run `npm run evals:record` so the baseline matches.
 `tokenise-naming` is the one threshold below 1.0, deliberately: naming is
 judgement, each case accepts more than one right answer, and the rubric says why.
 
-M1's two rubrics — `init-detection` and `help-accuracy` — stay pinned but are not
-scored: both need a model judging free text rather than a comparison to a pinned
-answer, which is the M6 eval harness's job.
+M1 pinned two rubrics that no runner could score. M6 splits them honestly:
+
+- **`init-detection` is scored now.** Its deterministic core — framework,
+  styling, artefacts, and whether the code view is a detection or a labelled
+  fallback — is a fact about a pinned fixture, and `lib/detect.js` answers it,
+  so the runner grades it at threshold 1.0. The prose half of step 1 (what those
+  artefacts *mean* for this project) still needs a model judge and stays with
+  the rubric, unscored.
+- **`help-accuracy` stays pinned and unscored.** Judging whether a help text is
+  still accurate to the §2.2 table is free-text judgement end to end, and there
+  is no way to score it without a model judge. It is left with a number nobody
+  computed rather than given a fabricated one; the byte-level parts of `help`
+  are covered by assertions instead. `evals/assertions/evals-baseline.test.js`
+  enforces the honesty: an eval with no runner must say so in its prompt file
+  and must not appear in the baseline.
 
 ## The definition of done
 

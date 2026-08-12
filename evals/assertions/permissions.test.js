@@ -55,21 +55,167 @@ test('the funnel refuses a write outside the model, including escapes', async ()
   });
 });
 
-test('no filesystem write in bin/ or lib/ bypasses the funnel', () => {
-  const forbidden =
-    /\b(?:fs|fsp|fsPromises)\s*\.\s*(?:write|writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|rename|renameSync|rm|rmSync|unlink|unlinkSync|copyFile|copyFileSync|cp|cpSync|createWriteStream)\b/;
-  const offenders = [];
+/** Every source file of the CLI, funnel included, as `path -> contents`. */
+function cliSources({ includeFunnel = false } = {}) {
+  const out = new Map();
   for (const dir of ['bin', 'lib']) {
     for (const rel of snapshotPaths(path.join(PACKAGE_ROOT, dir))) {
       const file = `${dir}/${rel}`;
-      if (file === 'lib/write.js') continue; // the funnel itself
-      const source = fs.readFileSync(path.join(PACKAGE_ROOT, file), 'utf8');
-      source.split('\n').forEach((line, index) => {
-        if (forbidden.test(line)) offenders.push(`${file}:${index + 1}: ${line.trim()}`);
-      });
+      if (!includeFunnel && file === 'lib/write.js') continue; // the funnel itself
+      out.set(file, fs.readFileSync(path.join(PACKAGE_ROOT, file), 'utf8'));
     }
   }
+  return out;
+}
+
+function scan(patterns, { includeFunnel = false } = {}) {
+  const offenders = [];
+  for (const [file, source] of cliSources({ includeFunnel })) {
+    source.split('\n').forEach((line, index) => {
+      const code = line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
+      for (const { label, pattern } of patterns) {
+        if (pattern.test(code)) offenders.push(`${file}:${index + 1}: ${label}: ${line.trim()}`);
+      }
+    });
+  }
+  return offenders;
+}
+
+const MUTATORS =
+  'write|writeFile|writeFileSync|writev|writevSync|appendFile|appendFileSync|mkdir|mkdirSync|' +
+  'mkdtemp|mkdtempSync|rename|renameSync|rm|rmSync|rmdir|rmdirSync|unlink|unlinkSync|' +
+  'copyFile|copyFileSync|cp|cpSync|createWriteStream|truncate|truncateSync|ftruncate|ftruncateSync|' +
+  'symlink|symlinkSync|link|linkSync|chmod|chmodSync|chown|chownSync|utimes|utimesSync';
+
+const FS_WRITE_PATTERNS = [
+  {
+    label: 'direct fs write',
+    // `fs.writeFileSync(...)`, `fsp.rename(...)`, `fs.promises.mkdir(...)`,
+    // and the destructured spellings of all three.
+    pattern: new RegExp(
+      `\\b(?:fs|fsp|fsPromises|promises)\\s*\\.\\s*(?:promises\\s*\\.\\s*)?(?:${MUTATORS})\\s*\\(`,
+    ),
+    sample: "  fs.promises.appendFile(file, 'x');",
+  },
+  {
+    label: 'fs handle write',
+    pattern: /\b(?:handle|fh|fileHandle)\s*\.\s*(?:write|writeFile|appendFile|truncate)\s*\(/,
+    sample: '  await handle.writeFile(contents);',
+  },
+  {
+    label: 'write-mode open',
+    pattern: /\bopen(?:Sync)?\s*\(\s*[^)]*['"][waxr]\+?['"]/,
+    sample: "  const fd = fs.openSync(target, 'a');",
+  },
+  {
+    label: 'write stream',
+    pattern: /\bnew\s+fs\.WriteStream\b|\bcreateWriteStream\s*\(/,
+    sample: '  const stream = createWriteStream(target);',
+  },
+];
+
+const CHILD_PROCESS_PATTERNS = [
+  // A shell is the classic way to write a file without calling fs at all.
+  {
+    label: 'shell redirection',
+    pattern: /(?:exec|execSync|spawnSync|spawn)\s*\([^)]*[^>]>>?\s*["'`$]/,
+    sample: '  execSync(`echo hi > ${target}`);',
+  },
+  { label: 'shell: true', pattern: /shell\s*:\s*true/, sample: '  spawnSync(cmd, { shell: true });' },
+  {
+    label: 'exec with a command string',
+    pattern: /\b(?:exec|execSync)\s*\(\s*[`'"]/,
+    sample: '  exec("cp a b");',
+  },
+  {
+    label: 'a shell binary as the command',
+    pattern: /spawn(?:Sync)?\s*\(\s*['"](?:sh|bash|zsh|cmd)['"]/,
+    sample: '  spawn("bash", ["-c", script]);',
+  },
+  {
+    label: 'writing via a redirecting tool',
+    pattern: /['"](?:tee|dd)\b/,
+    sample: '  spawnSync("tee", [target]);',
+  },
+];
+
+test('the static audit is not vacuous: every pattern catches its own bad line', () => {
+  for (const { label, pattern, sample } of [...FS_WRITE_PATTERNS, ...CHILD_PROCESS_PATTERNS]) {
+    assert.ok(pattern.test(sample), `the "${label}" pattern does not match ${sample}`);
+  }
+  // ...and none of them fires on ordinary reading code.
+  for (const innocent of [
+    "  const text = fs.readFileSync(file, 'utf8');",
+    '  if (!fs.existsSync(file)) return null;',
+    "  const entries = fs.readdirSync(dir, { withFileTypes: true });",
+    "  const child = spawn(python, [SERVER_SCRIPT, '--root', root], { cwd: root });",
+  ]) {
+    for (const { label, pattern } of [...FS_WRITE_PATTERNS, ...CHILD_PROCESS_PATTERNS]) {
+      assert.ok(!pattern.test(innocent), `the "${label}" pattern falsely flags ${innocent}`);
+    }
+  }
+});
+
+test('no filesystem write in bin/ or lib/ bypasses the funnel', () => {
+  const offenders = scan(FS_WRITE_PATTERNS);
   assert.deepEqual(offenders, [], `filesystem writes outside lib/write.js:\n${offenders.join('\n')}`);
+});
+
+test('only the funnel may reach for the promise-flavoured fs at all', () => {
+  const offenders = [];
+  for (const [file, source] of cliSources()) {
+    if (/from\s+['"]node:fs\/promises['"]/.test(source)) offenders.push(`${file} imports node:fs/promises`);
+    if (/require\(\s*['"](?:node:)?fs\/promises['"]\s*\)/.test(source)) offenders.push(`${file} requires fs/promises`);
+  }
+  assert.deepEqual(offenders, [], offenders.join('\n'));
+});
+
+test('no child process is used to write around the funnel', () => {
+  const offenders = scan(CHILD_PROCESS_PATTERNS, { includeFunnel: true });
+  assert.deepEqual(offenders, [], `child-process writes:\n${offenders.join('\n')}`);
+});
+
+test('the one process Basal does spawn is the GUI server, with arguments, not a shell', () => {
+  const gui = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'gui-command.js'), 'utf8');
+  assert.match(gui, /spawn\(\s*\n?\s*python/, 'the server is spawned by path, with an argument array');
+  assert.ok(!/shell/.test(gui.replace(/\/\*[\s\S]*?\*\//g, '')), 'and never through a shell');
+
+  const spawners = [];
+  for (const [file, source] of cliSources({ includeFunnel: true })) {
+    if (/from\s+['"]node:child_process['"]/.test(source)) spawners.push(file);
+  }
+  assert.deepEqual(spawners, ['lib/gui-command.js'], 'only the GUI command starts a process');
+});
+
+test("the Python server's write confinement is structural, not conventional", () => {
+  const source = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
+  const lines = source.split('\n');
+
+  // Exactly one function opens a file for writing, and it is the guarded one.
+  const writeOpens = lines
+    .map((line, index) => ({ line: line.trim(), number: index + 1 }))
+    .filter(({ line }) => /\bopen\s*\([^)]*["'](?:[wax]b?\+?|\+?r\+b?)["']/.test(line));
+  assert.equal(writeOpens.length, 1, `expected one write-mode open, found:\n${writeOpens.map((o) => `${o.number}: ${o.line}`).join('\n')}`);
+
+  const guardStart = lines.findIndex((line) => line.startsWith('def _write_under_state_dir'));
+  assert.ok(guardStart >= 0, 'the guarded writer must exist');
+  assert.ok(writeOpens[0].number > guardStart, 'and the only write-mode open must be inside it');
+
+  // The guard is a realpath containment check, so `..` cannot walk out of it.
+  assert.match(source, /os\.path\.realpath/);
+  assert.match(source, /startswith\(state_dir \+ os\.sep\)/);
+
+  // Nothing else in the server may move, copy or delete a file.
+  for (const forbidden of ['shutil', 'os.remove(', 'os.unlink(', 'os.rmdir(', 'os.rename(']) {
+    assert.ok(!source.includes(forbidden), `the server must not use ${forbidden}`);
+  }
+  // The one os.replace it does use is the atomic rename inside the guard.
+  const replaces = lines.filter((line) => line.includes('os.replace('));
+  assert.equal(replaces.length, 1, 'one atomic rename, inside the guarded writer');
+
+  // And it never names the design system as a write target: DESIGN-SYSTEM.md is
+  // the Node funnel's business alone.
+  assert.ok(!/DESIGN-SYSTEM\.md["']\s*,\s*["']w/.test(source));
 });
 
 test('writes are atomic: an interrupted write leaves the previous file intact', async () => {

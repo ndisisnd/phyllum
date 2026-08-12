@@ -1,8 +1,11 @@
 {
   "eval": "init-detection",
   "rubric": "evals/rubrics/init-detection.md",
-  "status": "pinned, not scored by the M2 runner — these two need a model judge, which lands with the M6 eval harness (see evals/run.md)",
-  "milestone": "M1",
+  "threshold": 1,
+  "status": "scored from M6: the deterministic core (framework, styling, artefacts and the code-view fallback) is graded against pinned fixtures. The judgement half — reading those artefacts and summarising what they mean in prose — still needs a model judge and is graded by the rubric, not by this file.",
+  "milestone": "M6",
+  "scored": ["framework", "styling", "artefacts", "codeView"],
+  "notScored": ["the prose summary of what the artefacts mean"],
   "cases": [
     {
       "id": "react-css",
@@ -11,7 +14,8 @@
       "expected": {
         "framework": "React",
         "styling": "CSS",
-        "artefacts": []
+        "artefacts": [],
+        "codeView": { "language": "React", "styling": "CSS", "fallback": false }
       }
     },
     {
@@ -21,9 +25,8 @@
       "expected": {
         "framework": "React (Next.js)",
         "styling": "Tailwind",
-        "artefacts": [
-          "tailwind.config.js"
-        ]
+        "artefacts": ["tailwind.config.js"],
+        "codeView": { "language": "React", "styling": "CSS", "fallback": false }
       }
     },
     {
@@ -33,7 +36,41 @@
       "expected": {
         "framework": "none — plain HTML and CSS",
         "styling": "CSS",
-        "artefacts": []
+        "artefacts": [],
+        "codeView": { "language": "React", "styling": "CSS", "fallback": true }
+      }
+    },
+    {
+      "id": "vue-unsupported",
+      "fixture": "evals/fixtures/codebases/vue-app",
+      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "expected": {
+        "framework": "Vue",
+        "styling": "CSS",
+        "artefacts": [],
+        "codeView": { "language": "React", "styling": "CSS", "fallback": true }
+      }
+    },
+    {
+      "id": "unrecognisable",
+      "fixture": "evals/fixtures/codebases/unknown-lang",
+      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "expected": {
+        "framework": "unknown",
+        "styling": "CSS",
+        "artefacts": [],
+        "codeView": { "language": "React", "styling": "CSS", "fallback": true }
+      }
+    },
+    {
+      "id": "empty",
+      "fixture": "evals/fixtures/codebases/empty-project",
+      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "expected": {
+        "framework": "unknown",
+        "styling": "CSS",
+        "artefacts": [],
+        "codeView": { "language": "React", "styling": "CSS", "fallback": true }
       }
     }
   ]

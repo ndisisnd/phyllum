@@ -18,8 +18,10 @@ Read the project first, then report what you found:
 - Summarise what you found, so the user starts from facts rather than a blank
   form.
 
-The CLI does the mechanical half of this (framework, styling, artefact paths).
-Reading those artefacts and saying what they actually mean is your job.
+The CLI does the mechanical half of this (framework, styling, artefact paths,
+and the code view that follows from them — React + CSS, marked `(default)` when
+it is a fallback rather than a detection). Reading those artefacts and saying
+what they actually mean is your job.
 
 ## Step 2 — scaffold the template
 

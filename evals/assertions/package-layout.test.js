@@ -128,17 +128,31 @@ test('the dashboard page is a single file with no CDN and no build step', () => 
   }
 });
 
-test('the M1 eval assets stay pinned, and say plainly that they are not scored yet', () => {
-  for (const rel of ['evals/rubrics/init-detection.md', 'evals/rubrics/help-accuracy.md']) {
-    const text = read(rel);
-    assert.ok(/not scored yet/i.test(text), `${rel} should say it is not scored yet`);
-    assert.ok(/threshold/i.test(text), `${rel} should state a pass threshold`);
-    assert.ok(/model judge/i.test(text), `${rel} should say what it is waiting for`);
-  }
-  for (const rel of ['evals/prompts/init-detection.json', 'evals/prompts/help-accuracy.json']) {
-    const data = JSON.parse(read(rel));
-    assert.ok(data.status.includes('not scored by the M2 runner'));
-    assert.ok(data.rubric);
+test('the judgement rubric that still has no judge says so plainly', () => {
+  // `help-accuracy` compares free text to the §2.2 table, which needs a model
+  // judge. It stays pinned and unscored rather than being given a number
+  // nothing computed.
+  const text = read('evals/rubrics/help-accuracy.md');
+  assert.ok(/not scored yet/i.test(text), 'the rubric should say it is not scored yet');
+  assert.ok(/threshold/i.test(text), 'the rubric should state a pass threshold for when it is');
+  assert.ok(/model judge/i.test(text), 'the rubric should say what it is waiting for');
+
+  const data = JSON.parse(read('evals/prompts/help-accuracy.json'));
+  assert.ok(data.status.includes('not scored'));
+  assert.ok(data.rubric);
+});
+
+test('init-detection is scored from M6, and says which half is scored', () => {
+  const rubric = read('evals/rubrics/init-detection.md');
+  assert.ok(/scored from M6/i.test(rubric), 'the rubric should say it is scored now');
+  assert.ok(/model judge/i.test(rubric), 'and which half still waits for a judge');
+
+  const data = JSON.parse(read('evals/prompts/init-detection.json'));
+  assert.equal(data.threshold, 1);
+  assert.deepEqual(data.scored, ['framework', 'styling', 'artefacts', 'codeView']);
+  assert.ok(Array.isArray(data.notScored) && data.notScored.length > 0, 'and what it does not score');
+  for (const testCase of data.cases) {
+    assert.ok(testCase.expected.codeView, `${testCase.id} pins the code view it expects`);
   }
 });
 

@@ -384,6 +384,10 @@ Render the finished draft two ways, every time round the loop:
 - **Code view** — the component in the codebase's language. Detection comes from
   the project (React, Vue, Svelte, plain HTML/CSS, Tailwind vs vanilla CSS);
   v1 emits **React + CSS**, and detection failure falls back to the same.
+  When the project is *not* React — Vue, Svelte, plain HTML, or nothing
+  recognisable — say so beside the code view rather than letting the default
+  pass for a detection. The CLI prints that line itself; match it, do not
+  contradict it. Vue and Svelte emitters are v2 (plan §9).
 
 Then the user **accepts** or **edits**:
 

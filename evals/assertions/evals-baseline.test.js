@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { EVALS, RECORDINGS_DIR, runAll } from '../graders.js';
+import { EVALS, MILESTONE, RECORDINGS_DIR, RELEASE, runAll } from '../graders.js';
 import { PACKAGE_ROOT } from './helpers.js';
 
 const baseline = JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'evals', 'baseline.json'), 'utf8'));
@@ -56,6 +56,45 @@ test('the baseline says when it was recorded and against which version', () => {
   assert.match(baseline.recordedAt, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(baseline.basalVersion, JSON.parse(read('package.json')).version);
   assert.ok(/never silently lowered/i.test(baseline.note));
+});
+
+test('the recorded baseline is the v1 regression bar, and says what the bar is', () => {
+  assert.equal(baseline.milestone, MILESTONE, 'the baseline belongs to the milestone that recorded it');
+  assert.equal(baseline.release, RELEASE);
+  assert.equal(baseline.assertions.command, 'npm test');
+  assert.equal(baseline.assertions.harness, 'evals/harness/fs-harness.js');
+  assert.match(baseline.assertions.bar, /100%/);
+  assert.match(baseline.note, /assertions at 100%/i);
+
+  // Every eval that exists is in the baseline, and nothing is in the baseline
+  // that no longer exists — a quietly deleted eval is a quietly lowered bar.
+  assert.deepEqual(
+    Object.keys(baseline.evals).sort(),
+    EVALS.map((item) => item.id).sort(),
+  );
+
+  // And the document a human reads points at the same bar.
+  const runbook = read('evals/run.md');
+  assert.ok(/v1 regression baseline/i.test(runbook), 'evals/run.md must document the baseline');
+  for (const id of Object.keys(baseline.evals)) {
+    assert.ok(runbook.includes(id), `evals/run.md does not mention ${id}`);
+  }
+});
+
+test('an eval with no runner says so, rather than being silently absent', () => {
+  const scored = new Set(EVALS.map((item) => item.id));
+  const files = fs.readdirSync(path.join(PACKAGE_ROOT, 'evals', 'prompts'));
+  for (const file of files) {
+    const id = file.replace(/\.json$/, '');
+    if (scored.has(id)) continue;
+    const spec = JSON.parse(read(`evals/prompts/${file}`));
+    assert.ok(/not scored/i.test(spec.status ?? ''), `${file} is unscored and must say why`);
+    assert.ok(
+      fs.existsSync(path.join(PACKAGE_ROOT, `evals/rubrics/${id}.md`)),
+      `${id} has no rubric to be judged against`,
+    );
+    assert.equal(baseline.evals[id], undefined, `${id} is unscored but has a baseline score`);
+  }
 });
 
 test('committed model recordings are real runs, and are graded as they are', () => {

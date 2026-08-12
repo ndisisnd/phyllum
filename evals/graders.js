@@ -32,12 +32,17 @@ import {
   tokenNamesOf,
 } from '../lib/create.js';
 import { emptyModel, parse } from '../lib/design-system.js';
+import { codeViewFor, detectProject } from '../lib/detect.js';
 import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
 import { proposeTokens, scanCodebase } from '../lib/tokenise.js';
 
 export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = path.resolve(EVALS_DIR, '..');
 export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
+
+/** The milestone the committed baseline belongs to, and the release it gates. */
+export const MILESTONE = 'M6';
+export const RELEASE = 'v1';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
@@ -516,7 +521,72 @@ function naming(responder) {
   return { ...score(points, max), failures, unrecorded, threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// init — step 1 detection (plan §6.5, §3.3, §8.5)
+// ---------------------------------------------------------------------------
+
+/**
+ * The deterministic core of "look before asking": what framework is this, how
+ * is it styled, what design artefacts exist, and what will the code view be?
+ * All four are facts about a pinned fixture, so they are scored here. The prose
+ * half of step 1 needs a model judge and stays with the rubric — see
+ * evals/rubrics/init-detection.md.
+ */
+function initDetection() {
+  const spec = readJson('evals/prompts/init-detection.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  for (const testCase of spec.cases) {
+    // No responder switch here on purpose: this half of step 1 is a fact about
+    // a pinned fixture, so there is nothing for a model to answer differently.
+    const detection = detectProject(path.join(PACKAGE_ROOT, testCase.fixture));
+    const expected = testCase.expected;
+
+    max += 1;
+    if (detection.framework === expected.framework) points += 1;
+    else failures.push(`${testCase.id}: framework ${detection.framework} ≠ ${expected.framework}`);
+
+    max += 1;
+    if (detection.styling === expected.styling) points += 1;
+    else failures.push(`${testCase.id}: styling ${detection.styling} ≠ ${expected.styling}`);
+
+    max += 1;
+    const artefacts = [...(detection.artefacts ?? [])].sort();
+    if (artefacts.join(',') === [...expected.artefacts].sort().join(',')) points += 1;
+    else {
+      failures.push(
+        `${testCase.id}: artefacts ${artefacts.join(', ') || '(none)'} ≠ ${expected.artefacts.join(', ') || '(none)'}`,
+      );
+    }
+
+    // The code view has to be right about itself: React + CSS every time, and
+    // honest about whether that was detected or defaulted to (plan §3.3, §9).
+    max += 1;
+    const codeView = detection.codeView ?? codeViewFor(detection);
+    const wanted = expected.codeView;
+    if (
+      codeView.language === wanted.language &&
+      codeView.styling === wanted.styling &&
+      Boolean(codeView.fallback) === wanted.fallback &&
+      (!codeView.fallback || String(codeView.reason ?? '').length > 0)
+    ) {
+      points += 1;
+    } else {
+      failures.push(
+        `${testCase.id}: code view ${codeView.language} + ${codeView.styling}` +
+          `${codeView.fallback ? ' (fallback)' : ''} ≠ ${wanted.language} + ${wanted.styling}` +
+          `${wanted.fallback ? ' (fallback)' : ''}`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
 export const EVALS = [
+  { id: 'init-detection', modelDependent: false, run: initDetection },
   { id: 'create-prose-extraction', modelDependent: true, run: proseExtraction },
   { id: 'create-anti-fabrication', modelDependent: true, run: antiFabrication },
   { id: 'create-token-first', modelDependent: false, run: tokenFirst },
