@@ -1,0 +1,16 @@
+{
+  "colors": {
+    "brand": "#2563EB",
+    "brandHover": "#2564EC",
+    "surface": "#FFFFFF"
+  },
+  "radii": {
+    "card": "18px",
+    "panel": "17px"
+  },
+  "spacing": {
+    "md": "16px"
+  },
+  "timeout": 30,
+  "retries": 3
+}

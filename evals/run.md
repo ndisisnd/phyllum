@@ -102,7 +102,9 @@ node evals/record-model.js --model haiku         # pin the model
 
 This shells out to the `claude` CLI once per case, hands it the reference file
 that governs the eval — `skill/refs/create.md` for the `create` evals,
-`skill/refs/tokenise.md` for `tokenise-naming` — plus the case's fixture, and
+`skill/refs/tokenise.md` plus `skill/refs/assess.md` for the `tokenise-*` ones,
+since the naming scales and the scanning contract now live in one file each —
+plus the case's fixture, and
 commits the reply verbatim along with the model name and the date. It is a
 deliberate act, never part of a test run.
 
@@ -171,7 +173,8 @@ score, and commit the new baseline with that change.
 | `evals/assertions/create-cli.test.js` | The `create` command surface and the route to the intelligence |
 | `evals/assertions/create-image.test.js` | Image mode: file validation, the trace request, ingestion (values vs questions vs refusals), output as text, the write funnel staying shut, and the dashboard's image queue being drained |
 | `evals/assertions/create-pick.test.js` | Pick mode: the read-only markup scan, archetypes plus candidates, registered components dropping out, a pick seeding no values, and the follow-up loop it enters |
-| `evals/assertions/tokenise-scan.test.js` | The read-only scan, the three passes, clustering, the naming scales, the rerun diff |
+| `evals/assertions/assess-scan.test.js` | `assess`'s engine: the read-only scan (proved by diffing the whole directory around it), the three passes, the language-agnostic sweep over every text file, what is never evidence — documentation, lockfiles, gitignored paths, Phyllum's own record — React-only component detection, clustering, the naming scales, coverage vs proposals, the rerun diff |
+| `evals/assertions/assess-cli.test.js` | The `assess` command surface: registered and reachable, the report saying what it read, no model and no network needed, the reserved scope words, and the codebase byte-identical afterwards |
 | `evals/assertions/tokenise-write.test.js` | Nothing before acceptance, one file changes, tokens in the right section, Backlog reconciliation |
 | `evals/assertions/tokenise-cli.test.js` | The spec tables as contract, `tokenise`/`tokenize` on a real flow, `init`'s step-4 seeding |
 | `evals/assertions/gui.test.js` | The server lifecycle against a real process — localhost-only binding, PID + port record, a second `gui` reusing the first, `kill` on both the live and the stale path — plus the JSON API, the one parse contract, and the scope word as opening filter |
@@ -195,7 +198,7 @@ score, and commit the new baseline with that change.
 | `create-values-free` | unconventional values recorded verbatim, never corrected | 1.0 |
 | `create-image-trace` | a traced image lands within tolerance (colour ΔE < 5, lengths ±1px), unsure readings become questions, and nothing unmeasurable is invented | ≥ 0.95 |
 | `create-pick-candidates` | a repeated unregistered pattern appears in the picker; a registered one and a one-off do not | 1.0 |
-| `tokenise-clustering` | one brand blue written two ways is one token; genuinely different values stay apart | 1.0 |
+| `tokenise-clustering` | one brand blue written two ways is one token; genuinely different values stay apart; and both hold in a codebase with no stylesheet at all, because the values pass is language-agnostic | 1.0 |
 | `tokenise-naming` | proposed names are on the documented scales, and on the right rung | 0.9 |
 
 `tokenise-naming` is the one threshold below 1.0, deliberately: naming is

@@ -56,7 +56,8 @@ The commands:
 | Command | What it does |
 |---------|--------------|
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats |
-| `tokenise` | Extract and name tokens from the styles already in the codebase |
+| `assess` | Read the codebase and inventory the raw styling already in it |
+| `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `system` | Print the design system to the terminal |
 | `gui` | Start a localhost dashboard for browsing tokens and components |
 | `init` | Guided setup — scaffold the file, install the skill |
@@ -69,8 +70,9 @@ The commands:
 Phyllum needs **Node 20 or newer** and has no dependencies to install. The intelligent
 commands (`create`, `tokenise`) also want [Claude Code](https://www.claude.com/product/claude-code)
 — they run natively inside a Claude Code session, or shell out to the `claude` CLI from a
-plain terminal. The mechanical commands (`menu`, `help`, `system`, `gui`, `version`,
-`update`, `init`) work without it. The `gui` dashboard uses your system `python3`.
+plain terminal. The mechanical commands (`menu`, `help`, `system`, `assess`, `gui`,
+`version`, `update`, `init`) work without it. The `gui` dashboard uses your system
+`python3`.
 
 Install it globally:
 
@@ -91,15 +93,19 @@ overview. `init` scaffolds `DESIGN-SYSTEM.md` and installs the skill into
 ## How it works
 
 Everything Phyllum learns — from prose, from an image, or from the code — flows through
-`create` and `tokenise` into one file.
+three commands into one file. Which command reads what is the whole division of labour:
+`assess` reads your codebase, `tokenise` reads the sentence you typed, `create` reads
+your intent.
 
 ```mermaid
 flowchart TD
   prose["Prose you type"] --> create
   image["An image you point at"] --> create
-  code["Styles already in the codebase"] --> tokenise
+  sentence["A sentence about one value"] --> tokenise
+  code["Styles already in the codebase"] --> assess
   create["<b>create</b><br/>craft a component"] --> file
-  tokenise["<b>tokenise</b><br/>extract and name tokens"] --> file
+  tokenise["<b>tokenise</b><br/>name one token"] --> file
+  assess["<b>assess</b><br/>inventory the raw styling"] --> file
   file["<b>DESIGN-SYSTEM.md</b><br/>the one file Phyllum writes"]
 ```
 
@@ -110,9 +116,19 @@ measurements into values and everything else into questions, and refuses to clai
 still image can't show. **Pick**: bare `create` offers the archetypes plus the components
 your codebase keeps repeating, and a pick seeds a name and an archetype — never values.
 
-`tokenise` reads the styles already in your code, runs three passes, clusters raw values
-before naming them, and shows you a frequency-ranked review before anything is written. Run
-it again later and it shows a diff rather than re-adding what's already there.
+`assess` reads your codebase and tells you how much raw, un-systematised styling is in
+there. Colours, lengths and typography are read out of *any* text file, whatever the
+language — a theme file in JSON or Go counts as much as a `.css` file does — while
+component detection reads React markup. Near-identical values (`#2563EB` and `#2564EC`,
+`11px` and `12px`) cluster into one decision rather than two, usage is counted, and the
+result is ranked by how hard your code leans on each value. The scan is strictly
+read-only: nothing in your codebase is written, renamed or created. Run it again later
+and anything your design system already names is reported as covered rather than
+proposed again, so a rerun shows only what has drifted.
+
+`tokenise` names one value from one sentence: `phyllum tokenise "our brand blue #2563EB"`.
+If the sentence names the token, that name is used; if not, Phyllum suggests one from the
+naming scales and confirms it with you. It does not read your code — that's `assess`.
 
 Writes are atomic — Phyllum writes a temp file and renames it, so a crashed run can't
 corrupt `DESIGN-SYSTEM.md`.
@@ -129,7 +145,7 @@ Two different things:
   to update, a source checkout belongs to git — it says so and prints the exact command to
   run instead. `version` is the only command that ever touches the network, and only when
   you ask: nothing checks for updates in the background.
-- **Update what Phyllum produced** — re-run `tokenise` or `create` any time. Because every
+- **Update what Phyllum produced** — re-run `assess`, `tokenise` or `create` any time. Because every
   command converges, a rerun refreshes `DESIGN-SYSTEM.md` without duplicating what's
   already there; `init` on an existing file adds back only missing sections and never drops
   your content.
@@ -150,7 +166,13 @@ Nothing you wrote is dropped.
 **Do I have to use Claude Code?**
 For `create` and `tokenise`, yes — that's where the measuring and naming happen. If
 `claude` isn't installed and you're not in a Claude Code session, those commands fail with
-a message naming your two options. The mechanical commands keep working regardless.
+a message naming your two options. The mechanical commands keep working regardless, and
+that includes `assess`: reading your codebase and aggregating what it finds is arithmetic,
+so the scan runs in a plain terminal with nothing else installed.
+
+**Does `assess` change my code?**
+No. It reads. The modules that do the scanning contain no write call at all, and the test
+suite diffs the entire directory around every scan and fails if one byte moved.
 
 **Why is there a Python server for the GUI?**
 `gui` serves a local dashboard over `python3` bound to localhost only, with a

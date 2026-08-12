@@ -137,15 +137,29 @@ test('the review answers come from the review table', () => {
   assert.equal(actionForAnswer('brand-blue').action, 'rename');
 });
 
-test('the scan tables stay in the file, marked as the coverage assess inherits', () => {
-  // The scan engine still reads them from here (v0.2.0 plan §5.3), so they have
-  // to exist — and the file has to say whose they are now.
+test('the scanning tables have left this file for refs/assess.md', () => {
+  // M2 left the scanning contract here on purpose, so that moving a contract and
+  // changing a command were two steps rather than one. M3 is the second step: the
+  // tables move with the behaviour, and `tokenise.md` keeps only what a *name* is
+  // made of. Neither file may hold both halves.
+  const ref = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'tokenise.md'), 'utf8');
+  const assessRef = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'assess.md'), 'utf8');
+
+  for (const marker of ['phyllum:sources', 'phyllum:tailwind', 'phyllum:clustering']) {
+    assert.ok(assessRef.includes(marker), `refs/assess.md should now carry ${marker}`);
+    assert.ok(!ref.includes(marker), `refs/tokenise.md should no longer carry ${marker}`);
+  }
+  for (const marker of ['phyllum:passes', 'phyllum:roles', 'phyllum:colour-names', 'phyllum:ladders']) {
+    assert.ok(ref.includes(marker), `the naming scales stay in refs/tokenise.md: ${marker}`);
+    assert.ok(!assessRef.includes(marker), `refs/assess.md should not restate ${marker}`);
+  }
+
+  // And the tables still drive the code from their new home.
   const { extensions, stylesheets, markup, skipped } = sources();
   assert.deepEqual(extensions, [...stylesheets, ...markup]);
   assert.ok(skipped.includes('node_modules'));
 
-  const ref = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'tokenise.md'), 'utf8');
-  assert.match(ref, /Inherited by `assess`/, 'the scanning contract is labelled as assess’s');
+  assert.match(ref, /refs\/assess\.md/, 'tokenise.md points at where the contract went');
   assert.match(ref, /does not read your codebase|does \*\*not\*\* read the codebase/i);
 });
 

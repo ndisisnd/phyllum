@@ -51,7 +51,11 @@ const familyOf = (evalId) => {
 const CONTRACTS = {
   create: () => readText('skill/refs/create.md'),
   image: () => readText('skill/refs/create.md'),
-  tokenise: () => readText('skill/refs/tokenise.md'),
+  // The naming scales live in refs/tokenise.md and the scanning contract moved to
+  // refs/assess.md in v0.2.0 M3, so a `tokenise-*` eval needs both to be judged
+  // against the whole contract. (`tokenise-clustering` is really `assess`'s eval
+  // now; renaming the id means re-recording the baseline, which is M8's job.)
+  tokenise: () => `${readText('skill/refs/tokenise.md')}\n\n${readText('skill/refs/assess.md')}`,
 };
 
 const OPENING = {

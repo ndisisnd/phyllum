@@ -63,6 +63,52 @@
       ],
       "expectedProposals": 2,
       "note": "A 12px radius and an 8px padding are different facts. Roles are clustered separately, so these never merge."
+    },
+    {
+      "id": "polyglot-colours-cluster-the-same",
+      "fixture": "evals/fixtures/codebases/polyglot-theme",
+      "scan": "assess",
+      "pass": "colours",
+      "values": [
+        "#2563EB",
+        "#2564EC"
+      ],
+      "expectedProposals": 1,
+      "representative": "#2563EB",
+      "counts": {
+        "#2563EB": 2,
+        "#2564EC": 1
+      },
+      "note": "A codebase with no stylesheet and no markup at all. The values pass is language-agnostic (v0.2.0 §5.1), so a JSON theme file and a Kotlin object cluster exactly as a `.css` file would — and the Go constant named `BrandBlue` is deliberately not read, because a name the project chose is not a property."
+    },
+    {
+      "id": "polyglot-radius-clusters-across-languages",
+      "fixture": "evals/fixtures/codebases/polyglot-theme",
+      "scan": "assess",
+      "pass": "numbers",
+      "values": [
+        "18px",
+        "17px"
+      ],
+      "expectedProposals": 1,
+      "representative": "18px",
+      "counts": {
+        "18px": 2,
+        "17px": 1
+      },
+      "note": "`radii: { card }` in JSON and `CardRadius` in Go are the same corner radius. The property name is what survives translation, so one decision comes out of two languages."
+    },
+    {
+      "id": "polyglot-roles-still-stay-apart",
+      "fixture": "evals/fixtures/codebases/polyglot-theme",
+      "scan": "assess",
+      "pass": "numbers",
+      "values": [
+        "16px",
+        "18px"
+      ],
+      "expectedProposals": 2,
+      "note": "Widening the scan must not widen what merges: a 16px spacing and an 18px radius are still different facts in a theme file."
     }
   ]
 }

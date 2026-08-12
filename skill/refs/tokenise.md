@@ -257,87 +257,18 @@ Nothing is written before acceptance. The proposal lives in
 
 ---
 
-## Inherited by `assess` — the codebase-scanning contract
+## The codebase-scanning contract lives with `assess`
 
-The tables below are **not** `tokenise`'s any more. They describe reading a
-codebase, which is `assess`'s job as of v0.2.0, and they stay in this file for
-one reason: the scan engine (`lib/tokenise.js`) and the shared loader
-(`lib/tokenise-spec.js`) already read them from here, and moving a contract and
-changing a command in the same step would hide one behind the other. `assess`
-takes them over, unchanged in meaning, when it lands.
+`tokenise` used to carry the scanning tables too — which files are read, how
+Tailwind arbitrary values map to properties, how near two values have to be
+before they cluster. They describe reading a codebase, which is `assess`'s job
+as of v0.2.0, so they moved with the behaviour: they now live in
+`refs/assess.md`, unchanged in meaning.
 
-### What is scanned
-
-A read-only sweep of the project. Files are read; nothing is opened for writing,
-renamed, or created.
-
-<!-- phyllum:sources -->
-
-| Source | Extensions | Read for |
-|--------|------------|----------|
-| stylesheets | `.css`, `.scss`, `.sass`, `.less` | declarations grouped by rule block |
-| markup | `.html`, `.jsx`, `.tsx`, `.vue`, `.svelte`, `.astro` | inline `style="…"` attributes and Tailwind arbitrary values |
-| skipped | `node_modules`, `.git`, `dist`, `build`, `.next`, `.phyllum`, `coverage`, `.claude` | — |
-
-Three shapes of evidence, all read the same way once extracted: **declarations**
-in a stylesheet rule block (`border-radius: 12px;`), **inline styles** in markup
-(including the JSX object spelling), and **Tailwind arbitrary values**
-(`bg-[#2563EB]`). Tailwind's own named scale (`px-4`, `text-sm`) is *not* read:
-those are already tokens, just someone else's. A prefix that maps to two
-properties is resolved by the shape of the value — `text-[#111827]` is a colour,
-`text-[12px]` is a font size.
-
-<!-- phyllum:tailwind -->
-
-| Prefix | Property |
-|--------|----------|
-| bg | background |
-| text | color, font-size |
-| border | border-color, border-width |
-| outline | outline-color, outline-width |
-| fill | fill |
-| stroke | stroke |
-| rounded | border-radius |
-| p | padding |
-| px | padding-left |
-| py | padding-top |
-| pt | padding-top |
-| pr | padding-right |
-| pb | padding-bottom |
-| pl | padding-left |
-| m | margin |
-| mt | margin-top |
-| mr | margin-right |
-| mb | margin-bottom |
-| ml | margin-left |
-| gap | gap |
-| leading | line-height |
-| font | font-weight |
-
-Shorthands are split rather than skipped: `padding: 12px 16px` is two spacing
-sightings, and `border: 1px solid #2563EB` is one border sighting and one colour
-sighting.
-
-### Clustering — before naming, never after
-
-Near-identical values scanned out of a codebase are grouped and surfaced as
-**one** proposal, so the system converges instead of mirroring the entropy
-already in the code. The representative is the most-used member, never an
-average — a value nobody wrote is never proposed. Clustering is deterministic.
-
-<!-- phyllum:clustering -->
-
-| Cluster | Compared on | Threshold | Also required |
-|---------|-------------|-----------|---------------|
-| colours | CIE76 ΔE, sRGB converted to Lab | 3 | — |
-| numbers | absolute difference in px, `rem` read at 16px for comparison only | 1 | the same role |
-| typography size | absolute difference in font-size, in px | 1 | the same weight |
-| typography line-height | absolute difference in line-height | 0.1 | the same weight |
-
-Frequency is the review order: most-used first, ties broken by value. A cluster
-any of whose values is already the value of a token in that pass's section is
-matched silently and never proposed again, which is what makes an accepted merge
-stick and what makes an unchanged rerun propose nothing.
+What stayed here is what a *name* is made of — the passes, the role table, the
+colour scale, the ladders, the typography bands — because a name means the same
+thing whether the value came out of a sentence or out of the code. One set of
+scales, two ways in.
 
 ---
 

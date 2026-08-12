@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 import { contractFor, traceRuleFor } from '../lib/archetypes.js';
 import { commandLine, detectInstall, updateCommandFor } from '../lib/install-method.js';
+import { assessValues } from '../lib/assess.js';
 import { scanCandidates } from '../lib/candidates.js';
 import {
   extractDraft,
@@ -419,12 +420,20 @@ function pickCandidates() {
 const scanCache = new Map();
 
 /** The proposals for a fixture codebase, against an empty system. */
-function proposalsForFixture(fixture) {
-  if (!scanCache.has(fixture)) {
-    const sightings = scanCodebase(path.join(PACKAGE_ROOT, fixture));
-    scanCache.set(fixture, proposeTokens(sightings, emptyModel()));
+function proposalsForFixture(fixture, scan = 'sources') {
+  const key = `${scan}:${fixture}`;
+  if (!scanCache.has(key)) {
+    // `assess` widens the sweep to every text file, whatever the language, so a
+    // case about a theme file in JSON or Go has to be scanned the way `assess`
+    // scans. The default stays the extension-gated sweep, so every case pinned
+    // before this is graded by exactly the same reading as before.
+    const proposals =
+      scan === 'assess'
+        ? assessValues(path.join(PACKAGE_ROOT, fixture), emptyModel()).proposals
+        : proposeTokens(scanCodebase(path.join(PACKAGE_ROOT, fixture)), emptyModel());
+    scanCache.set(key, proposals);
   }
-  return scanCache.get(fixture);
+  return scanCache.get(key);
 }
 
 const memberCount = (proposal, value) =>
@@ -442,7 +451,7 @@ function clustering() {
   const failures = [];
 
   for (const testCase of spec.cases) {
-    const proposals = proposalsForFixture(testCase.fixture).filter(
+    const proposals = proposalsForFixture(testCase.fixture, testCase.scan).filter(
       (proposal) => !testCase.pass || proposal.pass === testCase.pass,
     );
     const covering = proposals.filter((proposal) =>

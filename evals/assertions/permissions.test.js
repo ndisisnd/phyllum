@@ -221,6 +221,23 @@ test('the package manager is spawned by resolved path, with an argument array', 
   assert.match(method, /SUPPORTED_MANAGERS = \['npm', 'pnpm'\]/, 'v0.2.0 drives npm and pnpm only');
 });
 
+/**
+ * `assess` is the first command whose whole job is to read somebody else's code
+ * (v0.2.0 §5.1), so the trust it has to earn is stated structurally: not one
+ * module on its path may reach the write funnel, whatever it is handed. The
+ * constant naming DESIGN-SYSTEM.md is fine to import — writing to it is not.
+ */
+test('nothing on the assess path can reach the write funnel', () => {
+  const offenders = [];
+  for (const rel of ['lib/assess.js', 'lib/assess-command.js', 'lib/scan-text.js']) {
+    const source = fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
+    for (const writer of ['writeGuarded', 'mkdirGuarded', 'writeDesignSystem', 'appendGitignoreLine', 'writeState']) {
+      if (source.includes(writer)) offenders.push(`${rel} names ${writer}`);
+    }
+  }
+  assert.deepEqual(offenders, [], offenders.join('\n'));
+});
+
 test("the Python server's write confinement is structural, not conventional", () => {
   const source = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
   const lines = source.split('\n');

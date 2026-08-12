@@ -23,6 +23,7 @@ test('every path in the plan §7.2 layout exists', () => {
     'bin/phyllum.js',
     'skill/SKILL.md',
     'skill/refs/create.md',
+    'skill/refs/assess.md',
     'skill/refs/tokenise.md',
     'skill/refs/gui.md',
     'skill/refs/system.md',
@@ -51,7 +52,7 @@ test('package.json declares the bin, ESM, and no runtime dependencies', () => {
 test('the skill ships a reference file for every subskill with one', () => {
   const files = skillFiles();
   assert.ok(files.includes('SKILL.md'));
-  for (const name of ['create', 'tokenise', 'gui', 'system', 'version', 'update', 'init']) {
+  for (const name of ['create', 'assess', 'tokenise', 'gui', 'system', 'version', 'update', 'init']) {
     assert.ok(files.includes(`refs/${name}.md`), `missing refs/${name}.md`);
   }
 });
@@ -168,9 +169,15 @@ test('the eval runner and its recorder ship with the package', () => {
 });
 
 test('every eval fixture codebase referenced by a prompt exists', () => {
-  const data = JSON.parse(read('evals/prompts/init-detection.json'));
-  for (const testCase of data.cases) {
-    assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, testCase.fixture)), `missing ${testCase.fixture}`);
+  for (const spec of ['init-detection', 'tokenise-clustering', 'tokenise-naming']) {
+    const data = JSON.parse(read(`evals/prompts/${spec}.json`));
+    for (const testCase of data.cases) {
+      if (!testCase.fixture) continue;
+      assert.ok(
+        fs.existsSync(path.join(PACKAGE_ROOT, testCase.fixture)),
+        `${spec} references a missing fixture: ${testCase.fixture}`,
+      );
+    }
   }
 });
 

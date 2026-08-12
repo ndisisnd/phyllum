@@ -1,12 +1,16 @@
 /**
  * Assertions for the codebase scan, the clustering and the rerun diff.
  *
- * **This is `assess`'s coverage, inherited from v0.1.0 `tokenise`** (v0.2.0 plan
- * §5.3, §7). `tokenise` reads prose now; reading a codebase is `assess`'s job,
- * so the checks that prove the scan works moved here with the behaviour rather
- * than being deleted — coverage moves, it does not drop. The engine they drive
- * (`lib/tokenise.js`) is unchanged and still under its v0.1.0 spec; `assess`
- * takes it over in M3, and these tests are what it has to keep green.
+ * **This is `assess`'s coverage** (v0.2.0 plan §5.1, §5.3, §7). Two halves sit in
+ * one file because they are one behaviour:
+ *
+ *   1. The inherited half. `tokenise` reads prose now; reading a codebase is
+ *      `assess`'s job, so the checks that prove the scan works moved here with
+ *      the behaviour rather than being deleted — coverage moves, it does not drop.
+ *   2. The M3 half. `assess` takes the engine over and widens it: the values pass
+ *      goes language-agnostic, component detection commits to React, and the
+ *      result reports what the design system already covers as well as what it
+ *      does not.
  *
  * The promise this file exists to prove is the one both plans put first: the
  * scan is **read-only**. Every check that runs a scan diffs the whole directory
@@ -14,10 +18,11 @@
  * file — because a tool that reads your codebase has to earn that trust before
  * it asks to write a single line.
  *
- * Still to be written when `assess` lands (M3–M5), because there is no command
- * to drive yet: the aggregation table, the two suggestion tracks, the chained
- * `assess tokens` / `assess components` / `assess update` modes, and
- * `assess update`'s promise to touch DESIGN-SYSTEM.md and nothing else.
+ * The command surface lives in `assess-cli.test.js`. Still to be written when the
+ * suggestion half lands (M4–M5): the mapping table's rendering, the two
+ * suggestion tracks, the chained `assess tokens` / `assess components` /
+ * `assess update` modes, and `assess update`'s promise to touch DESIGN-SYSTEM.md
+ * and nothing else.
  */
 
 import assert from 'node:assert/strict';
@@ -25,9 +30,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
+import { assess, assessValues } from '../../lib/assess.js';
 import { parse, render, validateStructure } from '../../lib/design-system.js';
 import { execute } from '../../lib/execute.js';
 import { tokenizeLine } from '../../lib/parse-args.js';
+import { dataBlocks, gitignoreMatcher, isDataFile, resolveProperty } from '../../lib/scan-text.js';
 import {
   applyAcceptance,
   clusterSightings,
@@ -41,9 +48,17 @@ import {
   toPx,
   tokenise,
 } from '../../lib/tokenise.js';
-import { roleForProperty, sources, threshold } from '../../lib/tokenise-spec.js';
+import {
+  componentPassRuns,
+  componentStacks,
+  roleForProperty,
+  sources,
+  textScan,
+  threshold,
+} from '../../lib/tokenise-spec.js';
 import {
   FIXTURES,
+  PACKAGE_ROOT,
   POPULATED_FIXTURE,
   copyDir,
   diffSnapshots,
@@ -93,12 +108,20 @@ test('proposing tokens writes nothing either — only acceptance writes', async 
 });
 
 test('there is no write call anywhere in the scanning engine', () => {
-  const engine = fs.readFileSync(
-    path.join(path.dirname(new URL(import.meta.url).pathname), '../../lib/tokenise.js'),
-    'utf8',
-  );
-  for (const forbidden of ['writeFileSync', 'appendFileSync', 'mkdirSync', 'renameSync', 'rmSync']) {
-    assert.ok(!engine.includes(forbidden), `lib/tokenise.js must not call ${forbidden}`);
+  // Read-only is a property of the code, not a promise in a document — so every
+  // module on the scan path is checked, not just the oldest one.
+  for (const rel of ['lib/tokenise.js', 'lib/scan-text.js', 'lib/assess.js', 'lib/assess-command.js']) {
+    const engine = fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
+    for (const forbidden of [
+      'writeFileSync',
+      'appendFileSync',
+      'mkdirSync',
+      'renameSync',
+      'rmSync',
+      'createWriteStream',
+    ]) {
+      assert.ok(!engine.includes(forbidden), `${rel} must not call ${forbidden}`);
+    }
   }
 });
 
@@ -413,7 +436,7 @@ test('declining the seed skips it, and says how to run it later', async () => {
     const { actions } = await execute(tokenizeLine('init'), {
       cwd: dir,
       yes: false,
-      confirm: async (question) => !question.includes('tokenise'),
+      confirm: async (question) => !question.includes('read-only pass'),
       today: '2026-08-12',
     });
     assert.ok(actions.includes('tokenise-seed-skipped'));
@@ -424,5 +447,300 @@ test('init on a project with no styles says so rather than showing an empty list
   await withTempDir(async (dir) => {
     const { out } = await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12' });
     assert.ok(out.includes('no colours, numbers or typography to name yet'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M3 — `assess` takes the engine over, and widens it
+//
+// Two commitments from the plan's §5.1 shape everything below. The *values* pass
+// is language-agnostic: raw styling lives in theme files, config and constants as
+// much as it lives in `.css`, so any text file is read for `property: value`
+// pairs. *Component* detection commits to React, and says so when it does not run
+// rather than reporting an empty list a pass never produced.
+// ---------------------------------------------------------------------------
+
+const emptyProject = (body) => withTempDir(body);
+
+/** A codebase whose styling lives somewhere other than a stylesheet. */
+function writePolyglot(dir) {
+  fs.mkdirSync(path.join(dir, 'internal'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'theme.json'),
+    JSON.stringify({ colors: { brand: '#7C3AED' }, radii: { card: '18px' }, timeout: 30 }, null, 2),
+  );
+  fs.writeFileSync(
+    path.join(dir, 'internal', 'tokens.go'),
+    'package internal\n\nconst BorderRadius = "22px"\nconst Padding = "28px"\n',
+  );
+  fs.writeFileSync(
+    path.join(dir, 'notes.md'),
+    'Our brand blue is `#123456` and the radius is `border-radius: 99px`.\n',
+  );
+}
+
+test('assess writes nothing at all — not one byte, whatever it reads', async () => {
+  await withCodebase(async (dir) => {
+    writePolyglot(dir);
+    const before = snapshotContents(dir);
+    const result = assess(dir, emptySystem());
+    assert.ok(result.readOnly);
+    assert.ok(result.summary.rawValues > 0, 'it found something to be read-only about');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: [],
+      changed: [],
+      removed: [],
+    });
+  });
+});
+
+test('the values pass reads any language, not just stylesheets and markup', async () => {
+  await withCodebase(async (dir) => {
+    writePolyglot(dir);
+    const { proposals, dataFiles } = assessValues(dir, emptySystem());
+    const values = proposals.map((proposal) => proposal.value);
+
+    assert.ok(dataFiles >= 2, 'the report counts the files that are neither CSS nor markup');
+    assert.ok(values.includes('#7C3AED'), 'a colour in a JSON theme file is a colour');
+    assert.ok(values.includes('18px'), 'and `radii: { card }` is a corner radius');
+    assert.ok(values.includes('22px'), 'a Go constant named BorderRadius is one too');
+
+    const radius = proposals.find((proposal) => proposal.value === '18px');
+    assert.equal(radius.role, 'radius', 'the property tables decide the role, in any language');
+    const padding = proposals.find((proposal) => proposal.value === '28px');
+    assert.equal(padding.role, 'spacing');
+  });
+});
+
+test('a key the property tables do not recognise is not a design decision', async () => {
+  await withCodebase(async (dir) => {
+    writePolyglot(dir);
+    const { sightings } = assessValues(dir, emptySystem());
+    assert.ok(!sightings.some((sighting) => sighting.value === '30'), '`timeout: 30` is not spacing');
+  });
+});
+
+test('documentation is not evidence: prose about a colour is not a use of it', async () => {
+  await withCodebase(async (dir) => {
+    writePolyglot(dir);
+    const { sightings } = assessValues(dir, emptySystem());
+    const files = new Set(sightings.flatMap((sighting) => sighting.files));
+    assert.ok(!files.has('notes.md'), 'a README example would inflate every number in the report');
+    assert.ok(!sightings.some((sighting) => sighting.value === '#123456'));
+    assert.ok(!sightings.some((sighting) => sighting.value === '99px'));
+
+    // And the rule is a table, not a hidden list in the code.
+    assert.ok(textScan().skippedExtensions.includes('.md'));
+    assert.ok(textScan().skippedFiles.includes('DESIGN-SYSTEM.md'));
+  });
+});
+
+test("Phyllum's own record is never read as evidence of drift", async () => {
+  await withCodebase(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));
+    const { sightings } = assessValues(dir, emptySystem());
+    const files = new Set(sightings.flatMap((sighting) => sighting.files));
+    assert.ok(!files.has('DESIGN-SYSTEM.md'), 'the design system may not count as its own drift');
+  });
+});
+
+test('a lockfile is machine output, not styling', () => {
+  assert.ok(!isDataFile('package-lock.json'));
+  assert.ok(!isDataFile('pnpm-lock.yaml'));
+  assert.ok(!isDataFile('bundle.min.js'), 'and a minified bundle is nobody’s design decision');
+  assert.ok(isDataFile('theme.json'));
+  assert.ok(isDataFile('tokens.go'));
+});
+
+test('what .gitignore ignores is not part of the codebase', async () => {
+  await withCodebase(async (dir) => {
+    fs.mkdirSync(path.join(dir, 'generated'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'generated', 'theme.css'), '.x { color: #ABCDEF; }');
+    fs.writeFileSync(path.join(dir, 'vendored.css'), '.y { color: #FEDCBA; }');
+    fs.writeFileSync(path.join(dir, '.gitignore'), 'generated/\nvendored.css\n');
+
+    const { sightings } = assessValues(dir, emptySystem());
+    const values = sightings.map((sighting) => sighting.value);
+    assert.ok(!values.includes('#ABCDEF'), 'an ignored directory is not yours to systematise');
+    assert.ok(!values.includes('#FEDCBA'), 'and neither is an ignored file');
+    assert.ok(values.includes('#2563EB'), 'the rest of the codebase is still read');
+  });
+});
+
+test('the gitignore matcher reads the common patterns, and negation', async () => {
+  await withTempDir(async (dir) => {
+    fs.writeFileSync(
+      path.join(dir, '.gitignore'),
+      ['# a comment', '', 'build/', '*.tmp', '/root-only.css', 'keep/*.css', '!keep/wanted.css'].join('\n'),
+    );
+    const ignored = gitignoreMatcher(dir);
+    assert.ok(ignored('build'));
+    assert.ok(ignored('build/a.css'));
+    assert.ok(ignored('src/deep/build/a.css'), 'a pattern with no slash matches at any depth');
+    assert.ok(ignored('a.tmp'));
+    assert.ok(ignored('root-only.css'));
+    assert.ok(!ignored('src/root-only.css'), 'a leading slash anchors to the root');
+    assert.ok(ignored('keep/other.css'));
+    assert.ok(!ignored('keep/wanted.css'), 'the last matching rule wins, so `!` un-ignores');
+    assert.ok(!ignored('src/styles.css'));
+  });
+});
+
+test('a project with no .gitignore ignores nothing, rather than failing', async () => {
+  await withTempDir(async (dir) => {
+    assert.equal(gitignoreMatcher(dir)('anything'), false);
+  });
+});
+
+test('a `property: value` pair means the same fact in every syntax', () => {
+  const same = [
+    'border-radius: 12px;',
+    '{ "borderRadius": "12px" }',
+    'const BorderRadius = "12px"',
+    'border_radius: 12px',
+  ];
+  for (const text of same) {
+    const blocks = dataBlocks(text);
+    assert.deepEqual(blocks[0], [{ property: 'border-radius', value: '12px' }], text);
+  }
+
+  // A theme file pluralises; the property tables do not. Both are read.
+  assert.equal(resolveProperty('colors'), 'color');
+  assert.equal(resolveProperty('colours'), 'color');
+  assert.equal(resolveProperty('radii'), 'radius');
+  assert.equal(resolveProperty('fontSizes'), 'font-size');
+  assert.equal(resolveProperty('timeout'), null, 'and a key with no meaning gets none');
+});
+
+test('a comma inside a function call is not the end of a statement', () => {
+  assert.deepEqual(dataBlocks('color: rgb(37, 99, 235)')[0], [
+    { property: 'color', value: 'rgb(37, 99, 235)' },
+  ]);
+});
+
+test('a bare literal with no property attached is not a sighting', () => {
+  // A hex code in a string or a test fixture is not evidence that anything is
+  // styled with it, and a number with no property has no role — so `12px` could
+  // be a corner or a padding, and Phyllum does not guess which.
+  assert.deepEqual(dataBlocks('const values = ["#2563EB", "12px"];'), []);
+  assert.deepEqual(dataBlocks('// color: #ABCDEF is only an example\n'), []);
+});
+
+test('the covered half and the proposed half are reported separately', async () => {
+  await withCodebase(async (dir) => {
+    const model = parse(readFixture(POPULATED_FIXTURE));
+    const { covered, uncovered, proposals, inventory } = assessValues(dir, model);
+
+    assert.ok(covered.length > 0, 'a value the system names is coverage, not a suggestion');
+    assert.ok(
+      covered.some((row) => row.token === 'color-primary'),
+      'and the report says which token covers it',
+    );
+    assert.equal(uncovered.length, proposals.length, 'everything uncovered is proposed, and only that');
+    assert.equal(inventory.length, covered.length + uncovered.length, 'the table shows both halves');
+    assert.deepEqual(
+      inventory.map((row) => row.count),
+      [...inventory.map((row) => row.count)].sort((a, b) => b - a),
+      'most-used first',
+    );
+  });
+});
+
+test('a second assess after acceptance proposes nothing, and says so as coverage', async () => {
+  await withCodebase(async (dir) => {
+    const model = parse(readFixture(POPULATED_FIXTURE));
+    applyAcceptance(model, assessValues(dir, model).proposals);
+
+    const again = assessValues(dir, model);
+    assert.deepEqual(again.proposals, [], 'an unchanged rerun proposes nothing');
+    assert.ok(again.covered.length > 0, 'the same values are now reported as covered');
+
+    fs.writeFileSync(path.join(dir, 'src', 'new.css'), '.alert { color: #DC2626; }\n');
+    const drifted = assessValues(dir, model);
+    assert.equal(drifted.proposals.length, 1, 'only what has drifted since is proposed');
+    assert.equal(drifted.proposals[0].value, '#DC2626');
+  });
+});
+
+test('the component pass runs on React, and only where the table says it does', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(path.join(FIXTURES, 'codebases', 'repeated-jsx'), dir);
+    const result = assess(dir, emptySystem());
+    assert.equal(result.components.ran, true);
+    assert.equal(result.components.reason, null);
+    assert.ok(result.components.candidates.length > 0, 'a repeated pattern is a candidate');
+    for (const candidate of result.components.candidates) {
+      assert.ok(candidate.name.includes('/'), 'a candidate seeds a name and an archetype');
+      assert.ok(candidate.count > 0);
+      assert.ok(candidate.files.length > 0);
+    }
+  });
+});
+
+test('an unsupported stack gets the values pass and an honest note, never a fake one', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(path.join(FIXTURES, 'codebases', 'vue-app'), dir);
+    const result = assess(dir, emptySystem());
+
+    assert.equal(result.detection.frameworkId, 'vue');
+    assert.equal(result.components.ran, false);
+    assert.deepEqual(result.components.candidates, []);
+    assert.match(result.components.reason, /React-only in v0\.2\.0/);
+    assert.match(result.components.reason, /values pass above ran in full/);
+
+    // And "ran in full" is a claim the values actually back up.
+    assert.ok(result.values.proposals.some((proposal) => proposal.value === '#2563eb'));
+    assert.ok(result.values.proposals.some((proposal) => proposal.value === '8px'));
+  });
+});
+
+test('which stacks the component pass commits to is a table, not a branch in the code', () => {
+  assert.deepEqual(componentStacks(), ['react', 'react-next']);
+  assert.ok(componentPassRuns('react'));
+  assert.ok(componentPassRuns('react-next'));
+  for (const stack of ['vue', 'vue-nuxt', 'svelte', 'svelte-kit', 'html', 'unknown']) {
+    assert.ok(!componentPassRuns(stack), `${stack} has no component pass in v0.2.0`);
+  }
+});
+
+test('an empty project reports nothing rather than inventing a starter set', async () => {
+  await emptyProject(async (dir) => {
+    const result = assess(dir, emptySystem());
+    assert.equal(result.summary.rawValues, 0);
+    assert.equal(result.summary.distinctValues, 0);
+    assert.equal(result.summary.proposed, 0);
+    assert.equal(result.summary.componentPassRan, false);
+    assert.match(result.components.reason, /nothing here to read yet/);
+    assert.ok(result.summary.clean);
+  });
+});
+
+test('a codebase with no design system yet is all proposal and no coverage', async () => {
+  await withCodebase(async (dir) => {
+    const result = assess(dir, emptySystem());
+    assert.deepEqual(result.values.covered, []);
+    assert.equal(result.summary.covered, 0);
+    assert.equal(result.summary.proposed, result.values.uncovered.length);
+    assert.ok(result.summary.proposed > 0);
+  });
+});
+
+test('the assessment is deterministic — the same codebase, the same reading', async () => {
+  await withCodebase(async (dir) => {
+    writePolyglot(dir);
+    const fingerprint = () =>
+      assess(dir, emptySystem()).values.proposals.map((p) => `${p.name}:${p.value}:${p.count}`);
+    assert.deepEqual(fingerprint(), fingerprint());
+  });
+});
+
+test('the scan reports how many files it read, so the number is never implied', async () => {
+  await withCodebase(async (dir) => {
+    writePolyglot(dir);
+    const result = assess(dir, emptySystem());
+    assert.ok(result.values.files >= 5, 'three source files plus the polyglot ones');
+    assert.ok(result.values.dataFiles >= 2);
+    assert.ok(result.values.dataFiles < result.values.files);
+    assert.equal(result.summary.filesRead, result.values.files);
   });
 });

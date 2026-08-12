@@ -1,8 +1,14 @@
 # Eval — near-identical values become one token (plan §4, §8.5)
 
 **Status: runnable.** `node evals/run-evals.js` scores it. Prompts:
-`evals/prompts/tokenise-clustering.json`. Fixture:
-`evals/fixtures/codebases/tokenise-mixed`.
+`evals/prompts/tokenise-clustering.json`. Fixtures:
+`evals/fixtures/codebases/tokenise-mixed` and
+`evals/fixtures/codebases/polyglot-theme`.
+
+*Whose eval this is:* clustering became `assess`'s behaviour in v0.2.0 (§5.3) —
+`tokenise` reads prose now. The eval keeps its `tokenise-` id because renaming an
+eval means re-recording the baseline, which is M8's job. The id is stale; the
+coverage is not.
 
 ## What is being graded
 
@@ -21,6 +27,21 @@ different values is worse than no clustering: `#2563EB` and `#FFFFFF` must stay
 two proposals, and an 8px padding must never merge into a 12px radius just
 because both are lengths — roles are clustered separately for exactly that
 reason.
+
+### Clustering has to hold in every language
+
+v0.2.0 committed the values pass to being **language-agnostic** (§5.1): raw
+styling lives in a JSON theme file, a Go constants file or a Kotlin object as much
+as it lives in `.css`, and all of it is read. Widening the reach of a scan is only
+worth anything if the rules that follow it hold unchanged, so three cases run
+against `polyglot-theme` — a project with no stylesheet and no markup at all.
+
+They grade the same three claims as above, in a codebase where nothing is CSS: a
+blue written two ways still clusters once, a corner radius written in JSON and in
+Go is still one decision, and a spacing still does not merge into a radius. The
+fixture also carries its own controls — a `timeout: 30` that is not a design
+decision, a `BrandBlue` constant whose key names a colour Phyllum will not guess
+at, and documentation whose examples must never be counted as sightings.
 
 ## Scoring
 

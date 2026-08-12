@@ -153,7 +153,7 @@
       <section class="view" id="view-tokens" hidden>
         <div class="panel">
           <h2>Token view</h2>
-          <p class="muted">Which tokens a component consumes, and which values are still raw — the candidates for your next <code>phyllum tokenise</code> run.</p>
+          <p class="muted">Which tokens a component consumes, and which values are still raw — what your next <code>phyllum assess</code> run has to work with.</p>
           <div class="list" id="token-view-list"></div>
           <div id="token-view-detail" class="muted">Pick a component.</div>
         </div>
@@ -275,7 +275,7 @@
           (used.length
             ? used.map((u) => '<span class="chip token">' + esc(u.slot) + ': ' + esc(u.value) + '</span>').join(' ')
             : '<span class="muted">none — every value is still raw</span>') +
-          '</p><p>Raw values, candidates for <code>phyllum tokenise</code>: ' +
+          '</p><p>Raw values, still unnamed — <code>phyllum assess</code> reads these: ' +
           (raw.length
             ? raw.map((r) => '<span class="chip raw">' + esc(r.slot) + ': ' + esc(r.value) + '</span>').join(' ')
             : '<span class="muted">none</span>') +

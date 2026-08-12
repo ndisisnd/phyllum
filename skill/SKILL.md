@@ -43,6 +43,7 @@ task seems to need a write outside this list, stop and tell the user instead.
 | `menu` | — | List every subskill, one line per command |
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
+| `assess` | — | Read the codebase and inventory the raw styling in it |
 | `tokenise` | `tokenize` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
@@ -57,13 +58,19 @@ Aliases are exact equivalents — same subskill, same behaviour.
 create, never a component named "help". A quoted `"help"` means the word.
 
 Scope words (`tokens` / `components` / `all`) are only meaningful on `system`
-and `gui`, and default to `all`.
+and `gui`, and default to `all`. `assess` reserves its own three words in
+argument position — `tokens` / `components` / `update` — for its chained modes.
+
+Which command reads what is the whole division of labour, and it is worth stating
+plainly: `assess` reads your codebase, `tokenise` reads the sentence you typed,
+`create` reads your intent. All three write only `DESIGN-SYSTEM.md`.
 
 ## Reference files — load only what the current command needs
 
 | Command | Reference |
 |---------|-----------|
 | `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
+| `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering |
 | `tokenise` | `refs/tokenise.md` — how a sentence is read, the three passes, the naming scales, the follow-up loop when a value or a name is missing, acceptance |
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `system` | `refs/system.md` — listing format |
@@ -100,9 +107,9 @@ three-backtick block. Fence length is significant to the parser.
 
 ## Execution model
 
-- **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, `version`, `update`, and
-  `init`'s scaffold and install steps) run entirely in Node, with no model
-  involved.
+- **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, `version`, `update`,
+  `assess`'s scan, and `init`'s scaffold and install steps) run entirely in Node,
+  with no model involved.
 - **Intelligence** (`create`, `tokenise`, and `init`'s detection and seeding
   steps) is this skill. Inside a Claude Code session it runs natively; from a
   plain terminal the CLI shells out to `claude` with this skill loaded.
@@ -162,6 +169,21 @@ completes it — never a dead-end error. A length whose meaning the sentence doe
 not state is asked about too, because a 12px radius and a 12px padding are
 different facts. `tokenize` stays the alias, and accepted tokens land in the same
 token sections of `DESIGN-SYSTEM.md` as before.
+
+v0.2.0 M3 ships `assess`'s scan engine — the read half of the command that picks
+up what `tokenise` put down. It detects the stack, sweeps the project read-only,
+and aggregates what it finds: near-identical values cluster into one decision,
+usage is counted, and the result is ranked by how hard the code leans on each
+value. Two commitments shape the reach of the scan. The **values pass is
+language-agnostic**: stylesheets are read as stylesheets and markup as markup,
+and every other text file is read for `property: value` pairs, so a theme file in
+JSON, Go or Kotlin counts as much as a `.css` file does. **Component detection is
+React only**, and on any other stack the report says the component pass did not
+run rather than pretending it did. A value the design system already names is
+reported as coverage, never proposed again, which is what makes a second `assess`
+show only what has drifted. The mapping table and the two suggestion tracks read
+this result rather than rescanning, and the scan itself writes nothing at all —
+`refs/assess.md` is the contract.
 
 Commands that are not built yet are registered and documented, and say so when
 invoked.
