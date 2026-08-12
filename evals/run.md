@@ -84,14 +84,23 @@ that governs the eval — `skill/refs/create.md` for the `create` evals,
 commits the reply verbatim along with the model name and the date. It is a
 deliberate act, never part of a test run.
 
-A `create` recording holds a draft; a `tokenise` recording holds the names it
-proposed. Both are graded exactly as they came back.
+A prose `create` recording holds a draft, an image one holds a trace (the
+measurements as they came back, with their confidences), and a `tokenise`
+recording holds the names it proposed. All three are graded exactly as they came
+back.
+
+Image mode is the one eval where the deterministic responder does not run the
+model's half of the job at all: what it grades is Basal's *ingestion* of a
+pinned trace result from `evals/fixtures/traces/`, against the ground truth in
+`evals/fixtures/images/ground-truth.json`. The images themselves are painted
+from that ground truth by `evals/fixtures/images/make-images.js`, so the numbers
+the tolerances are measured against are the numbers in the pixels.
 
 **Re-record when** the prompt set changes, a reference file changes the rules, or
 you move to a newer model. Commit the recordings with the change that caused
 them, and re-run `npm run evals:record` so the baseline matches.
 
-## What is covered today (M1 + M2 + M3 + M4)
+## What is covered today (M1 + M2 + M3 + M4 + M5)
 
 | File | Covers |
 |------|--------|
@@ -108,6 +117,8 @@ them, and re-run `npm run evals:record` so the baseline matches.
 | `evals/assertions/create-contract.test.js` | Gap lists table-driven from `refs/create.md`, suggestion priority, extrapolation |
 | `evals/assertions/create-write.test.js` | Nothing before acceptance, one file changes, update in place, TODOs in the block and the Backlog |
 | `evals/assertions/create-cli.test.js` | The `create` command surface and the route to the intelligence |
+| `evals/assertions/create-image.test.js` | Image mode: file validation, the trace request, ingestion (values vs questions vs refusals), output as text, the write funnel staying shut, and the dashboard's image queue being drained |
+| `evals/assertions/create-pick.test.js` | Pick mode: the read-only markup scan, archetypes plus candidates, registered components dropping out, a pick seeding no values, and the follow-up loop it enters |
 | `evals/assertions/tokenise-scan.test.js` | The read-only scan, the three passes, clustering, the naming scales, the rerun diff |
 | `evals/assertions/tokenise-write.test.js` | Nothing before acceptance, one file changes, tokens in the right section, Backlog reconciliation |
 | `evals/assertions/tokenise-cli.test.js` | The spec tables as contract, `tokenise`/`tokenize` on a real flow, `init`'s step-4 seeding |
@@ -123,6 +134,8 @@ them, and re-run `npm run evals:record` so the baseline matches.
 | `create-token-first` | an existing token leads the suggestions for its slot | 1.0 |
 | `create-extrapolation` | propose what every prior component of the kind defines, and nothing less unanimous | 1.0 |
 | `create-values-free` | unconventional values recorded verbatim, never corrected | 1.0 |
+| `create-image-trace` | a traced image lands within tolerance (colour ΔE < 5, lengths ±1px), unsure readings become questions, and nothing unmeasurable is invented | ≥ 0.95 |
+| `create-pick-candidates` | a repeated unregistered pattern appears in the picker; a registered one and a one-off do not | 1.0 |
 | `tokenise-clustering` | one brand blue written two ways is one token; genuinely different values stay apart | 1.0 |
 | `tokenise-naming` | proposed names are on the documented scales, and on the right rung | 0.9 |
 

@@ -63,7 +63,7 @@ function main() {
     const baseline = {
       recordedAt: new Date().toISOString().slice(0, 10),
       basalVersion: packageVersion(),
-      milestone: 'M3',
+      milestone: 'M5',
       note:
         'Scores recorded by `node evals/run-evals.js --record`. Thresholds may be raised, ' +
         'never silently lowered: a lowered threshold needs a note in the change explaining why.',

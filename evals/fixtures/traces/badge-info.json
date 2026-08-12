@@ -1,0 +1,34 @@
+{
+  "note": "A pinned trace result for evals/fixtures/images/badge-info.png. As with the button, this is the eval's input: the grading is of Basal's ingestion, not of a model's eyesight.",
+  "file": "evals/fixtures/images/badge-info.png",
+  "name": "Badge/Info",
+  "archetype": "badge",
+  "measurements": [
+    { "property": "background", "value": "#EFF6FF", "confidence": 0.95 },
+    { "property": "text-colour", "value": "#1D4ED8", "confidence": 0.93 },
+    { "property": "radius", "value": "10px", "confidence": 0.88 },
+    { "property": "padding-left", "value": "8px", "confidence": 0.86 },
+    { "property": "padding-right", "value": "8px", "confidence": 0.86 },
+    { "property": "padding-top", "value": "5px", "confidence": 0.82 },
+    { "property": "padding-bottom", "value": "5px", "confidence": 0.82 },
+    {
+      "property": "border-colour",
+      "value": "#BFDBFE",
+      "confidence": 0.6,
+      "note": "one pixel of stroke against a pale fill — not confident"
+    },
+    {
+      "property": "font-size",
+      "value": "12px",
+      "confidence": 0.5,
+      "note": "inferred from the label block height, which is not a font size"
+    },
+    {
+      "property": "elevation",
+      "value": "low",
+      "confidence": 0.8,
+      "note": "not a property in the trace table — must be refused"
+    }
+  ],
+  "unmeasurable": ["shadow"]
+}

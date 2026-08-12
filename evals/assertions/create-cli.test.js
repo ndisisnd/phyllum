@@ -67,16 +67,24 @@ test('a description with no archetype in it asks, and writes nothing', async () 
   });
 });
 
-test('image mode and pick mode say which milestone they land in', async () => {
+test('an image path that resolves to nothing says so, and never becomes prose', async () => {
   await withProject(async (dir) => {
-    const image = await run('create shot.png', dir);
-    assert.ok(image.out.includes('image mode is not built yet'));
-    assert.ok(image.out.includes('M5'));
-    assert.ok(image.out.includes('Prose mode works today'));
+    const before = snapshotContents(dir);
+    const { out, code } = await run('create shot.png', dir);
+    assert.equal(code, 1);
+    assert.ok(out.includes('There is no image at `shot.png`'));
+    assert.ok(out.includes('basal create "shot.png"'), 'it names the way to mean it as prose');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, []);
+  });
+});
 
-    const pick = await run('create', dir);
-    assert.ok(pick.out.includes('pick mode'));
-    assert.ok(pick.out.includes('M5'));
+test('bare create opens the picker rather than a mode that is not built', async () => {
+  await withProject(async (dir) => {
+    const { out } = await run('create', dir);
+    assert.ok(out.includes('What would you like to create?'));
+    assert.ok(out.includes('Archetypes'));
+    assert.ok(out.includes('Found in your codebase'));
+    assert.ok(!out.includes('not built yet'));
   });
 });
 

@@ -124,7 +124,16 @@ contract, follow-up loop, React + CSS code view, accept, write.
 M3 shipped `tokenise`: the read-only scan, the three passes, clustering before
 naming, the frequency-ranked review, the diff on rerun, and `init`'s step-4
 seeding — which offers the scan and never names anything on the user's behalf.
-M4 ships `gui` / `dashboard` and `kill`: the localhost-only Python server, the
+M4 shipped `gui` / `dashboard` and `kill`: the localhost-only Python server, the
 three-view page, the `/state` · `/system` · `/prompt` · `/upload` API, and the
-PID-and-port lifecycle. `create`'s image and pick modes land in M5. Commands
+PID-and-port lifecycle.
+M5 ships `create`'s other two modes. **Image mode**: an argument that resolves
+to an image file is validated, framed as a trace request, and the result is
+ingested — measurements above their confidence bar become values, everything
+else becomes a follow-up question, and a claim about something a still image
+cannot show is refused. The measuring happens here, in the session, because this
+is where the eyes are. **Pick mode**: bare `create` offers the archetypes plus
+the components the codebase keeps repeating without ever naming, and a pick
+seeds a name and an archetype — never values. An image dropped on the dashboard
+queues an image-mode `create`, which the next bare `create` picks up. Commands
 that are not built yet are registered and documented, and say so when invoked.

@@ -42,15 +42,21 @@ const wanted = argv.filter((arg) => !arg.startsWith('--') && arg !== model);
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
 
 /** Which subskill an eval belongs to, and therefore which contract it obeys. */
-const familyOf = (evalId) => (evalId.startsWith('tokenise') ? 'tokenise' : 'create');
+const familyOf = (evalId) => {
+  if (evalId.startsWith('tokenise')) return 'tokenise';
+  if (evalId === 'create-image-trace') return 'image';
+  return 'create';
+};
 
 const CONTRACTS = {
   create: () => readText('skill/refs/create.md'),
+  image: () => readText('skill/refs/create.md'),
   tokenise: () => readText('skill/refs/tokenise.md'),
 };
 
 const OPENING = {
   create: 'You are running the Basal `create` subskill in prose mode (Mode A).',
+  image: 'You are running the Basal `create` subskill in image mode (Mode B).',
   tokenise: 'You are running the Basal `tokenise` subskill.',
 };
 
@@ -77,11 +83,35 @@ function promptFor(spec, testCase) {
     return parts.join('\n');
   }
 
+  if (family === 'image') {
+    // The image travels as a path: `claude` reads it, this script never does.
+    parts.push(
+      `The image to trace: ${path.join(PACKAGE_ROOT, testCase.image)}`,
+      '',
+      'Read that image and reply with JSON only, in the trace result shape above.',
+    );
+    return parts.join('\n');
+  }
+
   if (testCase.fixture) {
     parts.push("The project's DESIGN-SYSTEM.md:", '', readText(testCase.fixture), '');
   }
   parts.push(`Description: ${JSON.stringify(testCase.prompt)}`, '', 'Reply with JSON only.');
   return parts.join('\n');
+}
+
+/**
+ * An image reply: the measurements as they came back, untouched. Ingestion is
+ * Basal's job and is what the eval grades, so nothing is normalised here beyond
+ * the shape — a malformed measurement stays malformed and is graded as such.
+ */
+function normaliseTrace(reply) {
+  return {
+    name: reply.name ?? null,
+    archetype: reply.archetype ?? null,
+    measurements: Array.isArray(reply.measurements) ? reply.measurements : [],
+    unmeasurable: Array.isArray(reply.unmeasurable) ? reply.unmeasurable : [],
+  };
 }
 
 /** A tokenise reply: the names it proposed, keyed by the value they name. */
@@ -151,6 +181,14 @@ function normalise(reply) {
   return { name: draft.name ?? null, archetype: draft.archetype ?? null, properties, states };
 }
 
+/** What a recording holds, by family: proposed names, a trace, or a draft. */
+function recordedAnswer(evalId, reply) {
+  const family = familyOf(evalId);
+  if (family === 'tokenise') return { proposals: normaliseProposals(reply) };
+  if (family === 'image') return { trace: normaliseTrace(reply) };
+  return { draft: normalise(reply) };
+}
+
 async function main() {
   const cli = findClaudeCli();
   if (!cli) {
@@ -185,12 +223,11 @@ async function main() {
           case: testCase.id,
           prompt: testCase.prompt ?? null,
           fixture: testCase.fixture ?? null,
+          ...(testCase.image ? { image: testCase.image } : {}),
           recordedAt: new Date().toISOString().slice(0, 10),
           model: model ?? 'claude-code default',
           how: 'node evals/record-model.js — a real `claude` run, committed verbatim',
-          ...(familyOf(item.id) === 'tokenise'
-            ? { proposals: normaliseProposals(reply) }
-            : { draft: normalise(reply) }),
+          ...recordedAnswer(item.id, reply),
         };
         fs.writeFileSync(
           path.join(dir, `${testCase.id}.json`),

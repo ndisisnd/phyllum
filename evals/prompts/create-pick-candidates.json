@@ -1,0 +1,55 @@
+{
+  "eval": "create-pick-candidates",
+  "rubric": "evals/rubrics/create-pick-candidates.md",
+  "milestone": "M5",
+  "planSections": ["§3.1", "§8.5"],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "cases": [
+    {
+      "id": "repeated-chip-is-a-candidate",
+      "fixture": "evals/fixtures/codebases/repeated-jsx",
+      "designSystem": "evals/fixtures/design-system/populated.md",
+      "expect": "present",
+      "signature": "span.chip.chip--info",
+      "name": "Badge/Info",
+      "archetype": "badge",
+      "minCount": 3,
+      "note": "The plan's own case: a repeated unregistered JSX pattern turns up in the candidate list."
+    },
+    {
+      "id": "repeated-card-is-a-candidate",
+      "fixture": "evals/fixtures/codebases/repeated-jsx",
+      "designSystem": "evals/fixtures/design-system/populated.md",
+      "expect": "present",
+      "signature": "div.card.card--flat",
+      "name": "Card/Default",
+      "archetype": "card",
+      "minCount": 3
+    },
+    {
+      "id": "already-registered-drops-out",
+      "fixture": "evals/fixtures/codebases/repeated-jsx",
+      "designSystem": "evals/fixtures/design-system/populated.md",
+      "expect": "absent",
+      "signature": "button.button-primary",
+      "note": "`button-primary` is what Basal calls Button/Primary, which the system already has — it is a component, not a candidate."
+    },
+    {
+      "id": "one-sighting-is-not-a-pattern",
+      "fixture": "evals/fixtures/codebases/repeated-jsx",
+      "designSystem": "evals/fixtures/design-system/populated.md",
+      "expect": "absent",
+      "signature": "button.btn.btn--ghost",
+      "note": "Used once. The minimum in the signals table is two."
+    },
+    {
+      "id": "a-codebase-with-nothing-repeated-proposes-nothing",
+      "fixture": "evals/fixtures/codebases/react-css",
+      "designSystem": "evals/fixtures/design-system/empty.md",
+      "expect": "absent",
+      "signature": "button.btn.btn--primary",
+      "note": "One button in one file is not a pattern, and a picker that invents candidates is worse than one that offers none."
+    }
+  ]
+}

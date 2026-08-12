@@ -15,10 +15,12 @@ import test from 'node:test';
 import {
   CONTRACT_FILE,
   archetypes,
+  candidateSignals,
   contractFor,
   defaultFor,
   propertiesForSlot,
   slotForProperty,
+  traceRules,
   vocabulary,
 } from '../../lib/archetypes.js';
 import {
@@ -216,4 +218,54 @@ test('gathering codebase evidence reads files and writes none', async () => {
     assert.equal(radius.file.endsWith('styles.css'), true);
     assert.deepEqual(fs.readdirSync(dir).sort(), before, 'evidence gathering is read-only');
   });
+});
+
+// ---------------------------------------------------------------------------
+// The M5 tables: what an image may be asked to measure, and what a repeated
+// pattern has to look like to be a candidate (plan §3.1 Modes B and C)
+// ---------------------------------------------------------------------------
+
+test('every measurable property is a property the vocabulary already knows', () => {
+  const known = new Set(vocabulary().map((row) => row.property));
+  for (const rule of traceRules()) {
+    assert.ok(known.has(rule.property), `${rule.property} is measurable but has no slot`);
+    assert.equal(rule.slot, slotForProperty(rule.property));
+    assert.ok(
+      rule.minConfidence > 0 && rule.minConfidence <= 1,
+      `${rule.property} has no usable confidence bar`,
+    );
+    assert.ok(rule.tolerance.length > 0, `${rule.property} states no tolerance`);
+  }
+});
+
+test('a still image is never asked about a state', () => {
+  const measurable = new Set(traceRules().map((rule) => rule.property));
+  for (const archetype of archetypes()) {
+    for (const state of archetype.states) {
+      assert.ok(!measurable.has(state), `${state} is a state and cannot be measured`);
+    }
+  }
+});
+
+test('every candidate signal resolves to an archetype the contract table has', () => {
+  for (const row of candidateSignals()) {
+    assert.ok(['element', 'class', 'component'].includes(row.signal), `unknown signal ${row.signal}`);
+    assert.ok(row.matches.length > 0, `${row.signal} row matches nothing`);
+    assert.ok(row.minimum >= 2, 'one sighting is never a pattern');
+    if (row.archetype) {
+      assert.ok(contractFor(row.archetype), `${row.archetype} is not an archetype`);
+      continue;
+    }
+    // A row with no archetype resolves the matched word through the aliases.
+    for (const word of row.matches) {
+      assert.ok(contractFor(word), `${word} resolves to no archetype`);
+    }
+  }
+});
+
+test('the tables are read from the file, not restated in code', () => {
+  const text = fs.readFileSync(CONTRACT_FILE, 'utf8');
+  for (const marker of ['<!-- basal:trace -->', '<!-- basal:candidates -->']) {
+    assert.ok(text.includes(marker), `refs/create.md is missing ${marker}`);
+  }
 });

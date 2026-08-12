@@ -1,0 +1,49 @@
+{
+  "eval": "create-image-trace",
+  "rubric": "evals/rubrics/create-image-trace.md",
+  "milestone": "M5",
+  "planSections": ["§3.1", "§8.5"],
+  "threshold": 0.95,
+  "status": "runnable — `npm run evals`",
+  "groundTruth": "evals/fixtures/images/ground-truth.json",
+  "recordingPrompt": "Trace the image at the path below into a component spec. Measure only what the image actually shows and give every measurement a confidence between 0 and 1. Anything you cannot see, leave out or list under \"unmeasurable\" — do not supply a plausible value for it.",
+  "cases": [
+    {
+      "id": "button-primary",
+      "image": "evals/fixtures/images/button-primary.png",
+      "trace": "evals/fixtures/traces/button-primary.json",
+      "archetype": "button",
+      "expectMeasured": [
+        "background",
+        "text-colour",
+        "border-colour",
+        "radius",
+        "padding-top",
+        "padding-bottom",
+        "padding-left",
+        "padding-right"
+      ],
+      "expectQuestions": ["border-width", "font-weight", "shadow"],
+      "expectRefused": ["hover-background"],
+      "note": "The border width and the font weight came back under their confidence bars, and a hover colour is not something a still image can show."
+    },
+    {
+      "id": "badge-info",
+      "image": "evals/fixtures/images/badge-info.png",
+      "trace": "evals/fixtures/traces/badge-info.json",
+      "archetype": "badge",
+      "expectMeasured": [
+        "background",
+        "text-colour",
+        "radius",
+        "padding-top",
+        "padding-bottom",
+        "padding-left",
+        "padding-right"
+      ],
+      "expectQuestions": ["border-colour", "font-size", "shadow"],
+      "expectRefused": ["elevation"],
+      "note": "A pale one-pixel stroke and a font size inferred from a label block are both readings, not facts."
+    }
+  ]
+}

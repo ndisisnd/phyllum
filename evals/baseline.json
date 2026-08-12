@@ -1,7 +1,7 @@
 {
   "recordedAt": "2026-08-12",
   "basalVersion": "0.1.0",
-  "milestone": "M3",
+  "milestone": "M5",
   "note": "Scores recorded by `node evals/run-evals.js --record`. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why.",
   "evals": {
     "create-prose-extraction": {
@@ -38,6 +38,20 @@
       "threshold": 1,
       "points": 8,
       "max": 8
+    },
+    "create-image-trace": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 0.95,
+      "points": 50,
+      "max": 50
+    },
+    "create-pick-candidates": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 11,
+      "max": 11
     },
     "tokenise-clustering": {
       "responder": "deterministic",

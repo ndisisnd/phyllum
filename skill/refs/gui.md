@@ -57,9 +57,10 @@ Queue entries are appended to `state.queue` and look like:
 
 An upload writes the file to `.basal/uploads/<date>-<name><ext>` — the filename
 is sanitised to a basename with a known image extension, so nothing can escape
-the directory — and enqueues `{ "kind": "create-image", "file": "…" }`. M4 ships
-the plumbing; the tracing that turns that file into a spec lands in M5, which is
-when the `create` loop starts draining the queue.
+the directory — and enqueues `{ "kind": "create-image", "file": "…" }`. M4
+shipped the plumbing; since M5 the queue is drained: a bare `basal create` takes
+the oldest pending `create-image` entry, removes it from the queue, and runs
+image mode on that file exactly as if the path had been typed in the terminal.
 
 ## The parse contract — one parser, decided
 

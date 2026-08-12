@@ -157,3 +157,34 @@ test('every eval fixture codebase referenced by a prompt exists', () => {
     assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, testCase.fixture)), `missing ${testCase.fixture}`);
   }
 });
+
+test('the M5 eval assets exist, and the ground truth is the images themselves', () => {
+  for (const rel of [
+    'evals/fixtures/images/make-images.js',
+    'evals/fixtures/images/ground-truth.json',
+    'evals/fixtures/codebases/repeated-jsx/src/Toolbar.jsx',
+  ]) {
+    assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, rel)), `missing ${rel}`);
+  }
+
+  const truth = JSON.parse(read('evals/fixtures/images/ground-truth.json')).images;
+  const spec = JSON.parse(read('evals/prompts/create-image-trace.json'));
+  for (const testCase of spec.cases) {
+    assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, testCase.image)), `missing ${testCase.image}`);
+    assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, testCase.trace)), `missing ${testCase.trace}`);
+    const known = truth[path.basename(testCase.image)];
+    assert.ok(known, `${testCase.image} has no ground truth`);
+    for (const property of testCase.expectMeasured) {
+      assert.ok(known.properties[property], `${testCase.id}: no ground truth for ${property}`);
+    }
+  }
+
+  const picks = JSON.parse(read('evals/prompts/create-pick-candidates.json'));
+  for (const testCase of picks.cases) {
+    assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, testCase.fixture)), `missing ${testCase.fixture}`);
+    assert.ok(
+      fs.existsSync(path.join(PACKAGE_ROOT, testCase.designSystem)),
+      `missing ${testCase.designSystem}`,
+    );
+  }
+});

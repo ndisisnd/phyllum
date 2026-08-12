@@ -23,6 +23,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { contractFor, traceRuleFor } from '../lib/archetypes.js';
+import { scanCandidates } from '../lib/candidates.js';
 import {
   extractDraft,
   gapsFor,
@@ -30,6 +32,7 @@ import {
   tokenNamesOf,
 } from '../lib/create.js';
 import { emptyModel, parse } from '../lib/design-system.js';
+import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
 import { proposeTokens, scanCodebase } from '../lib/tokenise.js';
 
 export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -236,6 +239,167 @@ function valuesAreFree(responder) {
 }
 
 // ---------------------------------------------------------------------------
+// create — image mode (plan §3.1 Mode B, §8.5)
+// ---------------------------------------------------------------------------
+
+/**
+ * The trace result for one case. `deterministic` reads the pinned trace fixture
+ * — a plausible reply in the documented shape, committed so the grading is
+ * reproducible without a model. `recorded` reads a real `claude` trace of the
+ * same image; a missing one is reported as missing.
+ */
+function traceFor(evalId, testCase, responder) {
+  if (responder === 'recorded') {
+    const recording = readRecording(evalId, testCase.id);
+    return recording ? recording.trace ?? null : null;
+  }
+  return readJson(testCase.trace);
+}
+
+/**
+ * Image mode: measured within tolerance, unsure becomes a question, and nothing
+ * an image cannot show ever becomes a value.
+ */
+function imageTrace(responder) {
+  const spec = readJson('evals/prompts/create-image-trace.json');
+  const truthFile = readJson(spec.groundTruth);
+  let points = 0;
+  let max = 0;
+  const failures = [];
+  const unrecorded = [];
+
+  for (const testCase of spec.cases) {
+    const result = traceFor(spec.eval, testCase, responder);
+    if (!result) {
+      unrecorded.push(testCase.id);
+      continue;
+    }
+
+    const { draft, questions, refused } = ingestTrace(result, { file: testCase.image });
+    const truth = truthFile.images[path.basename(testCase.image)].properties;
+    const measured = new Map(draft.properties.map((property) => [property.key, property.value]));
+    const asked = new Set(questions.map((question) => question.property));
+    const dropped = new Set(refused.map((item) => item.property));
+
+    // Measurements that cleared their bar are in the draft, and are true.
+    for (const property of testCase.expectMeasured) {
+      max += 2;
+      if (!measured.has(property)) {
+        failures.push(`${testCase.id}: ${property} was measured but is not in the draft`);
+        continue;
+      }
+      points += 1;
+      const rule = traceRuleFor(property);
+      if (withinTolerance(rule, measured.get(property), truth[property])) points += 1;
+      else {
+        failures.push(
+          `${testCase.id}: ${property} traced ${measured.get(property)}, ground truth ${truth[property]} — outside ${rule?.tolerance}`,
+        );
+      }
+    }
+
+    // Everything unsure or unseeable is a question, and is not a value.
+    for (const property of testCase.expectQuestions) {
+      max += 2;
+      if (asked.has(property)) points += 1;
+      else failures.push(`${testCase.id}: ${property} should have become a follow-up question`);
+      if (!measured.has(property)) points += 1;
+      else failures.push(`${testCase.id}: ${property} was recorded as ${measured.get(property)} despite being unsure`);
+    }
+
+    // A claim about something a still image cannot show is refused outright.
+    for (const property of testCase.expectRefused ?? []) {
+      max += 2;
+      if (dropped.has(property)) points += 1;
+      else failures.push(`${testCase.id}: the claim about ${property} should have been refused`);
+      if (!measured.has(property)) points += 1;
+      else failures.push(`${testCase.id}: ${property} reached the draft, and an image cannot show it`);
+    }
+
+    // Nothing in the draft that the trace did not measure.
+    const claimed = new Set(
+      (result.measurements ?? []).map((measurement) => String(measurement?.property ?? '')),
+    );
+    max += 1;
+    const invented = [...measured.keys()].filter((property) => !claimed.has(property));
+    if (invented.length === 0) points += 1;
+    else failures.push(`${testCase.id}: ${invented.join(', ')} appear in the draft but were never measured`);
+
+    // States are never traced from a still image; they are always asked about.
+    const contract = contractFor(testCase.archetype);
+    const gapSlots = new Set(
+      mergeTraceGaps(questions, gapsFor(draft, { model: null })).map((gap) => gap.slot),
+    );
+    max += 1;
+    const missedStates = (contract?.states ?? []).filter((state) => !gapSlots.has(state));
+    if (missedStates.length === 0 && draft.states.length === 0) points += 1;
+    else {
+      failures.push(
+        `${testCase.id}: states ${missedStates.join(', ') || '(recorded from the image)'} were not left as questions`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded, threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
+// create — pick mode (plan §3.1 Mode C, §8.5)
+// ---------------------------------------------------------------------------
+
+const candidateCache = new Map();
+
+function candidatesFor(testCase) {
+  const key = `${testCase.fixture}|${testCase.designSystem}`;
+  if (!candidateCache.has(key)) {
+    const model = parse(readText(testCase.designSystem));
+    candidateCache.set(key, scanCandidates(path.join(PACKAGE_ROOT, testCase.fixture), model));
+  }
+  return candidateCache.get(key);
+}
+
+/** Pick mode: the repeated pattern shows up, and nothing else sneaks in. */
+function pickCandidates() {
+  const spec = readJson('evals/prompts/create-pick-candidates.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  for (const testCase of spec.cases) {
+    const candidates = candidatesFor(testCase);
+    const found = candidates.find((candidate) => candidate.signature === testCase.signature);
+
+    if (testCase.expect === 'absent') {
+      max += 1;
+      if (!found) points += 1;
+      else failures.push(`${testCase.id}: ${testCase.signature} was proposed and should not have been`);
+      continue;
+    }
+
+    max += 1;
+    if (!found) {
+      failures.push(`${testCase.id}: ${testCase.signature} is not in the candidate list`);
+      continue;
+    }
+    points += 1;
+
+    max += 1;
+    if (found.name === testCase.name) points += 1;
+    else failures.push(`${testCase.id}: named ${found.name}, expected ${testCase.name}`);
+
+    max += 1;
+    if (found.archetype === testCase.archetype) points += 1;
+    else failures.push(`${testCase.id}: archetype ${found.archetype}, expected ${testCase.archetype}`);
+
+    max += 1;
+    if (found.count >= testCase.minCount) points += 1;
+    else failures.push(`${testCase.id}: counted ${found.count}×, expected at least ${testCase.minCount}×`);
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
 // tokenise (plan §4, §8.5)
 // ---------------------------------------------------------------------------
 
@@ -358,6 +522,8 @@ export const EVALS = [
   { id: 'create-token-first', modelDependent: false, run: tokenFirst },
   { id: 'create-extrapolation', modelDependent: false, run: extrapolation },
   { id: 'create-values-free', modelDependent: true, run: valuesAreFree },
+  { id: 'create-image-trace', modelDependent: true, run: imageTrace },
+  { id: 'create-pick-candidates', modelDependent: false, run: pickCandidates },
   { id: 'tokenise-clustering', modelDependent: false, run: clustering },
   { id: 'tokenise-naming', modelDependent: true, run: naming },
 ];
