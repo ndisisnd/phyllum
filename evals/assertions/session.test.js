@@ -177,6 +177,67 @@ test('the session runs the whole assess flow: the map, the review, acceptance', 
   });
 });
 
+/** The same two-value codebase the assess flow above counts its questions on. */
+function tinyCodebase(dir) {
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'app.css'), '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n');
+  fs.writeFileSync(
+    path.join(dir, 'DESIGN-SYSTEM.md'),
+    readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
+  );
+}
+
+test('the session runs `assess tokens` as the token review and nothing else', async () => {
+  await withTempDir(async (dir) => {
+    tinyCodebase(dir);
+    const out = await session(dir, ['assess tokens', 'y', 'y', 'y', 'exit']);
+
+    assert.ok(out.includes('Name #16A34A as `color-primary`?'), 'the review is the same one');
+    assert.ok(out.includes('Wrote 2 tokens to DESIGN-SYSTEM.md'));
+    assert.ok(!out.includes('\nComponents\n'), 'and the component track was never opened');
+  });
+});
+
+test('the session runs `assess components` as the picker, and a skip ends it', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(path.join(FIXTURES, 'codebases', 'repeated-jsx'), dir);
+    fs.writeFileSync(
+      path.join(dir, 'DESIGN-SYSTEM.md'),
+      readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
+    );
+    const before = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+
+    const out = await session(dir, ['assess components', 'skip', 'exit']);
+
+    assert.ok(out.includes('Record one of these as a component?'), 'the picker is the conversation');
+    assert.ok(out.includes('None recorded this run'), 'and a skip stops the loop rather than asking again');
+    assert.ok(!out.includes('Name #'), 'the token review was never opened');
+    assert.equal(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8'), before, 'nothing written');
+  });
+});
+
+test('the session runs `assess update` without asking the session anything', async () => {
+  await withTempDir(async (dir) => {
+    tinyCodebase(dir);
+    // One line in, one report out: no answers supplied, and none needed.
+    const out = await session(dir, ['assess update', 'exit']);
+
+    assert.ok(out.includes('`assess update` answered step 5 for you'));
+    assert.ok(out.includes('Wrote 2 tokens to DESIGN-SYSTEM.md'));
+    assert.ok(!out.includes('Name #16A34A as'), 'the per-item review was skipped, not answered by the terminal');
+    assert.ok(!out.includes('Write 2 tokens to DESIGN-SYSTEM.md?'), 'and so was the gate');
+
+    const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(file.includes('| color-primary | #16A34A |'), 'under the name the map proposed');
+    assert.ok(file.includes('| space-md | 20px | spacing |'));
+    assert.equal(
+      fs.readFileSync(path.join(dir, 'src', 'app.css'), 'utf8'),
+      '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n',
+      'and the codebase it read is byte for byte what it was',
+    );
+  });
+});
+
 test('declining in the session leaves the file untouched', async () => {
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));

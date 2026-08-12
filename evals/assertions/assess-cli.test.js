@@ -18,7 +18,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { ASSESS_SCOPES, isAssessScope } from '../../lib/assess-command.js';
+import { ASSESS_SCOPES, autoAnswer, isAssessScope } from '../../lib/assess-command.js';
+import { parse } from '../../lib/design-system.js';
 import { execute } from '../../lib/execute.js';
 import { tokenizeLine } from '../../lib/parse-args.js';
 import { resolveCommand } from '../../lib/registry.js';
@@ -198,18 +199,184 @@ test('the three words after assess are reserved, and named where the code can re
   assert.ok(!isAssessScope('all'), '`all` is `system` and `gui`’s word, not this one');
 });
 
-test('a reserved scope word says what it will do and which milestone it lands in', async () => {
+test('every mode runs the same scan and the same report before it branches', async () => {
   await withProject(async (dir) => {
+    const bare = await run('assess', dir);
     for (const scope of ASSESS_SCOPES) {
-      const before = snapshotContents(dir);
       const { out, code } = await run(`assess ${scope}`, dir);
       assert.equal(code, 0);
-      assert.ok(out.includes(`\`assess ${scope}\``), `${scope} is echoed back as a mode`);
-      assert.ok(out.includes('chained mode'));
-      assert.ok(out.includes('M5'), 'and the report says when it arrives');
-      assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, [], 'and writes nothing');
+      assert.ok(out.includes('Step 3 — what your codebase uses'), `assess ${scope} still reports the scan`);
+      assert.ok(out.includes('Step 4 — the map'), `assess ${scope} still shows the map`);
+      assert.ok(out.includes('#2563EB'), 'off the same inventory the bare command reports');
+      assert.ok(bare.out.includes('#2563EB'));
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// The chained modes (plan §5.2)
+// ---------------------------------------------------------------------------
+
+test('assess tokens walks the token track and never opens the component picker', async () => {
+  await withProject(
+    async (dir) => {
+      const { out, code } = await run('assess tokens', dir, { env: {} });
+      assert.equal(code, 0);
+      assert.ok(out.includes('\nTokens\n'), 'the token track ran');
+      assert.ok(!out.includes('\nComponents\n'), 'and the component track did not');
+    },
+    EMPTY_FIXTURE,
+    path.join(FIXTURES, 'codebases', 'repeated-jsx'),
+  );
+});
+
+test('assess components walks the component track and never opens the token review', async () => {
+  await withProject(
+    async (dir) => {
+      const { out, code } = await run('assess components', dir, { env: {} });
+      assert.equal(code, 0);
+      assert.ok(out.includes('\nComponents\n'), 'the component track ran');
+      assert.ok(!out.includes('\nTokens\n'), 'and the token track did not');
+      assert.ok(out.includes('your design system has never been told about'));
+    },
+    EMPTY_FIXTURE,
+    path.join(FIXTURES, 'codebases', 'repeated-jsx'),
+  );
+});
+
+test('assess components loops one candidate at a time, each with its own consent', async () => {
+  await withProject(
+    async (dir) => {
+      // Two candidates recorded, then a skip. The skip is the exit: a fast-forward
+      // that kept asking after "no" would not be a consent gate at all.
+      let picks = 0;
+      const { out } = await run('assess components', dir, {
+        today: '2026-08-13',
+        ask: async (question) => {
+          if (!question.includes('Record one of these as a component?')) return 'skip';
+          picks += 1;
+          return picks <= 2 ? '1' : 'skip';
+        },
+        confirm: async () => true,
+      });
+
+      assert.equal(picks, 3, 'asked again after each recording, and once more to be told to stop');
+      const recorded = parse(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8')).components;
+      assert.equal(recorded.length, 2, 'two components recorded in one looped run');
+      assert.ok(out.includes('None recorded this run'), 'and the loop closes on the skip rather than looping on');
+    },
+    EMPTY_FIXTURE,
+    path.join(FIXTURES, 'codebases', 'repeated-jsx'),
+  );
+});
+
+test('bare assess records one component per run, however many patterns it found', async () => {
+  await withProject(
+    async (dir) => {
+      let picks = 0;
+      await run('assess', dir, {
+        today: '2026-08-13',
+        ask: async (question) => {
+          if (question.includes('Record one of these as a component?')) picks += 1;
+          return question.includes('Record one of these as a component?') ? '1' : 'skip';
+        },
+        confirm: async () => true,
+      });
+      assert.equal(picks, 1, 'a full assessment is not five queued create conversations');
+      assert.equal(parse(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8')).components.length, 1);
+    },
+    EMPTY_FIXTURE,
+    path.join(FIXTURES, 'codebases', 'repeated-jsx'),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// `assess update` — the fast-forward, and the two limits on it
+// ---------------------------------------------------------------------------
+
+test('assess update accepts the proposed tokens with nobody to ask', async () => {
+  await withProject(async (dir) => {
+    // No `ask`, no `confirm`, no model, no network: the names in the map were
+    // derived mechanically, so accepting them needs none of that.
+    const { out, code } = await run('assess update', dir, { env: {} });
+    assert.equal(code, 0);
+    assert.ok(out.includes('`assess update` answered step 5 for you'));
+    assert.ok(/Wrote \d+ tokens? to DESIGN-SYSTEM.md/.test(out));
+    const tokens = parse(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8')).tokens;
+    assert.ok(tokens.colours.length > 0, 'and the accepted tokens really are in the file');
+  }, EMPTY_FIXTURE);
+});
+
+test('assess update writes DESIGN-SYSTEM.md and not one other byte', async () => {
+  await withProject(async (dir) => {
+    const before = snapshotContents(dir);
+    await run('assess update', dir, { env: {} });
+    const diff = diffSnapshots(before, snapshotContents(dir));
+    assert.deepEqual(diff.added, [], 'no new files, not even a report');
+    assert.deepEqual(diff.removed, []);
+    assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'the design system file is the only thing it may touch');
+  }, EMPTY_FIXTURE);
+});
+
+test('assess update leaves a value whose role it could not read unnamed', async () => {
+  await withProject(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'tokens.go'), 'package ui\n\nconst Gutter = "18px"\nconst Tint = "#7C3AED"\n');
+    const { out } = await run('assess update', dir, { env: {} });
+
+    assert.ok(out.includes('seen but not read'), 'the bucket is reported');
+    assert.ok(out.includes('does not guess'), 'and the refusal is stated rather than implied');
+    const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(!file.includes('18px'), 'a length with an unknown role is not written on a guess');
+    assert.ok(!file.includes('#7C3AED'), 'and neither is a colour on a property no table names');
+  }, EMPTY_FIXTURE);
+});
+
+test('assess update records no component, and says which patterns it left', async () => {
+  await withProject(
+    async (dir) => {
+      const { out } = await run('assess update', dir, { env: {} });
+      assert.ok(out.includes('Skipped — recording a component'), 'the skip is named, with its reason');
+      assert.ok(out.includes('your design system has never been told about'), 'and the patterns stay on the page');
+      assert.equal(
+        parse(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8')).components.length,
+        0,
+        'no component was recorded without its contract being answered',
+      );
+    },
+    EMPTY_FIXTURE,
+    path.join(FIXTURES, 'codebases', 'repeated-jsx'),
+  );
+});
+
+test('the auto-answer declines every question it does not recognise', () => {
+  // The token review is the one shape it accepts. Everything else — a role, a
+  // component pick, a question some later flow adds — is declined by default, so
+  // no new conversation can be auto-accepted into by accident.
+  assert.equal(autoAnswer([{ action: 'confirm' }, { action: 'skip' }]), 'y');
+  assert.equal(autoAnswer([{ action: 'role' }, { action: 'role' }]), 'skip');
+  assert.equal(autoAnswer([{ source: 'candidate', value: 'Card/Default' }]), 'skip');
+  assert.equal(autoAnswer([{ action: 'confirm' }]), 'skip', 'confirm alone is the unread-colour question');
+  assert.equal(autoAnswer([]), 'skip');
+  assert.equal(autoAnswer(), 'skip');
+});
+
+test('assess update overrides the caller’s answers rather than asking them', async () => {
+  await withProject(async (dir) => {
+    let asked = 0;
+    await run('assess update', dir, {
+      env: {},
+      ask: async () => {
+        asked += 1;
+        return 'skip';
+      },
+      confirm: async () => {
+        asked += 1;
+        return false;
+      },
+    });
+    assert.equal(asked, 0, 'the whole point of the mode is that you are not asked');
+    assert.ok(parse(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8')).tokens.colours.length > 0);
+  }, EMPTY_FIXTURE);
 });
 
 test('a word that is not a scope gets the valid ones rather than an error', async () => {

@@ -126,6 +126,13 @@ read-only: nothing in your codebase is written, renamed or created. Run it again
 and anything your design system already names is reported as covered rather than
 proposed again, so a rerun shows only what has drifted.
 
+Three chained modes narrow the same scan. `assess tokens` walks the token suggestions
+only; `assess components` walks the component suggestions only, one candidate at a time
+with its own yes-or-no each; `assess update` skips the per-item review altogether and
+accepts every proposed token under the name it showed you. `assess update` still refuses
+to guess: a value it could see but not read stays unnamed, a component is never recorded
+without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
+
 `tokenise` names one value from one sentence: `phyllum tokenise "our brand blue #2563EB"`.
 If the sentence names the token, that name is used; if not, Phyllum suggests one from the
 naming scales and confirms it with you. It does not read your code — that's `assess`.

@@ -276,9 +276,55 @@ pattern is evidence for the follow-up loop to offer, not a fact about the
 component. From the pick onwards it is `create`'s own machinery — the contract's
 questions, the spec and code review, its own acceptance gate.
 
-One component per run, deliberately. Recording a component is a conversation of
-its own, and five of them queued behind one another is not a review. The patterns
-not recorded are named in the report, and the next run picks up where you left off.
+One component per run in the **full** assessment, deliberately. Recording a
+component is a conversation of its own, and five of them queued behind one another
+is not a review — an assessment that turned into five `create` sessions would stop
+being an assessment. The patterns not recorded are named in the report, and the
+next run picks up where you left off. The focused `assess components` mode is the
+exception, and the reason is consent: you asked for components specifically, so it
+loops (below).
+
+## Chained modes
+
+Four commands, one scan. The scan, the clustering and the map are identical in all
+four — the modes differ only in which tracks are walked and in who answers.
+
+| Command | Tracks walked | Who answers |
+|---------|---------------|-------------|
+| `assess` | tokens, then components — **one** component recorded | you |
+| `assess tokens` | the token review only | you |
+| `assess components` | the component picks only, **looped** | you, once per candidate |
+| `assess update` | tokens, then components | Phyllum, where the answer is already on the page |
+
+`tokens`, `components` and `update` are reserved words in argument position after
+`assess`. Any other word gets the list of valid ones rather than an error.
+
+**`assess components` loops.** One candidate at a time, most-repeated first, each
+with its own pick and its own acceptance gate. After each recording it asks about
+the next. A skip, an empty answer, or an answer that matches nothing on the list
+ends the run cleanly — nothing further is asked and nothing further is written.
+Twenty components in one sitting is the cap; anything past it is named as left for
+the next run.
+
+**`assess update` fast-forwards on one rule:** a question whose answer is already
+on the page is answered; a question whose answer is only in your head is skipped.
+
+| Question | `assess update` | Why |
+|----------|-----------------|-----|
+| "Name `#2563EB` as `color-primary`?" | **accepted**, under the proposed name | the name was derived mechanically from the value and the naming scales — a review would add nothing to it |
+| the one write to `DESIGN-SYSTEM.md` | **accepted**, once | the mode *is* that consent, given on the command line |
+| "What does `18px` apply to?" (role unknown) | **skipped**, value left unnamed | the role is not in the codebase; guessing one is how a corner radius becomes a padding |
+| "Record one of these as a component?" | **skipped**, patterns left in the report | the contract's questions have answers only you have, and unanswered slots would be written as TODOs nobody asked for |
+
+Anything unrecognised is skipped, never accepted. That default is the safety
+property worth stating: a question added by some later flow can only ever be
+declined by the fast-forward, so no new conversation can be auto-accepted into by
+accident.
+
+So `assess update`'s output is exactly this: new token rows in `DESIGN-SYSTEM.md`,
+under the names the map showed, and a report naming what it declined to answer.
+It writes `DESIGN-SYSTEM.md` and nothing else — no components, no codebase files,
+not one other byte.
 
 ## Rerunnable
 
@@ -303,7 +349,8 @@ nothing, and a codebase that has drifted since proposes exactly what drifted.
   read files it skipped.
 - **Guess a role.** A value it could see but could not read is a question. Skip
   the question and the value stays unnamed — that is the correct outcome, not a
-  failure.
+  failure. This holds in `assess update` too: a fast-forward answers the questions
+  whose answers are already on the page, and declines the rest.
 - **Seed a component with a scanned value.** A candidate is a name and an
   archetype; every value still comes from you.
 - **Need a model to be useful.** The scan, the map and the proposed names are

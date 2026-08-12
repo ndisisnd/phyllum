@@ -200,5 +200,20 @@ name and an archetype and never a value. The fourth bucket is where `assess`
 refuses to guess — a value whose property it could not read is asked about, and an
 unanswered question leaves the value unnamed. `refs/assess.md` is the contract.
 
+v0.2.0 M5 wires `assess`'s **chained modes** — one scan, read four ways, with no
+second implementation of the review behind any of them. `assess tokens` walks the
+token review alone; `assess components` walks the component picks alone and
+**loops** through the candidates one at a time, each with its own consent, ending
+the moment you skip; bare `assess` still records one component per run, because an
+assessment that turned into five queued `create` conversations would stop being an
+assessment. `assess update` is the fast-forward, and it fast-forwards on one rule:
+a question whose answer is already on the page is answered, and a question whose
+answer is only in your head is skipped. So every proposed token is accepted under
+the name the map showed and written in one go, while a value whose role Phyllum
+could not read and a component pick are both declined and reported as declined.
+Anything unrecognised is declined too, which is what stops a later flow being
+auto-accepted into by accident. `assess update` writes `DESIGN-SYSTEM.md` and
+nothing else; the codebase remains `apply`'s alone to write.
+
 Commands that are not built yet are registered and documented, and say so when
 invoked.
