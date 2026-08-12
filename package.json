@@ -3,7 +3,15 @@
   "version": "0.1.0",
   "description": "Design system companion — turns prose, images, or your codebase into tokens and components, recorded in DESIGN-SYSTEM.md",
   "type": "module",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ndisisnd/phyllum.git"
+  },
+  "homepage": "https://github.com/ndisisnd/phyllum#readme",
+  "bugs": {
+    "url": "https://github.com/ndisisnd/phyllum/issues"
+  },
   "bin": {
     "phyllum": "bin/phyllum.js"
   },

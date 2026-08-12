@@ -1,0 +1,29 @@
+# Phyllum
+
+> A design system companion that turns prose, images, or the styles already in a codebase into named tokens and components, all recorded in one file.
+
+Phyllum writes exactly one file in a user's codebase: `DESIGN-SYSTEM.md`. Every command is
+rerunnable and converges — re-tokenising doesn't duplicate tokens, re-creating a component
+opens a revision. Mechanical commands run in pure Node; the intelligent ones (`create`,
+`tokenise`) run natively inside a Claude Code session or shell out to the `claude` CLI.
+These paths are repo-relative; this repo has no published remote yet.
+
+## Docs
+
+- [README](README.md): what Phyllum is, how to install it, how it works
+- [Skill definition](skill/SKILL.md): the router — commands, the file format, the two rules that outrank being helpful. Start here to change behaviour.
+- [CLI entry point](bin/phyllum.js): argument parsing and the single call into execute; the terminal surface
+- [File template](templates/DESIGN-SYSTEM.md): the canonical DESIGN-SYSTEM.md skeleton every install scaffolds
+
+## Reference
+
+- [create](skill/refs/create.md): the three modes (prose, image, pick), archetype contracts, the follow-up loop, acceptance and the write step
+- [tokenise](skill/refs/tokenise.md): the read-only scan, three passes, clustering before naming, the review loop, the diff on rerun
+- [init](skill/refs/init.md): the guided setup walkthrough — scaffold, skill install, optional seeding
+- [gui](skill/refs/gui.md): the localhost server contract and the three-view dashboard
+- [system](skill/refs/system.md): the terminal listing format
+
+## Optional
+
+- [License](LICENSE.md): Apache-2.0
+- [Security policy](SECURITY.md): how to report a vulnerability, and what Phyllum actually touches
