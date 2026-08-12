@@ -110,7 +110,7 @@ test('the session runs the whole create loop: questions, answer, acceptance', as
   });
 });
 
-test('the session runs the whole tokenise review: proposals, answers, acceptance', async () => {
+test('the session runs the whole tokenise flow: the sentence, the name, acceptance', async () => {
   await withTempDir(async (dir) => {
     copyDir(path.join(FIXTURES, 'codebases', 'tokenise-mixed'), dir);
     fs.writeFileSync(
@@ -118,21 +118,21 @@ test('the session runs the whole tokenise review: proposals, answers, acceptance
       readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
     );
 
-    // The review comes most-used first: the brand blue, then the radius, then
-    // the white. Confirm the first, skip the second, rename the third, skip the
-    // rest — then accept the write.
-    // One answer per proposal — the fixture has thirteen — then the acceptance.
-    const answers = ['y', 'skip', 'color-page', ...Array.from({ length: 10 }, () => 'skip')];
-    const out = await session(dir, ['tokenise', ...answers, 'y', 'exit']);
+    // Two runs, because `tokenise` names one value per run: confirm the name it
+    // suggests for the blue, then rename the one it suggests for the white.
+    const out = await session(dir, [
+      'tokenise "our brand blue #2563EB"',
+      'y',
+      'y',
+      'tokenise "the page background #FFFFFF"',
+      'color-page',
+      'y',
+      'exit',
+    ]);
 
-    assert.ok(out.includes('read-only'), 'the session says the scan wrote nothing');
-    assert.ok(
-      out.includes('13 values worth naming'),
-      'one answer per proposal above — if the fixture changes, so does this line',
-    );
-    assert.ok(out.includes('Name #2563EB as `color-primary`?'), 'one proposal at a time');
-    assert.ok(out.includes('merging #2564EC ×2'), 'and it shows what it is merging');
-    assert.ok(out.includes('Write 2 tokens to DESIGN-SYSTEM.md?'));
+    assert.ok(out.includes('Read from "our brand blue #2563EB"'), 'it says what it read');
+    assert.ok(out.includes('Name #2563EB as `color-primary`?'), 'and confirms the name it chose');
+    assert.ok(out.includes('Write `color-primary` to DESIGN-SYSTEM.md?'));
 
     const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
     assert.ok(file.includes('| color-primary | #2563EB |'));

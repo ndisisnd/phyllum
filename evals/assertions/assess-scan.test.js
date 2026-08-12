@@ -1,11 +1,23 @@
 /**
- * Assertions for the scan, the clustering and the rerun diff (plan §4, §8.5).
+ * Assertions for the codebase scan, the clustering and the rerun diff.
  *
- * The promise this file exists to prove is the one the plan puts first: the
+ * **This is `assess`'s coverage, inherited from v0.1.0 `tokenise`** (v0.2.0 plan
+ * §5.3, §7). `tokenise` reads prose now; reading a codebase is `assess`'s job,
+ * so the checks that prove the scan works moved here with the behaviour rather
+ * than being deleted — coverage moves, it does not drop. The engine they drive
+ * (`lib/tokenise.js`) is unchanged and still under its v0.1.0 spec; `assess`
+ * takes it over in M3, and these tests are what it has to keep green.
+ *
+ * The promise this file exists to prove is the one both plans put first: the
  * scan is **read-only**. Every check that runs a scan diffs the whole directory
  * around it and demands that nothing at all changed — not one byte, not one new
  * file — because a tool that reads your codebase has to earn that trust before
  * it asks to write a single line.
+ *
+ * Still to be written when `assess` lands (M3–M5), because there is no command
+ * to drive yet: the aggregation table, the two suggestion tracks, the chained
+ * `assess tokens` / `assess components` / `assess update` modes, and
+ * `assess update`'s promise to touch DESIGN-SYSTEM.md and nothing else.
  */
 
 import assert from 'node:assert/strict';
@@ -13,8 +25,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { parse } from '../../lib/design-system.js';
+import { parse, render, validateStructure } from '../../lib/design-system.js';
+import { execute } from '../../lib/execute.js';
+import { tokenizeLine } from '../../lib/parse-args.js';
 import {
+  applyAcceptance,
   clusterSightings,
   deltaE,
   ladderNames,
@@ -267,4 +282,147 @@ test('clusterSightings groups by intent, and keeps the order it was given', () =
   assert.equal(clusters[0].count, 16, 'the merged blue outranks the white it beats');
   assert.equal(clusters[0].representative.value, '#2563EB');
   assert.deepEqual(clusters[0].files, ['a.css', 'b.css']);
+});
+
+// ---------------------------------------------------------------------------
+// Inherited from v0.1.0 `tokenise`'s write tests — the scan-driven half.
+//
+// These used to run through `runTokenise`, which scanned the codebase. It reads
+// prose now, so the same promises are asserted one level down, against the
+// engine `assess` will drive: what the scan proposes, what acceptance writes,
+// and what a rerun does. When `assess` exists these get a command to drive
+// again.
+// ---------------------------------------------------------------------------
+
+test('accepting scanned proposals writes token rows into the right sections', async () => {
+  await withCodebase(async (dir) => {
+    const model = parse(readFixture(POPULATED_FIXTURE));
+    const { proposals } = tokenise(dir, model);
+    const { written } = applyAcceptance(model, proposals);
+    assert.ok(written.length > 0, 'a codebase with raw values proposes something to write');
+
+    const rendered = render(model);
+    assert.ok(validateStructure(rendered).valid, 'the template contract still holds');
+    const reparsed = parse(rendered);
+
+    const colour = reparsed.tokens.colours.find((row) => row[0] === 'color-text');
+    assert.ok(colour, 'a colour goes in Colours');
+    assert.equal(colour[1], '#111827');
+    assert.ok(colour[2].includes('used'), 'the notes cell records the sightings');
+
+    const number = reparsed.tokens.numbers.find((row) => row[0] === 'space-md');
+    assert.ok(number, 'a number goes in Numbers');
+    assert.equal(number[1], '16px');
+    assert.equal(number[2], 'spacing', 'the applies-to cell records the role');
+
+    const type = reparsed.tokens.typography.find((row) => row[0] === 'highlight-large');
+    assert.ok(type, 'typography goes in Typography');
+    assert.deepEqual(type.slice(1), ['20px', '700', '1.2']);
+  });
+});
+
+test('a merged cluster is one row, with the members it folded in on the record', async () => {
+  await withCodebase(async (dir) => {
+    const model = emptySystem();
+    const { proposals } = tokenise(dir, model);
+    applyAcceptance(model, proposals);
+
+    const rows = model.tokens.colours.filter((row) => ['#2563EB', '#2564EC'].includes(row[1]));
+    assert.equal(rows.length, 1, 'one blue, one token');
+    assert.equal(rows[0][0], 'color-primary');
+    assert.ok(rows[0][2].includes('#2564EC'), 'the merged member is visible in the notes');
+  });
+});
+
+test('a scanned token clears the Backlog debt it pays off, and only that', async () => {
+  await withCodebase(async (dir) => {
+    const model = parse(readFixture(POPULATED_FIXTURE));
+    assert.ok(model.backlog.includes('TODO: tokenise `8px` (Button/Primary padding-bottom)'));
+
+    const { proposals } = tokenise(dir, model);
+    applyAcceptance(model, proposals);
+
+    assert.ok(
+      !model.backlog.includes('TODO: tokenise `8px` (Button/Primary padding-bottom)'),
+      'the debt this token pays off is gone',
+    );
+    assert.ok(
+      model.backlog.includes('TODO: fill contract slot `disabled` (Button/Primary)'),
+      'a skipped contract slot is a different debt, and stays until the slot is filled',
+    );
+
+    const spec = model.components.find((c) => c.name === 'Button/Primary').blocks[0].content;
+    assert.ok(spec.includes('padding-bottom: space-sm'), 'the raw value became the token');
+    assert.ok(spec.includes('background: color-primary'), 'a token reference is left alone');
+    assert.ok(
+      spec.includes('padding-top: 12px # TODO: tokenise'),
+      '12px is a radius in this codebase, so it never pays off a padding’s debt',
+    );
+  });
+});
+
+test('a rerun after acceptance proposes nothing, and one new colour proposes exactly one', async () => {
+  await withCodebase(async (dir) => {
+    const model = parse(readFixture(POPULATED_FIXTURE));
+    applyAcceptance(model, tokenise(dir, model).proposals);
+
+    assert.deepEqual(tokenise(dir, model).proposals, [], 'an unchanged rerun proposes nothing');
+
+    fs.writeFileSync(path.join(dir, 'src', 'new.css'), '.alert { color: #DC2626; }\n');
+    const { proposals } = tokenise(dir, model);
+    assert.equal(proposals.length, 1, 'only what is new is proposed');
+    assert.equal(proposals[0].value, '#DC2626');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `init`'s step 4 — the seed pass is a codebase scan, so it belongs here too
+// ---------------------------------------------------------------------------
+
+test('init offers a first pass over the codebase and reports what it found', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(MIXED, dir);
+    const { out, actions } = await execute(tokenizeLine('init'), {
+      cwd: dir,
+      yes: true,
+      today: '2026-08-12',
+    });
+
+    assert.ok(out.includes('Step 4 — seed the system'));
+    assert.ok(out.includes('read-only'));
+    assert.ok(out.includes('color-primary'), 'the most-used value leads the preview');
+    assert.ok(actions.some((action) => action.startsWith('tokenise-seed-')));
+  });
+});
+
+test('the seeded pass names nothing on the user’s behalf', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(MIXED, dir);
+    await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12' });
+
+    const model = parse(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8'));
+    assert.deepEqual(model.tokens.colours, [], 'a walkthrough that assumed yes must not name tokens');
+    assert.deepEqual(model.tokens.numbers, []);
+    assert.deepEqual(model.tokens.typography, []);
+  });
+});
+
+test('declining the seed skips it, and says how to run it later', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(MIXED, dir);
+    const { actions } = await execute(tokenizeLine('init'), {
+      cwd: dir,
+      yes: false,
+      confirm: async (question) => !question.includes('tokenise'),
+      today: '2026-08-12',
+    });
+    assert.ok(actions.includes('tokenise-seed-skipped'));
+  });
+});
+
+test('init on a project with no styles says so rather than showing an empty list', async () => {
+  await withTempDir(async (dir) => {
+    const { out } = await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12' });
+    assert.ok(out.includes('no colours, numbers or typography to name yet'));
+  });
 });
