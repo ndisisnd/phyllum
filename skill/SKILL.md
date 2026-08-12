@@ -62,7 +62,7 @@ and `gui`, and default to `all`.
 | Command | Reference |
 |---------|-----------|
 | `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
-| `tokenise` | `refs/tokenise.md` — clustering, naming scales, diff on rerun |
+| `tokenise` | `refs/tokenise.md` — what is scanned, the three passes, clustering, naming scales, the review loop, the diff on rerun |
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `system` | `refs/system.md` — listing format |
 | `init` | `refs/init.md` — the walkthrough, step by step |
@@ -119,8 +119,10 @@ font: record it exactly as given.
 ## Milestone status
 
 M1 shipped `menu`, `help`, `system` and `init` (scaffold plus skill install).
-M2 ships `create` in prose mode: draft spec, gap list from the archetype
+M2 shipped `create` in prose mode: draft spec, gap list from the archetype
 contract, follow-up loop, React + CSS code view, accept, write.
-`tokenise` lands in M3, and `gui` and `kill` in M4 — as do `create`'s image and
-pick modes. Commands that are not built yet are registered and documented, and
-say so when invoked.
+M3 ships `tokenise`: the read-only scan, the three passes, clustering before
+naming, the frequency-ranked review, the diff on rerun, and `init`'s step-4
+seeding — which offers the scan and never names anything on the user's behalf.
+`gui` and `kill` land in M4, as do `create`'s image and pick modes. Commands
+that are not built yet are registered and documented, and say so when invoked.

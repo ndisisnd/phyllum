@@ -72,7 +72,12 @@ test('committed model recordings are real runs, and are graded as they are', () 
       assert.ok(record.model, `${id}/${file} does not say which model produced it`);
       assert.match(record.recordedAt, /^\d{4}-\d{2}-\d{2}$/);
       assert.ok(record.how.includes('real'), `${id}/${file} must say how it was produced`);
-      assert.ok(Array.isArray(record.draft.properties));
+      // A `create` recording is a draft; a `tokenise` recording is a set of
+      // proposed names. Both are the model's own answer, committed verbatim.
+      assert.ok(
+        Array.isArray(record.draft?.properties) || Array.isArray(record.proposals),
+        `${id}/${file} holds neither a draft nor proposals`,
+      );
     }
   }
 

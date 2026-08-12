@@ -29,7 +29,8 @@ import {
   suggestionsFor,
   tokenNamesOf,
 } from '../lib/create.js';
-import { parse } from '../lib/design-system.js';
+import { emptyModel, parse } from '../lib/design-system.js';
+import { proposeTokens, scanCodebase } from '../lib/tokenise.js';
 
 export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = path.resolve(EVALS_DIR, '..');
@@ -234,12 +235,131 @@ function valuesAreFree(responder) {
   return { ...score(points, max), failures, unrecorded, threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// tokenise (plan §4, §8.5)
+// ---------------------------------------------------------------------------
+
+const scanCache = new Map();
+
+/** The proposals for a fixture codebase, against an empty system. */
+function proposalsForFixture(fixture) {
+  if (!scanCache.has(fixture)) {
+    const sightings = scanCodebase(path.join(PACKAGE_ROOT, fixture));
+    scanCache.set(fixture, proposeTokens(sightings, emptyModel()));
+  }
+  return scanCache.get(fixture);
+}
+
+const memberCount = (proposal, value) =>
+  proposal.members.find((member) => member.raw.toLowerCase() === String(value).toLowerCase())?.count ?? 0;
+
+/**
+ * Clustering: near-identical values become one proposal, and values that are
+ * genuinely different stay apart. The plan's own case — `#2563EB` ×14 beside
+ * `#2564EC` ×2 — has to come out as one token, not two.
+ */
+function clustering() {
+  const spec = readJson('evals/prompts/tokenise-clustering.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  for (const testCase of spec.cases) {
+    const proposals = proposalsForFixture(testCase.fixture).filter(
+      (proposal) => !testCase.pass || proposal.pass === testCase.pass,
+    );
+    const covering = proposals.filter((proposal) =>
+      testCase.values.some((value) => memberCount(proposal, value) > 0),
+    );
+
+    max += 1;
+    if (covering.length === testCase.expectedProposals) points += 1;
+    else {
+      failures.push(
+        `${testCase.id}: ${covering.length} proposal(s) cover ${testCase.values.join(' / ')}, expected ${testCase.expectedProposals}`,
+      );
+    }
+
+    if (testCase.expectedProposals !== 1 || covering.length !== 1) continue;
+    const [proposal] = covering;
+
+    max += 1;
+    if (proposal.value === testCase.representative) points += 1;
+    else {
+      failures.push(
+        `${testCase.id}: the cluster is represented by ${proposal.value}, expected the most-used ${testCase.representative}`,
+      );
+    }
+
+    for (const [value, count] of Object.entries(testCase.counts ?? {})) {
+      max += 1;
+      if (memberCount(proposal, value) === count) points += 1;
+      else failures.push(`${testCase.id}: ${value} counted ${memberCount(proposal, value)}×, expected ${count}×`);
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+/** The proposed name for one pinned cluster, from Basal or from a recording. */
+function nameFor(evalId, testCase, responder) {
+  if (responder === 'recorded') {
+    const recording = readRecording(evalId, testCase.id);
+    if (!recording) return null;
+    const found = (recording.proposals ?? []).find(
+      (proposal) => String(proposal.value).toLowerCase() === testCase.value.toLowerCase(),
+    );
+    return found ? found.name : null;
+  }
+  const proposal = proposalsForFixture(testCase.fixture).find(
+    (candidate) => candidate.value.toLowerCase() === testCase.value.toLowerCase(),
+  );
+  return proposal ? proposal.name : null;
+}
+
+/**
+ * Naming: would a designer recognise the name? Two claims per case, because
+ * they fail differently — a name can be on the documented scale and still be
+ * the wrong rung, and a name off the scale is wrong however apt it sounds.
+ */
+function naming(responder) {
+  const spec = readJson('evals/prompts/tokenise-naming.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+  const unrecorded = [];
+
+  for (const testCase of spec.cases) {
+    const name = nameFor(spec.eval, testCase, responder);
+    if (name === null) {
+      if (responder === 'recorded') unrecorded.push(testCase.id);
+      else {
+        max += 2;
+        failures.push(`${testCase.id}: nothing was proposed for ${testCase.value}`);
+      }
+      continue;
+    }
+
+    max += 1;
+    if (new RegExp(testCase.pattern).test(name)) points += 1;
+    else failures.push(`${testCase.id}: "${name}" is not on the ${testCase.scale} scale`);
+
+    max += 1;
+    if (testCase.accepted.includes(name)) points += 1;
+    else failures.push(`${testCase.id}: "${name}" is not one of ${testCase.accepted.join(', ')}`);
+  }
+
+  return { ...score(points, max), failures, unrecorded, threshold: spec.threshold };
+}
+
 export const EVALS = [
   { id: 'create-prose-extraction', modelDependent: true, run: proseExtraction },
   { id: 'create-anti-fabrication', modelDependent: true, run: antiFabrication },
   { id: 'create-token-first', modelDependent: false, run: tokenFirst },
   { id: 'create-extrapolation', modelDependent: false, run: extrapolation },
   { id: 'create-values-free', modelDependent: true, run: valuesAreFree },
+  { id: 'tokenise-clustering', modelDependent: false, run: clustering },
+  { id: 'tokenise-naming', modelDependent: true, run: naming },
 ];
 
 /** Run every eval against one responder. */

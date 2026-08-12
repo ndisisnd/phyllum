@@ -47,13 +47,13 @@ baseline and the rubric, and needs a note in the change explaining why.
 
 ### The two responders
 
-Each `create` eval can be graded against either of two answers to the same
-pinned prompt:
+Each judgement eval — `create`'s three, and `tokenise`'s naming — can be graded
+against either of two answers to the same pinned prompt:
 
 | Responder | What it grades | Needs a model? |
 |-----------|----------------|----------------|
-| `deterministic` (default) | Basal's own extraction, running now | no |
-| `recorded` | a real `claude` run following `skill/refs/create.md`, committed under `evals/fixtures/recordings/` | only to record |
+| `deterministic` (default) | Basal's own answer, running now | no |
+| `recorded` | a real `claude` run following the same reference file the skill follows, committed under `evals/fixtures/recordings/` | only to record |
 
 ```
 node evals/run-evals.js --responder recorded
@@ -72,15 +72,20 @@ node evals/record-model.js create-values-free    # one of them
 node evals/record-model.js --model haiku         # pin the model
 ```
 
-This shells out to the `claude` CLI once per case, hands it `skill/refs/create.md`
-plus the case's fixture, and commits the reply verbatim along with the model
-name and the date. It is a deliberate act, never part of a test run.
+This shells out to the `claude` CLI once per case, hands it the reference file
+that governs the eval — `skill/refs/create.md` for the `create` evals,
+`skill/refs/tokenise.md` for `tokenise-naming` — plus the case's fixture, and
+commits the reply verbatim along with the model name and the date. It is a
+deliberate act, never part of a test run.
 
-**Re-record when** the prompt set changes, `refs/create.md` changes the rules, or
+A `create` recording holds a draft; a `tokenise` recording holds the names it
+proposed. Both are graded exactly as they came back.
+
+**Re-record when** the prompt set changes, a reference file changes the rules, or
 you move to a newer model. Commit the recordings with the change that caused
 them, and re-run `npm run evals:record` so the baseline matches.
 
-## What is covered today (M1 + M2)
+## What is covered today (M1 + M2 + M3)
 
 | File | Covers |
 |------|--------|
@@ -97,6 +102,9 @@ them, and re-run `npm run evals:record` so the baseline matches.
 | `evals/assertions/create-contract.test.js` | Gap lists table-driven from `refs/create.md`, suggestion priority, extrapolation |
 | `evals/assertions/create-write.test.js` | Nothing before acceptance, one file changes, update in place, TODOs in the block and the Backlog |
 | `evals/assertions/create-cli.test.js` | The `create` command surface and the route to the intelligence |
+| `evals/assertions/tokenise-scan.test.js` | The read-only scan, the three passes, clustering, the naming scales, the rerun diff |
+| `evals/assertions/tokenise-write.test.js` | Nothing before acceptance, one file changes, tokens in the right section, Backlog reconciliation |
+| `evals/assertions/tokenise-cli.test.js` | The spec tables as contract, `tokenise`/`tokenize` on a real flow, `init`'s step-4 seeding |
 | `evals/assertions/evals-baseline.test.js` | Every eval has a rubric, a prompt set and a baseline it has not slipped below |
 
 ### Evals
@@ -108,6 +116,11 @@ them, and re-run `npm run evals:record` so the baseline matches.
 | `create-token-first` | an existing token leads the suggestions for its slot | 1.0 |
 | `create-extrapolation` | propose what every prior component of the kind defines, and nothing less unanimous | 1.0 |
 | `create-values-free` | unconventional values recorded verbatim, never corrected | 1.0 |
+| `tokenise-clustering` | one brand blue written two ways is one token; genuinely different values stay apart | 1.0 |
+| `tokenise-naming` | proposed names are on the documented scales, and on the right rung | 0.9 |
+
+`tokenise-naming` is the one threshold below 1.0, deliberately: naming is
+judgement, each case accepts more than one right answer, and the rubric says why.
 
 M1's two rubrics — `init-detection` and `help-accuracy` — stay pinned but are not
 scored: both need a model judging free text rather than a comparison to a pinned

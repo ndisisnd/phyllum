@@ -1,0 +1,68 @@
+{
+  "eval": "tokenise-clustering",
+  "rubric": "evals/rubrics/tokenise-clustering.md",
+  "milestone": "M3",
+  "planSections": [
+    "§4",
+    "§8.5"
+  ],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "recordingPrompt": "Cluster the values found in this codebase and report the proposals you would make.",
+  "cases": [
+    {
+      "id": "brand-blue-merges",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "pass": "colours",
+      "values": [
+        "#2563EB",
+        "#2564EC"
+      ],
+      "expectedProposals": 1,
+      "representative": "#2563EB",
+      "counts": {
+        "#2563EB": 14,
+        "#2564EC": 2
+      },
+      "note": "The plan's own case: one brand blue written two ways is one token with a merge note, not two tokens."
+    },
+    {
+      "id": "radius-merges",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "pass": "numbers",
+      "values": [
+        "12px",
+        "11px"
+      ],
+      "expectedProposals": 1,
+      "representative": "12px",
+      "counts": {
+        "12px": 7,
+        "11px": 3
+      },
+      "note": "A pixel apart in the same role is the same intent. The most-used member represents it — never an average nobody wrote."
+    },
+    {
+      "id": "different-colours-stay-apart",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "pass": "colours",
+      "values": [
+        "#2563EB",
+        "#FFFFFF"
+      ],
+      "expectedProposals": 2,
+      "note": "Clustering converges what is nearly the same; it must not flatten what is genuinely different."
+    },
+    {
+      "id": "same-number-different-role-stays-apart",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "pass": "numbers",
+      "values": [
+        "8px",
+        "12px"
+      ],
+      "expectedProposals": 2,
+      "note": "A 12px radius and an 8px padding are different facts. Roles are clustered separately, so these never merge."
+    }
+  ]
+}

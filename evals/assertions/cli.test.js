@@ -91,12 +91,19 @@ test('menu and help work before init, without creating anything', async () => {
 test('registered but unbuilt commands say which milestone they land in', async () => {
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));
-    const expected = { tokenise: 'M3', gui: 'M4', kill: 'M4' };
-    for (const [name, milestone] of Object.entries(expected)) {
-      const { out, code } = await run(name, dir);
+    // Read from the registry, not a copy of it: a command that lands stops
+    // being listed here the moment it flips to built, and never before.
+    const unbuilt = DISPATCHABLE.filter((command) => !command.built);
+    assert.deepEqual(
+      unbuilt.map((command) => command.name),
+      ['gui', 'kill'],
+      'tokenise is built as of M3; gui and kill are still to come',
+    );
+    for (const command of unbuilt) {
+      const { out, code } = await run(command.name, dir);
       assert.equal(code, 0);
-      assert.ok(out.includes('not built yet'), `${name} should say it is not built`);
-      assert.ok(out.includes(milestone), `${name} should name ${milestone}`);
+      assert.ok(out.includes('not built yet'), `${command.name} should say it is not built`);
+      assert.ok(out.includes(command.milestone), `${command.name} should name ${command.milestone}`);
     }
   });
 });

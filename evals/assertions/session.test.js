@@ -13,7 +13,14 @@ import test from 'node:test';
 
 import { runSession } from '../../lib/session.js';
 import { renderMenu } from '../../lib/menu.js';
-import { POPULATED_FIXTURE, readFixture, snapshotPaths, withTempDir } from './helpers.js';
+import {
+  FIXTURES,
+  POPULATED_FIXTURE,
+  copyDir,
+  readFixture,
+  snapshotPaths,
+  withTempDir,
+} from './helpers.js';
 
 async function session(dir, lines) {
   const input = new PassThrough();
@@ -100,6 +107,38 @@ test('the session runs the whole create loop: questions, answer, acceptance', as
     assert.ok(file.includes('### Button/Danger'));
     assert.ok(file.includes('padding-top: 12px'));
     assert.deepEqual(snapshotPaths(dir).sort(), ['.basal/session.json', 'DESIGN-SYSTEM.md']);
+  });
+});
+
+test('the session runs the whole tokenise review: proposals, answers, acceptance', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(path.join(FIXTURES, 'codebases', 'tokenise-mixed'), dir);
+    fs.writeFileSync(
+      path.join(dir, 'DESIGN-SYSTEM.md'),
+      readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
+    );
+
+    // The review comes most-used first: the brand blue, then the radius, then
+    // the white. Confirm the first, skip the second, rename the third, skip the
+    // rest — then accept the write.
+    // One answer per proposal — the fixture has thirteen — then the acceptance.
+    const answers = ['y', 'skip', 'color-page', ...Array.from({ length: 10 }, () => 'skip')];
+    const out = await session(dir, ['tokenise', ...answers, 'y', 'exit']);
+
+    assert.ok(out.includes('read-only'), 'the session says the scan wrote nothing');
+    assert.ok(
+      out.includes('13 values worth naming'),
+      'one answer per proposal above — if the fixture changes, so does this line',
+    );
+    assert.ok(out.includes('Name #2563EB as `color-primary`?'), 'one proposal at a time');
+    assert.ok(out.includes('merging #2564EC ×2'), 'and it shows what it is merging');
+    assert.ok(out.includes('Write 2 tokens to DESIGN-SYSTEM.md?'));
+
+    const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(file.includes('| color-primary | #2563EB |'));
+    assert.ok(file.includes('| color-page | #FFFFFF |'), 'the rename is what got written');
+    assert.deepEqual(snapshotPaths(dir).includes('src/styles.css'), true, 'the codebase is still there');
+    assert.equal(fs.readFileSync(path.join(dir, 'src', 'styles.css'), 'utf8').includes('#2563EB'), true);
   });
 });
 

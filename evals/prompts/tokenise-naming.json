@@ -1,0 +1,103 @@
+{
+  "eval": "tokenise-naming",
+  "rubric": "evals/rubrics/tokenise-naming.md",
+  "milestone": "M3",
+  "planSections": ["§4", "§8.5"],
+  "threshold": 0.9,
+  "status": "runnable — `npm run evals`",
+  "recordingPrompt": "You are naming one cluster of values found in a codebase. Follow the naming scales in the reference above. Reply with JSON of the shape {\"proposals\": [{\"value\": \"…\", \"name\": \"…\"}]} — one entry, for the cluster described.",
+  "cases": [
+    {
+      "id": "brand-blue",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "value": "#2563EB",
+      "scale": "colour",
+      "cluster": {
+        "pass": "colours",
+        "representative": "#2563EB",
+        "members": [["#2563EB", 14], ["#2564EC", 2]],
+        "note": "the most-used colour in the codebase"
+      },
+      "pattern": "^color-[a-z0-9-]+$",
+      "accepted": ["color-primary", "color-brand", "color-accent"],
+      "note": "The colour the codebase leans on hardest is the primary."
+    },
+    {
+      "id": "white-surface",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "value": "#FFFFFF",
+      "scale": "colour",
+      "cluster": {
+        "pass": "colours",
+        "representative": "#FFFFFF",
+        "members": [["#FFFFFF", 7]],
+        "note": "used as a page and panel background"
+      },
+      "pattern": "^color-[a-z0-9-]+$",
+      "accepted": ["color-surface", "color-background", "color-white"],
+      "note": "Near-white reads as a surface, not as a ranked brand colour."
+    },
+    {
+      "id": "dark-text",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "value": "#111827",
+      "scale": "colour",
+      "cluster": {
+        "pass": "colours",
+        "representative": "#111827",
+        "members": [["#111827", 2]],
+        "note": "used on headings and body copy"
+      },
+      "pattern": "^color-[a-z0-9-]+$",
+      "accepted": ["color-text", "color-ink", "color-foreground"],
+      "note": "Near-black reads as text."
+    },
+    {
+      "id": "corner-radius",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "value": "12px",
+      "scale": "radius ladder",
+      "cluster": {
+        "pass": "numbers",
+        "role": "radius",
+        "representative": "12px",
+        "members": [["12px", 7], ["11px", 3]],
+        "note": "the only corner radius in the codebase"
+      },
+      "pattern": "^(rounded|radius)-(xs|sm|md|lg|xl|2xl)$",
+      "accepted": ["rounded-md", "radius-md"],
+      "note": "The plan's own example: a lone radius lands on the middle rung, not the smallest."
+    },
+    {
+      "id": "spacing-step",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "value": "16px",
+      "scale": "spacing ladder",
+      "cluster": {
+        "pass": "numbers",
+        "role": "spacing",
+        "representative": "16px",
+        "members": [["16px", 5]],
+        "note": "the middle of three spacing steps — 8px, 16px, 24px"
+      },
+      "pattern": "^(space|spacing)-(xs|sm|md|lg|xl|2xl)$",
+      "accepted": ["space-md", "spacing-md"],
+      "note": "Three steps lay onto the ladder with the middle one on the centre rung."
+    },
+    {
+      "id": "small-bold-type",
+      "fixture": "evals/fixtures/codebases/tokenise-mixed",
+      "value": "12px / 700 / 1.3",
+      "scale": "typography",
+      "cluster": {
+        "pass": "typography",
+        "representative": { "size": "12px", "weight": "700", "lineHeight": "1.3" },
+        "members": [["12px / 700 / 1.3", 2]],
+        "note": "small and bold, used on buttons and tags"
+      },
+      "pattern": "^[a-z]+(-[a-z]+)?$",
+      "accepted": ["highlight-small", "label-small", "caption-bold"],
+      "note": "The plan's own example: 12px bold is `highlight-small`."
+    }
+  ]
+}

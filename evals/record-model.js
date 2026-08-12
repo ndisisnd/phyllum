@@ -2,11 +2,12 @@
 /**
  * Record the model-dependent evals (plan §8.5, "eval reproducibility").
  *
- * The three `create` evals that are really about understanding — extraction,
- * anti-fabrication, values-are-free — can be graded two ways: against Basal's
- * own extractor, which needs no model, and against a real model run following
- * `skill/refs/create.md`. This script produces the second kind, **offline**:
- * it shells out to the `claude` CLI once per case and commits the answer under
+ * The evals that are really about judgement — `create`'s extraction,
+ * anti-fabrication and values-are-free, and `tokenise`'s naming — can be graded
+ * two ways: against Basal's own deterministic answer, which needs no model, and
+ * against a real model run following the same reference file the skill follows.
+ * This script produces the second kind, **offline**: it shells out to the
+ * `claude` CLI once per case and commits the answer under
  * `evals/fixtures/recordings/`.
  *
  * Recording is a deliberate act, never part of a test run. The suite grades the
@@ -40,23 +41,55 @@ const wanted = argv.filter((arg) => !arg.startsWith('--') && arg !== model);
 
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
 
-const CONTRACT = readText('skill/refs/create.md');
+/** Which subskill an eval belongs to, and therefore which contract it obeys. */
+const familyOf = (evalId) => (evalId.startsWith('tokenise') ? 'tokenise' : 'create');
+
+const CONTRACTS = {
+  create: () => readText('skill/refs/create.md'),
+  tokenise: () => readText('skill/refs/tokenise.md'),
+};
+
+const OPENING = {
+  create: 'You are running the Basal `create` subskill in prose mode (Mode A).',
+  tokenise: 'You are running the Basal `tokenise` subskill.',
+};
 
 function promptFor(spec, testCase) {
+  const family = familyOf(spec.eval);
   const parts = [
-    'You are running the Basal `create` subskill in prose mode (Mode A).',
+    OPENING[family],
     'These are its rules — follow them exactly:',
     '',
-    CONTRACT,
+    CONTRACTS[family](),
     '',
     spec.recordingPrompt,
     '',
   ];
+
+  if (family === 'tokenise') {
+    parts.push(
+      'The cluster to name:',
+      '',
+      JSON.stringify(testCase.cluster, null, 2),
+      '',
+      'Reply with JSON only.',
+    );
+    return parts.join('\n');
+  }
+
   if (testCase.fixture) {
     parts.push("The project's DESIGN-SYSTEM.md:", '', readText(testCase.fixture), '');
   }
   parts.push(`Description: ${JSON.stringify(testCase.prompt)}`, '', 'Reply with JSON only.');
   return parts.join('\n');
+}
+
+/** A tokenise reply: the names it proposed, keyed by the value they name. */
+function normaliseProposals(reply) {
+  const raw = Array.isArray(reply.proposals) ? reply.proposals : [reply];
+  return raw
+    .filter((proposal) => proposal && proposal.name)
+    .map((proposal) => ({ value: String(proposal.value ?? ''), name: String(proposal.name) }));
 }
 
 /** Pull the first JSON object out of a reply, tolerating a code fence. */
@@ -146,16 +179,18 @@ async function main() {
           maxBuffer: 8 * 1024 * 1024,
           timeout: 180000,
         });
-        const draft = normalise(parseReply(stdout));
+        const reply = parseReply(stdout);
         const record = {
           eval: item.id,
           case: testCase.id,
-          prompt: testCase.prompt,
+          prompt: testCase.prompt ?? null,
           fixture: testCase.fixture ?? null,
           recordedAt: new Date().toISOString().slice(0, 10),
           model: model ?? 'claude-code default',
           how: 'node evals/record-model.js — a real `claude` run, committed verbatim',
-          draft,
+          ...(familyOf(item.id) === 'tokenise'
+            ? { proposals: normaliseProposals(reply) }
+            : { draft: normalise(reply) }),
         };
         fs.writeFileSync(
           path.join(dir, `${testCase.id}.json`),
