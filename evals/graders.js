@@ -20,10 +20,12 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { contractFor, traceRuleFor } from '../lib/archetypes.js';
+import { commandLine, detectInstall, updateCommandFor } from '../lib/install-method.js';
 import { scanCandidates } from '../lib/candidates.js';
 import {
   extractDraft,
@@ -40,8 +42,14 @@ export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = path.resolve(EVALS_DIR, '..');
 export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
 
-/** The milestone the committed baseline belongs to, and the release it gates. */
-export const MILESTONE = 'M6';
+/**
+ * The milestone the committed baseline belongs to, and the release it gates.
+ *
+ * The bar itself is still v1's: every score recorded for the v1 release has to
+ * keep clearing, and the milestone only records which change last re-recorded
+ * the file (v0.2.0 M1 added `update-install-detection`).
+ */
+export const MILESTONE = 'v0.2.0 M1';
 export const RELEASE = 'v1';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
@@ -585,8 +593,86 @@ function initDetection() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// update — install detection (plan v0.2.0 §4, §7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build one install layout in a temp sandbox, hand it to `body`, remove it.
+ *
+ * These fixtures cannot be committed: every one of them contains a node_modules
+ * directory, and node_modules is gitignored. So the *description* is pinned in
+ * the prompt file and the directories are built from it here — which keeps the
+ * grading reproducible without a single file in the repository.
+ */
+function withLayout(testCase, body) {
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-eval-'));
+  try {
+    const segments = testCase.layout.split('/');
+    const packageRoot = path.join(dir, ...segments);
+    fs.mkdirSync(packageRoot, { recursive: true });
+
+    const first = segments.indexOf('node_modules');
+    const projectRoot = first === -1 ? null : path.join(dir, ...segments.slice(0, first));
+    if (projectRoot && testCase.manifest) {
+      fs.mkdirSync(projectRoot, { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, 'package.json'), JSON.stringify(testCase.manifest));
+    }
+    if (projectRoot && testCase.lockfile) fs.writeFileSync(path.join(projectRoot, testCase.lockfile), '');
+
+    return body({ packageRoot, projectRoot, sandbox: dir });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * How was Phyllum installed, and what is the right update command? Four claims
+ * per pinned layout: the kind of install, the package manager, whether v0.2.0
+ * drives it, and the command line argument for argument.
+ */
+function installDetection() {
+  const spec = readJson('evals/prompts/update-install-detection.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  for (const testCase of spec.cases) {
+    // The environment is emptied deliberately: this suite is run by npm, and
+    // npm's own user agent would otherwise answer every case for us.
+    const { install, command } = withLayout(testCase, ({ packageRoot, sandbox }) => {
+      const detected = detectInstall({ packageRoot, env: {}, cwd: sandbox });
+      return { install: detected, command: commandLine(updateCommandFor(detected)) };
+    });
+    const expected = testCase.expected;
+
+    max += 1;
+    if (install.kind === expected.kind) points += 1;
+    else failures.push(`${testCase.id}: kind ${install.kind} ≠ ${expected.kind}`);
+
+    max += 1;
+    if ((install.manager ?? null) === expected.manager) points += 1;
+    else failures.push(`${testCase.id}: manager ${install.manager ?? 'none'} ≠ ${expected.manager ?? 'none'}`);
+
+    max += 1;
+    if (install.supported === expected.supported) points += 1;
+    else {
+      failures.push(
+        `${testCase.id}: ${install.supported ? 'claims' : 'denies'} support, expected the opposite`,
+      );
+    }
+
+    max += 1;
+    if ((command ?? null) === expected.command) points += 1;
+    else failures.push(`${testCase.id}: command "${command ?? 'none'}" ≠ "${expected.command ?? 'none'}"`);
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
 export const EVALS = [
   { id: 'init-detection', modelDependent: false, run: initDetection },
+  { id: 'update-install-detection', modelDependent: false, run: installDetection },
   { id: 'create-prose-extraction', modelDependent: true, run: proseExtraction },
   { id: 'create-anti-fabrication', modelDependent: true, run: antiFabrication },
   { id: 'create-token-first', modelDependent: false, run: tokenFirst },

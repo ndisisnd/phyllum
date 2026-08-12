@@ -60,6 +60,8 @@ The commands:
 | `system` | Print the design system to the terminal |
 | `gui` | Start a localhost dashboard for browsing tokens and components |
 | `init` | Guided setup — scaffold the file, install the skill |
+| `version` | Print the installed version and check npm for a newer one |
+| `update` | Update this install to the latest published version |
 | `menu` / `help` | List the commands, or explain one in depth |
 
 ## Install
@@ -67,8 +69,8 @@ The commands:
 Phyllum needs **Node 20 or newer** and has no dependencies to install. The intelligent
 commands (`create`, `tokenise`) also want [Claude Code](https://www.claude.com/product/claude-code)
 — they run natively inside a Claude Code session, or shell out to the `claude` CLI from a
-plain terminal. The mechanical commands (`menu`, `help`, `system`, `gui`, `init`) work
-without it. The `gui` dashboard uses your system `python3`.
+plain terminal. The mechanical commands (`menu`, `help`, `system`, `gui`, `version`,
+`update`, `init`) work without it. The `gui` dashboard uses your system `python3`.
 
 Install it globally:
 
@@ -119,9 +121,14 @@ corrupt `DESIGN-SYSTEM.md`.
 
 Two different things:
 
-- **Update Phyllum itself** — `npm install -g phyllum@latest`, then re-run `phyllum init`
-  in your project to refresh the installed skill under `.claude/skills/phyllum/`. The skill
-  files are Phyllum-owned, so they're safe to rewrite.
+- **Update Phyllum itself** — `phyllum version` tells you whether you are current, showing
+  both your version and the latest published one. `phyllum update` then does the work: it
+  detects how you installed Phyllum (npm or pnpm, globally or as a project dependency), runs
+  the right command, and re-syncs the skill under `.claude/skills/phyllum/` so the CLI and
+  the skill are never two versions. If it can't act safely — a one-off `npx` run has nothing
+  to update, a source checkout belongs to git — it says so and prints the exact command to
+  run instead. `version` is the only command that ever touches the network, and only when
+  you ask: nothing checks for updates in the background.
 - **Update what Phyllum produced** — re-run `tokenise` or `create` any time. Because every
   command converges, a rerun refreshes `DESIGN-SYSTEM.md` without duplicating what's
   already there; `init` on an existing file adds back only missing sections and never drops

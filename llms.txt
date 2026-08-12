@@ -22,6 +22,8 @@ These paths are repo-relative; this repo has no published remote yet.
 - [init](skill/refs/init.md): the guided setup walkthrough — scaffold, skill install, optional seeding
 - [gui](skill/refs/gui.md): the localhost server contract and the three-view dashboard
 - [system](skill/refs/system.md): the terminal listing format
+- [version](skill/refs/version.md): the installed version, the on-demand npm registry check, and what happens offline
+- [update](skill/refs/update.md): install detection (npm/pnpm, global/project), the graceful refusals, and the skill re-sync
 
 ## Optional
 

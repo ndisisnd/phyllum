@@ -124,12 +124,14 @@ them, and re-run `npm run evals:record` so the baseline matches.
 
 ## The v1 regression baseline (M6)
 
-`evals/baseline.json` is stamped `"milestone": "M6"`, `"release": "v1"`. It is
-the bar every future change has to clear, and it has two halves:
+`evals/baseline.json` is stamped `"release": "v1"` — the bar every future change
+has to clear — and `"milestone"` records which change last re-recorded it
+(v0.2.0 M1, which added `update-install-detection`). The v1 scores themselves
+only ever go up. The bar has two halves:
 
 | | Bar |
 |---|---|
-| Assertions | `npm test`, run under the filesystem-diff harness, **100% — 315 tests, no failures** (the GUI tests skip only when there is no `python3` on PATH) |
+| Assertions | `npm test`, run under the filesystem-diff harness, **100% — no failures, and the count only grows** (the GUI tests skip only when there is no `python3` on PATH) |
 | Evals | every eval at or above **both** its threshold **and** the score recorded in `evals/baseline.json` |
 
 The second half is what makes "never quietly worse" mechanical rather than
@@ -150,7 +152,7 @@ Rules that go with the baseline (plan §8.5):
 Re-record with `npm run evals:record` only when the change legitimately moves a
 score, and commit the new baseline with that change.
 
-## What is covered today (M1 + M2 + M3 + M4 + M5 + M6)
+## What is covered today (M1 + M2 + M3 + M4 + M5 + M6, then v0.2.0 M1)
 
 | File | Covers |
 |------|--------|
@@ -177,12 +179,15 @@ score, and commit the new baseline with that change.
 | `evals/assertions/fs-harness.test.js` | The filesystem-diff harness is loaded, classifies the §1 enumeration correctly, fails a run that writes outside it or into the repo, and a whole session over a real codebase touches nothing else |
 | `evals/assertions/fault-injection.test.js` | The atomic-write sweep — every stage of the write path interrupted, including a process killed outright, and the stale temp file the next write clears |
 | `evals/assertions/detect.test.js` | Language and framework detection (§3.3): manifest first, files second, and the labelled React + CSS fallback for HTML, Vue, Svelte, unknown and empty projects |
+| `evals/assertions/version-cli.test.js` | `version` (v0.2.0 §3): the installed version is read from package.json and hard-coded nowhere; up-to-date, outdated and ahead verdicts; every way the request can fail still exits 0; the registry is asked by this command only, once, and nothing else — no command, menu, help page or greeting — ever checks or hints |
+| `evals/assertions/update-cli.test.js` | `update` (v0.2.0 §4): install detection over real sandbox layouts, the four update commands, the package manager spawned by resolved path with an argument array and never run in the tests, every refusal naming the exact command while running and writing nothing, and the skill re-sync that happens only where `init` installed a copy |
 
 ### Evals
 
 | Eval | Grades | Threshold |
 |------|--------|-----------|
 | `init-detection` | the framework, styling, artefacts and code-view fallback reported for six pinned codebases | 1.0 |
+| `update-install-detection` | how Phyllum was installed, and the exact update command, over ten pinned install layouts — npm and pnpm, global and project, one-off caches and a source checkout | 1.0 |
 | `create-prose-extraction` | name, archetype and properties pulled out of a description | ≥ 0.95 |
 | `create-anti-fabrication` | no value in a draft that the input did not supply | 1.0 |
 | `create-token-first` | an existing token leads the suggestions for its slot | 1.0 |

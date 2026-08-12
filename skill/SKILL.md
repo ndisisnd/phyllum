@@ -28,7 +28,7 @@ Three operational exceptions exist, all Phyllum-owned:
 |------|------|
 | `DESIGN-SYSTEM.md` | any command, after the user accepts a change |
 | `.phyllum/**` | session state; gitignored |
-| `.claude/skills/phyllum/**` | `init` only — the skill install |
+| `.claude/skills/phyllum/**` | `init` — the skill install; and `update`, which re-syncs that same copy |
 | one `.phyllum/` line in `.gitignore` | `init` only, with the user's confirmation |
 
 Nothing else, ever. Do not write generated component code into the codebase,
@@ -43,10 +43,12 @@ task seems to need a write outside this list, stop and tell the user instead.
 | `menu` | — | List every subskill, one line per command |
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
-| `tokenise` | `tokenize` | Extract and name tokens from the codebase |
+| `tokenise` | `tokenize` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
 | `system` | — | Print the design system to the terminal |
+| `version` | — | Print the installed version and check npm for a newer one |
+| `update` | — | Update this install to the latest published version |
 | `init` | — | Guided setup: scaffold the file, install this skill |
 
 Aliases are exact equivalents — same subskill, same behaviour.
@@ -62,9 +64,11 @@ and `gui`, and default to `all`.
 | Command | Reference |
 |---------|-----------|
 | `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
-| `tokenise` | `refs/tokenise.md` — what is scanned, the three passes, clustering, naming scales, the review loop, the diff on rerun |
+| `tokenise` | `refs/tokenise.md` — how a sentence is read, the three passes, the naming scales, the follow-up loop when a value or a name is missing, acceptance |
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `system` | `refs/system.md` — listing format |
+| `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |
+| `update` | `refs/update.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
 | `init` | `refs/init.md` — the walkthrough, step by step |
 
 ## The file format
@@ -96,8 +100,9 @@ three-backtick block. Fence length is significant to the parser.
 
 ## Execution model
 
-- **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, and `init`'s scaffold
-  and install steps) run entirely in Node, with no model involved.
+- **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, `version`, `update`, and
+  `init`'s scaffold and install steps) run entirely in Node, with no model
+  involved.
 - **Intelligence** (`create`, `tokenise`, and `init`'s detection and seeding
   steps) is this skill. Inside a Claude Code session it runs natively; from a
   plain terminal the CLI shells out to `claude` with this skill loaded.
@@ -135,5 +140,28 @@ cannot show is refused. The measuring happens here, in the session, because this
 is where the eyes are. **Pick mode**: bare `create` offers the archetypes plus
 the components the codebase keeps repeating without ever naming, and a pick
 seeds a name and an archetype — never values. An image dropped on the dashboard
-queues an image-mode `create`, which the next bare `create` picks up. Commands
-that are not built yet are registered and documented, and say so when invoked.
+queues an image-mode `create`, which the next bare `create` picks up.
+
+v0.2.0 M1 ships `version` and `update`, the self-maintenance pair. `version`
+reads the installed version from the package itself and asks npm what the latest
+published version is — the only network call in the product, made only when the
+user asks for it, with no passive update hints anywhere else. `update` detects
+how Phyllum was installed (npm or pnpm, global or project dependency), runs that
+manager's own update, and re-syncs the installed skill copy so the CLI and the
+skill are never two versions; a one-off `npx` run, a source checkout or any other
+package manager gets a graceful refusal naming the exact command to run instead.
+
+v0.2.0 M2 reworks `tokenise` into a **prose-only** command: one sentence in, one
+named token out. It no longer reads the codebase — scanning becomes `assess`'s
+job — so `phyllum tokenise "our brand blue #2563EB"` is the whole input. A name
+in the sentence is used verbatim; without one, Phyllum suggests a name off the
+scales in `refs/tokenise.md` and confirms it. A sentence with no value ("add a
+token for our brand blue") opens a follow-up question asking for the value, the
+way `create` asks about a gap, and the token is written only once the answer
+completes it — never a dead-end error. A length whose meaning the sentence does
+not state is asked about too, because a 12px radius and a 12px padding are
+different facts. `tokenize` stays the alias, and accepted tokens land in the same
+token sections of `DESIGN-SYSTEM.md` as before.
+
+Commands that are not built yet are registered and documented, and say so when
+invoked.

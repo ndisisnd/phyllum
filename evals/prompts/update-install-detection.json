@@ -1,0 +1,106 @@
+{
+  "eval": "update-install-detection",
+  "rubric": "evals/rubrics/update-install-detection.md",
+  "threshold": 1,
+  "status": "scored from v0.2.0 M1: how Phyllum was installed is a fact about a directory layout, so every case here is graded deterministically. The layouts are built in a temp sandbox from the `layout` field of each case — a node_modules tree cannot be committed, since node_modules is gitignored — and removed again afterwards. No model is involved and nothing is installed.",
+  "milestone": "v0.2.0 M1",
+  "scored": ["kind", "manager", "supported", "command"],
+  "notScored": ["the wording of the refusal a person reads"],
+  "cases": [
+    {
+      "id": "npm-global",
+      "layout": "usr/local/lib/node_modules/phyllum",
+      "expected": {
+        "kind": "global",
+        "manager": "npm",
+        "supported": true,
+        "command": "npm install --global phyllum@latest"
+      }
+    },
+    {
+      "id": "pnpm-global",
+      "layout": "Library/pnpm/global/5/node_modules/phyllum",
+      "expected": {
+        "kind": "global",
+        "manager": "pnpm",
+        "supported": true,
+        "command": "pnpm add --global phyllum@latest"
+      }
+    },
+    {
+      "id": "npm-project-dev",
+      "layout": "app/node_modules/phyllum",
+      "manifest": { "name": "app", "devDependencies": { "phyllum": "^0.1.0" } },
+      "lockfile": "package-lock.json",
+      "expected": {
+        "kind": "project",
+        "manager": "npm",
+        "supported": true,
+        "command": "npm install --save-dev phyllum@latest"
+      }
+    },
+    {
+      "id": "npm-project-dependency",
+      "layout": "site/node_modules/phyllum",
+      "manifest": { "name": "site", "dependencies": { "phyllum": "^0.1.0" } },
+      "lockfile": "package-lock.json",
+      "expected": {
+        "kind": "project",
+        "manager": "npm",
+        "supported": true,
+        "command": "npm install --save phyllum@latest"
+      }
+    },
+    {
+      "id": "pnpm-project-virtual-store",
+      "layout": "monorepo/node_modules/.pnpm/phyllum@0.1.0/node_modules/phyllum",
+      "manifest": { "name": "monorepo", "devDependencies": { "phyllum": "^0.1.0" } },
+      "lockfile": "pnpm-lock.yaml",
+      "expected": {
+        "kind": "project",
+        "manager": "pnpm",
+        "supported": true,
+        "command": "pnpm add --save-dev phyllum@latest"
+      }
+    },
+    {
+      "id": "npx-one-off",
+      "layout": ".npm/_npx/4f0a2b/node_modules/phyllum",
+      "expected": { "kind": "ephemeral", "manager": "npm", "supported": false, "command": null }
+    },
+    {
+      "id": "pnpm-dlx-one-off",
+      "layout": "Library/Caches/pnpm/dlx/9c1f/node_modules/phyllum",
+      "expected": { "kind": "ephemeral", "manager": "pnpm", "supported": false, "command": null }
+    },
+    {
+      "id": "source-checkout",
+      "layout": "code/phyllum",
+      "expected": { "kind": "source", "manager": null, "supported": false, "command": null }
+    },
+    {
+      "id": "yarn-project",
+      "layout": "yarn-app/node_modules/phyllum",
+      "manifest": { "name": "yarn-app", "devDependencies": { "phyllum": "^0.1.0" } },
+      "lockfile": "yarn.lock",
+      "expected": {
+        "kind": "project",
+        "manager": "yarn",
+        "supported": false,
+        "command": "yarn add --dev phyllum@latest"
+      }
+    },
+    {
+      "id": "bun-project",
+      "layout": "bun-app/node_modules/phyllum",
+      "manifest": { "name": "bun-app", "devDependencies": { "phyllum": "^0.1.0" } },
+      "lockfile": "bun.lockb",
+      "expected": {
+        "kind": "project",
+        "manager": "bun",
+        "supported": false,
+        "command": "bun add --dev phyllum@latest"
+      }
+    }
+  ]
+}

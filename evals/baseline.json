@@ -1,7 +1,7 @@
 {
   "recordedAt": "2026-08-12",
   "phyllumVersion": "0.1.0",
-  "milestone": "M6",
+  "milestone": "v0.2.0 M1",
   "release": "v1",
   "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v1 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why.",
   "assertions": {
@@ -16,6 +16,13 @@
       "threshold": 1,
       "points": 24,
       "max": 24
+    },
+    "update-install-detection": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 40,
+      "max": 40
     },
     "create-prose-extraction": {
       "responder": "deterministic",

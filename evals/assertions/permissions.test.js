@@ -175,16 +175,50 @@ test('no child process is used to write around the funnel', () => {
   assert.deepEqual(offenders, [], `child-process writes:\n${offenders.join('\n')}`);
 });
 
-test('the one process Phyllum does spawn is the GUI server, with arguments, not a shell', () => {
+test('the GUI server is spawned with arguments, not a shell', () => {
   const gui = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'gui-command.js'), 'utf8');
   assert.match(gui, /spawn\(\s*\n?\s*python/, 'the server is spawned by path, with an argument array');
   assert.ok(!/shell/.test(gui.replace(/\/\*[\s\S]*?\*\//g, '')), 'and never through a shell');
+});
 
+/**
+ * Two processes, and only two.
+ *
+ * `gui` starts the dashboard server; `update` (v0.2.0 §4) runs the user's
+ * package manager, because updating an install is not something a program can do
+ * by writing files. The allowlist is widened deliberately and by exactly one
+ * entry — every other module still may not reach for a process at all, and both
+ * spawners are checked below for spawning by resolved path with an argument
+ * array rather than through a shell.
+ */
+const SPAWNERS = ['lib/gui-command.js', 'lib/update-command.js'];
+
+test('exactly two modules may start a process, and no others', () => {
   const spawners = [];
   for (const [file, source] of cliSources({ includeFunnel: true })) {
     if (/from\s+['"]node:child_process['"]/.test(source)) spawners.push(file);
   }
-  assert.deepEqual(spawners, ['lib/gui-command.js'], 'only the GUI command starts a process');
+  assert.deepEqual(spawners, SPAWNERS, 'only the GUI server and the package-manager update start a process');
+});
+
+test('the package manager is spawned by resolved path, with an argument array', () => {
+  const update = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'update-command.js'), 'utf8');
+  const code = update.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  // The command and its arguments stay separate — no interpolated command line
+  // can be handed to a process, with or without a shell.
+  assert.match(code, /spawn\(bin,\s*args,/, 'spawn takes the binary and an argument array');
+  assert.ok(!/shell/.test(code), 'and never through a shell');
+  assert.ok(!/spawn\(\s*[`'"]/.test(code), 'never a literal command string');
+
+  // The binary is looked up on PATH before it is run, so a missing manager is a
+  // message rather than an exception.
+  assert.match(code, /findOnPath\(/, 'the manager is resolved on PATH first');
+
+  // Only the two supported managers are ever run, and only with the arguments
+  // install-method.js decided on.
+  const method = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'install-method.js'), 'utf8');
+  assert.match(method, /SUPPORTED_MANAGERS = \['npm', 'pnpm'\]/, 'v0.2.0 drives npm and pnpm only');
 });
 
 test("the Python server's write confinement is structural, not conventional", () => {
