@@ -66,11 +66,12 @@ function main() {
       milestone: MILESTONE,
       release: RELEASE,
       note:
-        'Scores recorded by `node evals/run-evals.js --record`. This is the v1 regression ' +
+        `Scores recorded by \`node evals/run-evals.js --record\`. This is the ${RELEASE} regression ` +
         'baseline (plan §8.5): every future change must clear it — assertions at 100%, every ' +
         'eval at or above both its threshold and the score recorded here. Thresholds may be ' +
         'raised, never silently lowered: a lowered threshold needs a note in the change ' +
-        'explaining why.',
+        'explaining why. Every score the previous release recorded is still met or beaten, and ' +
+        'no threshold has ever been lowered.',
       assertions: {
         command: 'npm test',
         harness: 'evals/harness/fs-harness.js',

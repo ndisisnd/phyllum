@@ -151,6 +151,9 @@ contract, follow-up loop, React + CSS code view, accept, write.
 M3 shipped `tokenise`: the read-only scan, the three passes, clustering before
 naming, the frequency-ranked review, the diff on rerun, and `init`'s step-4
 seeding — which offers the scan and never names anything on the user's behalf.
+(**Superseded in v0.2.0 M2**: the scan moved to `assess` and `tokenise` is
+prose-only now. See "v0.2.0 M2" below — this line is release history, not the
+current contract.)
 M4 shipped `gui` / `dashboard` and `kill`: the localhost-only Python server, the
 three-view page, the `/state` · `/system` · `/prompt` · `/upload` API, and the
 PID-and-port lifecycle.
@@ -192,7 +195,12 @@ usage is counted, and the result is ranked by how hard the code leans on each
 value. Two commitments shape the reach of the scan. The **values pass is
 language-agnostic**: stylesheets are read as stylesheets and markup as markup,
 and every other text file is read for `property: value` pairs, so a theme file in
-JSON, Go or Kotlin counts as much as a `.css` file does. **Component detection is
+JSON, Go or Kotlin counts as much as a `.css` file does. "Every other text file"
+is bounded, and the bounds are part of the contract: build output and dependency
+directories are skipped, anything the project's own `.gitignore` matches is
+skipped, a file past the size cap is skipped, and a file carrying NUL bytes is
+not text and is skipped. The report states how many files were read, so the
+reach is visible rather than assumed. **Component detection is
 React only**, and on any other stack the report says the component pass did not
 run rather than pretending it did. A value the design system already names is
 reported as coverage, never proposed again, which is what makes a second `assess`

@@ -436,6 +436,156 @@ test('a project that is not a repository is refused with the fix', async () => {
   });
 });
 
+test('a repository with no commits is refused, because a branch needs a start', async () => {
+  await withTempDir(async (dir) => {
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'styles.css'), MECHANICAL_CSS);
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), MECHANICAL_SYSTEM);
+    run(dir, ['init', '-q', '-b', 'main']);
+    await executeArgv(['apply'], ctx(dir));
+
+    const result = await executeArgv(['apply', 'run'], ctx(dir));
+    assert.match(result.out, /no commits yet/);
+    assert.match(result.out, /Commit what you have first/);
+    assert.equal(readFile(dir, 'src/styles.css'), MECHANICAL_CSS, 'and nothing was written');
+  });
+});
+
+test('a repository with no commit identity is refused before a phase could fail to commit', async () => {
+  await withTempDir(async (dir) => {
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'styles.css'), MECHANICAL_CSS);
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), MECHANICAL_SYSTEM);
+    fs.writeFileSync(path.join(dir, '.gitignore'), '.phyllum/\n');
+    run(dir, ['init', '-q', '-b', 'main']);
+    // A commit needs an identity, so make the first one with a per-invocation
+    // override and leave the repository itself without one — the shape a CI
+    // container has, and the reason this branch is worth a test.
+    run(dir, ['add', '-A']);
+    run(dir, [
+      '-c', 'commit.gpgsign=false',
+      '-c', 'user.email=bootstrap@phyllum.invalid',
+      '-c', 'user.name=Bootstrap',
+      'commit', '-q', '-m', 'initial',
+    ]);
+    // An empty local value beats whatever the machine's global config says, so this
+    // case is the same on a developer's laptop as in a bare container.
+    run(dir, ['config', '--local', 'user.email', '']);
+    await executeArgv(['apply'], ctx(dir));
+
+    const result = await executeArgv(['apply', 'run'], ctx(dir));
+    assert.match(result.out, /no commit identity/);
+    assert.match(result.out, /git config user\.email/, 'and it hands over the fix');
+    assert.match(result.out, /Nothing was written and nothing was executed/);
+    assert.equal(readFile(dir, 'src/styles.css'), MECHANICAL_CSS, 'nothing was written');
+    assert.equal(run(dir, ['branch', '--list', BRANCH]), '', 'and no branch was made');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Work that was already in the tree (v0.2.0 M8)
+// ---------------------------------------------------------------------------
+
+test('an edit made while a run was stopped is not blamed on the next phase', async () => {
+  await project(
+    async (dir) => {
+      await executeArgv(['apply'], ctx(dir));
+
+      // Stop the run part-way with a red host suite, which leaves Phyllum standing
+      // on its own branch with its own uncommitted work — the resume shape.
+      const red = () => ({ ran: true, ok: false, why: null, command: 'npm test', output: '1 failing' });
+      await executeArgv(['apply', 'run'], ctx(dir, { runTests: red }));
+      assert.equal(run(dir, ['symbolic-ref', '--short', 'HEAD']), BRANCH);
+
+      // Now the user edits something of their own, unrelated to any criterion.
+      fs.writeFileSync(path.join(dir, 'NOTES.md'), 'thinking out loud\n');
+
+      const green = () => ({ ran: true, ok: true, why: null, command: 'npm test', output: '' });
+      const result = await executeArgv(['apply', 'run'], ctx(dir, { runTests: green }));
+
+      // Before M8 this stopped the phase and blamed it for NOTES.md. The phase's
+      // commit never contained it either way — the pathspec already saw to that —
+      // so refusing to commit was pure false positive.
+      assert.match(result.out, /Complete/, 'the run finished');
+      assert.ok(!/its criteria do not name/.test(result.out), 'and nothing was blamed on the phase');
+
+      // The edit is still there, still uncommitted, and named in the report.
+      assert.ok(fs.existsSync(path.join(dir, 'NOTES.md')));
+      assert.match(result.out, /Already changed before this run and left alone: NOTES\.md/);
+      assert.match(result.out, /no commit contains them/);
+      for (const commit of commitsOn(dir, BRANCH)) {
+        const [ref] = commit.split(' ');
+        assert.ok(!filesInCommit(dir, ref).includes('NOTES.md'), 'no commit swallowed it');
+      }
+    },
+    {
+      files: { 'src/styles.css': MECHANICAL_CSS, 'package.json': '{"name":"e2e","scripts":{"test":"exit 0"}}' },
+      system: MECHANICAL_SYSTEM,
+      windows: ['src/styles.css'],
+    },
+  );
+});
+
+test('an edit to a file the plan will also touch is reported, because the commit carries it', async () => {
+  await project(
+    async (dir) => {
+      await executeArgv(['apply'], ctx(dir));
+      const red = () => ({ ran: true, ok: false, why: null, command: 'npm test', output: '1 failing' });
+      await executeArgv(['apply', 'run'], ctx(dir, { runTests: red }));
+
+      const green = () => ({ ran: true, ok: true, why: null, command: 'npm test', output: '' });
+      const result = await executeArgv(['apply', 'run'], ctx(dir, { runTests: green }));
+
+      // `src/styles.css` was dirty from the stopped run and is named by the plan.
+      // Refusing is not available — that leftover work is what a resume is for —
+      // so the honest move is to say the commit will carry whatever is in it.
+      assert.match(result.out, /Already changed before this run and also named by the plan: src\/styles\.css/);
+      assert.match(result.out, /the two edits\s+are one diff|are one diff/);
+      assert.match(result.out, /Complete/);
+    },
+    {
+      files: { 'src/styles.css': MECHANICAL_CSS, 'package.json': '{"name":"e2e","scripts":{"test":"exit 0"}}' },
+      system: MECHANICAL_SYSTEM,
+      windows: ['src/styles.css'],
+    },
+  );
+});
+
+test('a stray edit made during the phase is still caught, dirt or no dirt', async () => {
+  await project(
+    async (dir) => {
+      await executeArgv(['apply'], ctx(dir));
+      // Stop at the typography phase first, so Phyllum is standing on its own
+      // branch — the only state in which pre-existing dirt is tolerated at all.
+      const failing = async () => ({ ok: false, output: 'the agent gave up' });
+      await executeArgv(['apply', 'run'], ctx(dir, { runAgent: failing }));
+      assert.equal(run(dir, ['symbolic-ref', '--short', 'HEAD']), BRANCH);
+
+      // Pre-existing dirt that the exemption covers...
+      fs.writeFileSync(path.join(dir, 'NOTES.md'), 'mine\n');
+      // ...must not become a licence for an edit made *during* the phase.
+      const strays = async ({ files }) => {
+        await typographyAgent(dir)({ files });
+        fs.writeFileSync(path.join(dir, 'src', 'unrelated.css'), '.x { color: red; }\n');
+        return { ok: true, output: 'done, and a bit more' };
+      };
+      const result = await executeArgv(['apply', 'run'], ctx(dir, { runAgent: strays }));
+
+      assert.match(result.out, /changed 1 file its criteria do not name \(src\/unrelated\.css\)/);
+      // The stray sentence itself must name only the edit this phase made — "1 file"
+      // above already says so, and this reads the line to be sure of which one.
+      const strayLine = result.out.split('\n').find((line) => /criteria do not name/.test(line));
+      assert.ok(!strayLine.includes('NOTES.md'), 'the pre-existing edit is not blamed on the phase');
+      assert.match(result.out, /Already changed before this run and left alone: NOTES\.md/);
+    },
+    {
+      files: { 'src/styles.css': TYPOGRAPHY_CSS },
+      system: TYPOGRAPHY_SYSTEM,
+      windows: ['src/styles.css', 'src/unrelated.css'],
+    },
+  );
+});
+
 // ---------------------------------------------------------------------------
 // The hand-off, and the stale gate
 // ---------------------------------------------------------------------------

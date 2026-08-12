@@ -1,6 +1,6 @@
 {
-  "eval": "tokenise-clustering",
-  "rubric": "evals/rubrics/tokenise-clustering.md",
+  "eval": "assess-clustering",
+  "rubric": "evals/rubrics/assess-clustering.md",
   "milestone": "M3",
   "planSections": [
     "§4",

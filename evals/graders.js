@@ -42,6 +42,7 @@ import { emptyModel, parse } from '../lib/design-system.js';
 import { codeViewFor, detectProject } from '../lib/detect.js';
 import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
 import { proposeTokens, scanCodebase } from '../lib/tokenise.js';
+import { parseProse, suggestName } from '../lib/tokenise-prose.js';
 
 export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = path.resolve(EVALS_DIR, '..');
@@ -50,13 +51,23 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
 /**
  * The milestone the committed baseline belongs to, and the release it gates.
  *
- * The bar itself is still v1's: every score recorded for the v1 release has to
- * keep clearing, and the milestone only records which change last re-recorded
- * the file (v0.2.0 M6 added `apply-prd-contract`). No threshold has ever been
- * lowered; this stamp only ever moves because an eval was added.
+ * Re-stamped for v0.2.0 in M8, which is the release's hardening milestone and the
+ * only place the baseline is fully re-recorded. Two things changed with it:
+ *
+ *   - **The release is `v0.2.0`, not `v1`.** The old stamp said `v1` because the
+ *     v0.1.0 baseline *was* the first one; carrying it into a second release made
+ *     "which release does this bar belong to" unanswerable from the file.
+ *   - **Two evals were renamed.** `tokenise-clustering` and `tokenise-naming`
+ *     both grade a scan of a fixture *codebase*, which has been `assess`'s job
+ *     since M3 — so they are `assess-clustering` and `assess-naming` now. An id
+ *     is part of the recorded baseline, so a rename is only honest in a release
+ *     that re-records one, which is why it waited for here.
+ *
+ * The bar itself only ever tightens. Every score the v0.1.0 baseline recorded is
+ * still met or beaten, and no threshold has ever been lowered.
  */
-export const MILESTONE = 'v0.2.0 M6';
-export const RELEASE = 'v1';
+export const MILESTONE = 'v0.2.0 M8';
+export const RELEASE = 'v0.2.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
@@ -419,8 +430,15 @@ function pickCandidates() {
 }
 
 // ---------------------------------------------------------------------------
-// tokenise (plan §4, §8.5)
+// assess — clustering and naming over a real codebase (v0.2.0 §5.1, §7)
 // ---------------------------------------------------------------------------
+//
+// These two graded `tokenise` until v0.2.0, and the ids said so until M8. They
+// never moved: what moved was the command. v0.2.0's division is that **assess
+// reads code, tokenise reads prose**, and both graders here scan a fixture
+// *codebase* — so they were, in substance, assess's evals filed under the wrong
+// name. Renaming them is the last chance to do it: an id is part of the recorded
+// baseline, so it can only change in a release that re-records one.
 
 const scanCache = new Map();
 
@@ -450,7 +468,7 @@ const memberCount = (proposal, value) =>
  * `#2564EC` ×2 — has to come out as one token, not two.
  */
 function clustering() {
-  const spec = readJson('evals/prompts/tokenise-clustering.json');
+  const spec = readJson('evals/prompts/assess-clustering.json');
   let points = 0;
   let max = 0;
   const failures = [];
@@ -514,7 +532,7 @@ function nameFor(evalId, testCase, responder) {
  * the wrong rung, and a name off the scale is wrong however apt it sounds.
  */
 function naming(responder) {
-  const spec = readJson('evals/prompts/tokenise-naming.json');
+  const spec = readJson('evals/prompts/assess-naming.json');
   let points = 0;
   let max = 0;
   const failures = [];
@@ -541,6 +559,97 @@ function naming(responder) {
   }
 
   return { ...score(points, max), failures, unrecorded, threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
+// tokenise — the prose path, which is all `tokenise` is now (v0.2.0 §6, §7)
+// ---------------------------------------------------------------------------
+
+/**
+ * One sentence in, one token out.
+ *
+ * `tokenise` stopped reading the codebase in M2, and the two evals filed under
+ * `tokenise-*` both scanned one — so once those were renamed to `assess-*` in M8
+ * the command had no eval of its own. This is it, and it is deterministic end to
+ * end: `parseProse` is a pure function of the sentence, so every claim is a fact
+ * rather than a judgement and the threshold is 1.0.
+ *
+ * The claim that earns its keep is the name. Reading a name out of a sentence
+ * *wrongly* is worse than finding none, because a wrong name is written into the
+ * user's design system without anything looking amiss — which is exactly what M8
+ * found ("call it color-brand" recorded a token called `it`).
+ */
+function proseTokenise() {
+  const spec = readJson('evals/prompts/tokenise-prose-extraction.json');
+  const model = emptyModel();
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  for (const testCase of spec.cases) {
+    const parsed = parseProse(testCase.prose);
+    const expected = testCase.expected;
+
+    claim(
+      parsed.complete === expected.complete,
+      `${testCase.id}: complete = ${parsed.complete}, expected ${expected.complete}`,
+    );
+
+    if ('name' in expected) {
+      claim(parsed.name === expected.name, `${testCase.id}: name = ${parsed.name} ≠ ${expected.name}`);
+    }
+    if ('nameFromProse' in expected) {
+      claim(
+        parsed.nameFromProse === expected.nameFromProse,
+        `${testCase.id}: nameFromProse = ${parsed.nameFromProse}, expected ${expected.nameFromProse}`,
+      );
+    }
+
+    claim(
+      parsed.candidates.length === expected.candidates.length,
+      `${testCase.id}: ${parsed.candidates.length} candidate(s), expected ${expected.candidates.length}`,
+    );
+
+    for (const [index, want] of expected.candidates.entries()) {
+      const got = parsed.candidates[index];
+      if (!got) {
+        claim(false, `${testCase.id}: candidate ${index + 1} is missing`);
+        continue;
+      }
+      for (const [key, value] of Object.entries(want)) {
+        const actual = Array.isArray(got[key]) ? got[key].join(' + ') : got[key];
+        const wanted = Array.isArray(value) ? value.join(' + ') : value;
+        claim(actual === wanted, `${testCase.id}: candidate ${index + 1} ${key} = ${actual} ≠ ${wanted}`);
+      }
+    }
+
+    // A sentence that named nothing must still get a name Phyllum can defend, on
+    // the documented scale — the suggestion half of M2's rework.
+    if (expected.suggested) {
+      const [candidate] = parsed.candidates;
+      const suggestion = candidate ? suggestName(candidate, model) : null;
+      claim(
+        typeof suggestion?.name === 'string' && new RegExp(expected.suggested).test(suggestion.name),
+        `${testCase.id}: suggested "${suggestion?.name ?? '(none)'}" is not on the ${expected.suggested} scale`,
+      );
+    }
+
+    // Two values in one sentence is a question, never a pick.
+    if (expected.asks) {
+      claim(
+        parsed.candidates.length > 1,
+        `${testCase.id}: a sentence with two values must offer both, not choose one`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
 // ---------------------------------------------------------------------------
@@ -954,8 +1063,9 @@ export const EVALS = [
   { id: 'create-values-free', modelDependent: true, run: valuesAreFree },
   { id: 'create-image-trace', modelDependent: true, run: imageTrace },
   { id: 'create-pick-candidates', modelDependent: false, run: pickCandidates },
-  { id: 'tokenise-clustering', modelDependent: false, run: clustering },
-  { id: 'tokenise-naming', modelDependent: true, run: naming },
+  { id: 'assess-clustering', modelDependent: false, run: clustering },
+  { id: 'assess-naming', modelDependent: true, run: naming },
+  { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
 ];
 
 /** Run every eval against one responder. */

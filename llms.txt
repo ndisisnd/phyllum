@@ -12,7 +12,7 @@ it. `apply run` is the single exception to the write rule: it executes that plan
 running phase's criteria name. Mechanical commands run in pure Node; the intelligent ones
 (`create`, `tokenise`) run natively inside a Claude Code session or shell out to the
 `claude` CLI.
-These paths are repo-relative; this repo has no published remote yet.
+These paths are repo-relative. Phyllum is published on npm as `phyllum`; the source lives at https://github.com/ndisisnd/phyllum.
 
 ## Docs
 
@@ -24,7 +24,7 @@ These paths are repo-relative; this repo has no published remote yet.
 ## Reference
 
 - [create](skill/refs/create.md): the three modes (prose, image, pick), archetype contracts, the follow-up loop, acceptance and the write step
-- [assess](skill/refs/assess.md): the read-only codebase scan — what is read (including every text file, in any language), React-only component detection, clustering before naming, the diff on rerun
+- [assess](skill/refs/assess.md): the read-only codebase scan — what is read (text files in any language, bounded: build output, dependency directories, gitignored paths, oversized files and non-text files are skipped), React-only component detection, clustering before naming, the diff on rerun
 - [apply](skill/refs/apply.md): planning the design system into the code and then executing that plan — harness detection and its precedence, one acceptance criterion per change, one phase per commit, the PRD's marker contract, resume vs `--fresh`, and for `apply run`: the harness hand-off, the branch and commit guarantees, the mechanical-vs-agent split, `.phyllum/config.json`'s model overrides, per-phase verification, and the source-write grant
 - [tokenise](skill/refs/tokenise.md): naming one value from one sentence — the three passes, the naming scales, the follow-up loop, acceptance
 - [init](skill/refs/init.md): the guided setup walkthrough — scaffold, skill install, optional seeding

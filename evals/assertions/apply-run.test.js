@@ -398,7 +398,61 @@ test('verification reads the file, and says which of three answers it got', asyn
       MODEL,
     );
     assert.equal(unknowable.satisfied, null);
-    assert.match(unknowable.why, /cannot check this one by reading the file/);
+    // Saying "cannot tell" is not enough — the sentence stops a phase, so it has
+    // to hand over the check the user is now doing by hand (v0.2.0 M8).
+    assert.match(unknowable.why, /without naming the properties/);
+    assert.match(unknowable.why, /open `src\/styles\.css`/);
+    assert.match(unknowable.why, /#2563EB/, 'the literal to search for');
+    assert.match(unknowable.why, /var\(--color-primary\)/, 'and what it should read instead');
+  });
+});
+
+test('every way verification runs out of grip names the hand-check to do instead', async () => {
+  await withTempDir(async (dir) => {
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'styles.css'), STYLES);
+    fs.writeFileSync(path.join(dir, 'src', 'Button.jsx'), 'export const Button = () => <button />;\n');
+
+    // Not a stylesheet: the literal may be in markup, a script or a template.
+    const markup = verifyCriterion(
+      dir,
+      criterion('AC-9.1', {
+        file: '`src/Button.jsx`',
+        literal: '`#2563EB`',
+        becomes: 'token `color-primary`',
+        check: 'in `src/Button.jsx`, every `background` value of `#2563EB` reads the `color-primary` token instead.',
+      }),
+      MODEL,
+    );
+    assert.equal(markup.satisfied, null);
+    assert.match(markup.why, /is not a stylesheet/);
+    assert.match(markup.why, /markup, a script or a template/);
+    assert.match(markup.why, /open `src\/Button\.jsx`/, 'and it says where to look');
+    assert.match(markup.why, /var\(--color-primary\)/);
+
+    // No literal at all: there is nothing to search the file for.
+    const noLiteral = verifyCriterion(
+      dir,
+      criterion('AC-9.2', {
+        file: '`src/styles.css`',
+        literal: '``',
+        becomes: 'token `color-primary`',
+        check: 'in `src/styles.css`, every `background` value of `` reads the `color-primary` token instead.',
+      }),
+      MODEL,
+    );
+    assert.equal(noLiteral.satisfied, null);
+    assert.match(noLiteral.why, /names no literal to look for/);
+    assert.match(noLiteral.why, /var\(--color-primary\)/);
+
+    // Every sentence is a sentence: no doubled-up "cannot verify by reading the
+    // file — cannot check this by reading the file".
+    for (const result of [markup, noLiteral]) {
+      assert.ok(
+        !/cannot check this one by reading the file/.test(result.why),
+        'the reason must not repeat the sentence that introduces it',
+      );
+    }
   });
 });
 

@@ -1,7 +1,7 @@
 # Eval — near-identical values become one token (plan §4, §8.5)
 
 **Status: runnable.** `node evals/run-evals.js` scores it. Prompts:
-`evals/prompts/tokenise-clustering.json`. Fixtures:
+`evals/prompts/assess-clustering.json`. Fixtures:
 `evals/fixtures/codebases/tokenise-mixed` and
 `evals/fixtures/codebases/polyglot-theme`.
 

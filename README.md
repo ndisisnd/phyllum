@@ -58,11 +58,12 @@ The commands:
 | Command | What it does |
 |---------|--------------|
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats |
-| `assess` | Read the codebase and inventory the raw styling already in it |
+| `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
 | `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `system` | Print the design system to the terminal |
-| `gui` | Start a localhost dashboard for browsing tokens and components |
+| `gui` | Start the local server and open the dashboard for browsing tokens and components |
+| `kill` | Stop the dashboard server `gui` started |
 | `init` | Guided setup — scaffold the file, install the skill |
 | `version` | Print the installed version and check npm for a newer one |
 | `update` | Update this install to the latest published version |
@@ -70,12 +71,21 @@ The commands:
 
 ## Install
 
-Phyllum needs **Node 20 or newer** and has no dependencies to install. The intelligent
-commands (`create`, `tokenise`) also want [Claude Code](https://www.claude.com/product/claude-code)
-— they run natively inside a Claude Code session, or shell out to the `claude` CLI from a
-plain terminal. The mechanical commands (`menu`, `help`, `system`, `assess`, `apply`,
-`gui`, `version`, `update`, `init`) work without it. The `gui` dashboard uses your system
-`python3`.
+Phyllum needs **Node 20 or newer** and has no dependencies to install.
+
+Some commands are wholly mechanical and work on their own: `menu`, `help`, `system`,
+`gui`, `kill`, `version`, `update`, and `apply` — which only ever writes a plan.
+
+Some want [Claude Code](https://www.claude.com/product/claude-code), and run natively
+inside a Claude Code session or shell out to the `claude` CLI from a plain terminal.
+`create` and `tokenise` need it for the whole of what they do. Three commands are split:
+`assess` scans, maps and proposes names mechanically but needs it to review the
+suggestions with you; `init` needs it to read your project and seed the file; and
+`apply run` needs it for the criteria a substitution cannot settle. Every one of them
+**degrades rather than failing** — it tells you what it could not do and stops, and
+`apply run` still completes the criteria Node can do by itself.
+
+The `gui` dashboard uses your system `python3`.
 
 Install it globally:
 
@@ -120,9 +130,11 @@ still image can't show. **Pick**: bare `create` offers the archetypes plus the c
 your codebase keeps repeating, and a pick seeds a name and an archetype — never values.
 
 `assess` reads your codebase and tells you how much raw, un-systematised styling is in
-there. Colours, lengths and typography are read out of *any* text file, whatever the
-language — a theme file in JSON or Go counts as much as a `.css` file does — while
-component detection reads React markup. Near-identical values (`#2563EB` and `#2564EC`,
+there. Colours, lengths and typography are read out of text files in *any* language — a
+theme file in JSON or Go counts as much as a `.css` file does — while component detection
+reads React markup. The sweep is bounded on purpose: build output and dependency
+directories, anything your `.gitignore` matches, files past a size cap, and files that
+are not really text are skipped, and the report says how many files it read. Near-identical values (`#2563EB` and `#2564EC`,
 `11px` and `12px`) cluster into one decision rather than two, usage is counted, and the
 result is ranked by how hard your code leans on each value. The scan is strictly
 read-only: nothing in your codebase is written, renamed or created. Run it again later

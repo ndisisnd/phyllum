@@ -1,6 +1,6 @@
 {
-  "eval": "tokenise-naming",
-  "rubric": "evals/rubrics/tokenise-naming.md",
+  "eval": "assess-naming",
+  "rubric": "evals/rubrics/assess-naming.md",
   "milestone": "M3",
   "planSections": ["§4", "§8.5"],
   "threshold": 0.9,

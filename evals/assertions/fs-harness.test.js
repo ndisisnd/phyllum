@@ -293,3 +293,98 @@ test('a read-only command over a real codebase changes nothing at all', async ()
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Every command in the v0.2.0 surface, one at a time (M8)
+// ---------------------------------------------------------------------------
+
+/**
+ * The write surface, per command, as a claim that can be checked (v0.2.0 M8).
+ *
+ * The sweep above drives a *session* and asks whether anything outside the
+ * enumeration appeared. That answers "did Phyllum escape", which is the safety
+ * question, but it does not answer "does each command write what it says it
+ * writes" — and v0.2.0 added six commands to the surface without adding a row to
+ * that answer. `apply run` in particular writes source files, which is the one
+ * deliberate widening in the release, so the release's headline guarantee is only
+ * worth stating if it is stated per command.
+ *
+ * `writes` is the exact expected set. `null` means the command is read-only and
+ * the expected set is empty — no exceptions, no "except sometimes".
+ */
+const WRITE_SURFACE = [
+  { line: 'menu', writes: null },
+  { line: 'help', writes: null },
+  { line: 'help assess', writes: null },
+  { line: 'help apply', writes: null },
+  { line: 'help version', writes: null },
+  { line: 'help update', writes: null },
+  { line: 'system', writes: null },
+  { line: 'system tokens', writes: null },
+  { line: 'system components', writes: null },
+  { line: 'version', writes: null },
+  // The whole point of `assess`: it reads the codebase and writes nothing until
+  // somebody accepts a suggestion. Skipping every question must leave no trace.
+  { line: 'assess', writes: null, answers: 'skip' },
+  { line: 'assess tokens', writes: null, answers: 'skip' },
+  { line: 'assess components', writes: null, answers: 'skip' },
+  // An empty design system is not a plan: `apply` says so and writes nothing.
+  { line: 'apply', writes: null },
+  // With one to apply, `apply` is plan-only by design: one file, inside
+  // `.phyllum/**`, and never a byte of source. That is what made it shippable
+  // before `apply run` existed, and it is still the boundary.
+  { line: 'apply', writes: ['.phyllum/PRD.md'], seed: 'apply-target.md' },
+  { line: 'apply --fresh', writes: ['.phyllum/PRD.md'], seed: 'apply-target.md' },
+];
+
+test('each command in the v0.2.0 surface writes exactly what it claims, and nothing else', async () => {
+  for (const { line, writes, answers, seed } of WRITE_SURFACE) {
+    await withTempDir(async (dir) => {
+      copyDir(path.join(FIXTURES, 'codebases', 'react-css'), dir);
+      await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12' });
+      if (seed) {
+        fs.writeFileSync(
+          path.join(dir, 'DESIGN-SYSTEM.md'),
+          fs.readFileSync(path.join(FIXTURES, 'design-system', seed), 'utf8'),
+        );
+      }
+      const before = snapshotContents(dir);
+
+      await execute(tokenizeLine(line), {
+        cwd: dir,
+        today: '2026-08-13',
+        home: '/nonexistent',
+        env: { PATH: '' },
+        // No network, no model: `version` degrades to "unable to check" rather
+        // than reaching for the registry from inside the suite.
+        fetch: null,
+        ask: async () => answers ?? 'skip',
+        confirm: async () => false,
+      });
+
+      const { added, changed, removed } = diffSnapshots(before, snapshotContents(dir));
+      assert.deepEqual(removed, [], `\`${line}\` removed a file`);
+      const touched = [...added, ...changed].sort();
+      assert.deepEqual(touched, [...(writes ?? [])].sort(), `\`${line}\` wrote something it does not claim`);
+      // Belt and braces: whatever it wrote is inside the enumeration anyway.
+      for (const rel of touched) assert.ok(ENUMERATED(rel), `${rel} is outside the §1 enumeration`);
+    });
+  }
+});
+
+test('the source-write widening belongs to apply run alone', async () => {
+  // Every other command in the surface is covered above and writes no source
+  // file. This states the complement as a fact about the code rather than as a
+  // property of the cases somebody happened to write: `apply run` is the only
+  // command that reaches the guarded source funnel at all.
+  const funnel = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'write.js'), 'utf8');
+  assert.match(funnel, /writeSourceGuarded/, 'the guarded source funnel exists');
+
+  const callers = [];
+  const libDir = path.join(PACKAGE_ROOT, 'lib');
+  for (const entry of fs.readdirSync(libDir)) {
+    if (!entry.endsWith('.js') || entry === 'write.js') continue;
+    if (/\bwriteSourceGuarded\b/.test(fs.readFileSync(path.join(libDir, entry), 'utf8'))) callers.push(entry);
+  }
+  assert.deepEqual(callers, ['apply-run.js'], 'only `apply run` may write source files');
+});

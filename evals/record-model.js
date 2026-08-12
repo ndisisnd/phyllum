@@ -52,9 +52,9 @@ const CONTRACTS = {
   create: () => readText('skill/refs/create.md'),
   image: () => readText('skill/refs/create.md'),
   // The naming scales live in refs/tokenise.md and the scanning contract moved to
-  // refs/assess.md in v0.2.0 M3, so a `tokenise-*` eval needs both to be judged
-  // against the whole contract. (`tokenise-clustering` is really `assess`'s eval
-  // now; renaming the id means re-recording the baseline, which is M8's job.)
+  // refs/assess.md in v0.2.0 M3, so an `assess-*` naming eval needs both to be
+  // judged against the whole contract: assess finds the cluster, and the scales
+  // that name it are still documented on the tokenise side.
   tokenise: () => `${readText('skill/refs/tokenise.md')}\n\n${readText('skill/refs/assess.md')}`,
 };
 
