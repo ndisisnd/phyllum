@@ -1,0 +1,6 @@
+basal-v1.md
+.basal/
+.serena/
+.claude/settings.local.json
+.claude/.headroom_wrap_marker.json
+node_modules/

@@ -1,0 +1,11 @@
+{
+  "name": "acme-tailwind",
+  "private": true,
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}

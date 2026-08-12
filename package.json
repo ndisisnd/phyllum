@@ -1,0 +1,38 @@
+{
+  "name": "basal",
+  "version": "0.1.0",
+  "description": "Design system companion — turns prose, images, or your codebase into tokens and components, recorded in DESIGN-SYSTEM.md",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "basal": "bin/basal.js"
+  },
+  "main": "lib/execute.js",
+  "exports": {
+    ".": "./lib/execute.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "skill/",
+    "server/",
+    "gui/",
+    "templates/"
+  ],
+  "scripts": {
+    "test": "node --test \"evals/assertions/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "design-system",
+    "design-tokens",
+    "claude-code",
+    "skill",
+    "cli"
+  ],
+  "dependencies": {},
+  "devDependencies": {}
+}

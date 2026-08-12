@@ -1,0 +1,38 @@
+{
+  "eval": "init-detection",
+  "rubric": "evals/rubrics/init-detection.md",
+  "status": "runner lands in M2 — these prompts are pinned, not executed",
+  "milestone": "M1",
+  "cases": [
+    {
+      "id": "react-css",
+      "fixture": "evals/fixtures/codebases/react-css",
+      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "expected": {
+        "framework": "React",
+        "styling": "CSS",
+        "artefacts": []
+      }
+    },
+    {
+      "id": "tailwind",
+      "fixture": "evals/fixtures/codebases/tailwind",
+      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "expected": {
+        "framework": "React (Next.js)",
+        "styling": "Tailwind",
+        "artefacts": ["tailwind.config.js"]
+      }
+    },
+    {
+      "id": "plain-html",
+      "fixture": "evals/fixtures/codebases/plain-html",
+      "prompt": "Run step 1 of the Basal init walkthrough on this project: report the framework, the styling approach, and any existing design-system artefacts.",
+      "expected": {
+        "framework": "none — plain HTML and CSS",
+        "styling": "CSS",
+        "artefacts": []
+      }
+    }
+  ]
+}
