@@ -71,12 +71,12 @@ test('image mode and pick mode say which milestone they land in', async () => {
   await withProject(async (dir) => {
     const image = await run('create shot.png', dir);
     assert.ok(image.out.includes('image mode is not built yet'));
-    assert.ok(image.out.includes('M4'));
+    assert.ok(image.out.includes('M5'));
     assert.ok(image.out.includes('Prose mode works today'));
 
     const pick = await run('create', dir);
     assert.ok(pick.out.includes('pick mode'));
-    assert.ok(pick.out.includes('M4'));
+    assert.ok(pick.out.includes('M5'));
   });
 });
 

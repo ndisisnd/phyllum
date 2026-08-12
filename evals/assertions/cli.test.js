@@ -96,8 +96,8 @@ test('registered but unbuilt commands say which milestone they land in', async (
     const unbuilt = DISPATCHABLE.filter((command) => !command.built);
     assert.deepEqual(
       unbuilt.map((command) => command.name),
-      ['gui', 'kill'],
-      'tokenise is built as of M3; gui and kill are still to come',
+      [],
+      'gui and kill are built as of M4 — every dispatchable command now runs',
     );
     for (const command of unbuilt) {
       const { out, code } = await run(command.name, dir);
@@ -128,9 +128,13 @@ test('every alias pair behaves identically', async () => {
     // After init.
     await withTempDir(async (dir) => {
       fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));
-      const a = await run(canonical, dir);
-      const b = await run(alias, dir);
-      assert.deepEqual(b, a, `${alias} differed from ${canonical}`);
+      // `gui` starts a process, so its pair is proved against a real running
+      // server in gui.test.js rather than by running it twice here.
+      if (canonical !== 'gui') {
+        const a = await run(canonical, dir);
+        const b = await run(alias, dir);
+        assert.deepEqual(b, a, `${alias} differed from ${canonical}`);
+      }
       const c = await run(`help ${canonical}`, dir);
       const d = await run(`help ${alias}`, dir);
       assert.deepEqual(d, c);

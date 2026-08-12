@@ -121,8 +121,10 @@ font: record it exactly as given.
 M1 shipped `menu`, `help`, `system` and `init` (scaffold plus skill install).
 M2 shipped `create` in prose mode: draft spec, gap list from the archetype
 contract, follow-up loop, React + CSS code view, accept, write.
-M3 ships `tokenise`: the read-only scan, the three passes, clustering before
+M3 shipped `tokenise`: the read-only scan, the three passes, clustering before
 naming, the frequency-ranked review, the diff on rerun, and `init`'s step-4
 seeding — which offers the scan and never names anything on the user's behalf.
-`gui` and `kill` land in M4, as do `create`'s image and pick modes. Commands
+M4 ships `gui` / `dashboard` and `kill`: the localhost-only Python server, the
+three-view page, the `/state` · `/system` · `/prompt` · `/upload` API, and the
+PID-and-port lifecycle. `create`'s image and pick modes land in M5. Commands
 that are not built yet are registered and documented, and say so when invoked.

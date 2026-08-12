@@ -90,13 +90,42 @@ test('the milestone status in SKILL.md matches the command table', () => {
   }
 });
 
-test('the M4 placeholders are marked as placeholders, not half-built', () => {
+test('the server is standard library only, and says so in code', () => {
   const server = read('server/serve.py');
-  assert.ok(server.includes('PLACEHOLDER'));
-  assert.ok(server.includes('M4'));
+  assert.ok(!server.includes('PLACEHOLDER'), 'the M4 placeholder is gone');
+
+  // Zero dependencies is a property of the file, not a promise in a README:
+  // every import has to be a module Python ships with.
+  const stdlib = new Set([
+    'argparse', 'json', 'os', 're', 'signal', 'subprocess', 'sys', 'threading', 'time', 'uuid',
+    'http.server', 'urllib.parse', 'socketserver', 'mimetypes', 'shutil',
+  ]);
+  for (const line of server.split('\n')) {
+    const plain = line.match(/^import\s+([A-Za-z0-9_.]+)/);
+    const from = line.match(/^from\s+([A-Za-z0-9_.]+)\s+import\s+/);
+    const module = plain?.[1] ?? from?.[1];
+    if (!module) continue;
+    assert.ok(stdlib.has(module), `server/serve.py imports a non-stdlib module: ${module}`);
+  }
+
+  // And the contract the GUI is built against stays written down in it.
+  for (const marker of ['GET  /state', 'GET  /system', 'POST /prompt', 'POST /upload']) {
+    assert.ok(server.includes(marker), `serve.py should document ${marker}`);
+  }
+  assert.ok(server.includes('localhost only'));
+});
+
+test('the dashboard page is a single file with no CDN and no build step', () => {
   const gui = read('gui/index.html');
-  assert.ok(gui.includes('PLACEHOLDER'));
-  assert.ok(gui.includes('M4'));
+  assert.ok(!gui.includes('PLACEHOLDER'), 'the M4 placeholder is gone');
+  assert.ok(!/src\s*=\s*["']https?:/i.test(gui), 'no script may be loaded from the network');
+  assert.ok(!/href\s*=\s*["']https?:/i.test(gui), 'no stylesheet may be loaded from the network');
+  for (const view of ['Library', 'Workbench', 'Token view']) {
+    assert.ok(gui.includes(view), `the page ships the ${view} view`);
+  }
+  for (const route of ['/state', '/system', '/prompt', '/upload']) {
+    assert.ok(gui.includes(route), `the page talks to ${route}`);
+  }
 });
 
 test('the M1 eval assets stay pinned, and say plainly that they are not scored yet', () => {

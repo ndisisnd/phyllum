@@ -31,6 +31,12 @@ Every test that writes anything works inside a throwaway temp directory. The
 repository is never a test subject — `init` and `create` in particular only ever
 run against a sandbox.
 
+One file needs more than Node: `gui.test.js` starts the real Python server on an
+ephemeral port inside a temp directory, talks HTTP to it, and stops it again in
+a `finally` so a failure never leaves a process behind. Without a `python3` on
+PATH those tests skip with a plain message rather than fail — the GUI is the one
+part of Basal that needs something beyond Node.
+
 ## Evals
 
 ```
@@ -85,7 +91,7 @@ proposed. Both are graded exactly as they came back.
 you move to a newer model. Commit the recordings with the change that caused
 them, and re-run `npm run evals:record` so the baseline matches.
 
-## What is covered today (M1 + M2 + M3)
+## What is covered today (M1 + M2 + M3 + M4)
 
 | File | Covers |
 |------|--------|
@@ -105,6 +111,7 @@ them, and re-run `npm run evals:record` so the baseline matches.
 | `evals/assertions/tokenise-scan.test.js` | The read-only scan, the three passes, clustering, the naming scales, the rerun diff |
 | `evals/assertions/tokenise-write.test.js` | Nothing before acceptance, one file changes, tokens in the right section, Backlog reconciliation |
 | `evals/assertions/tokenise-cli.test.js` | The spec tables as contract, `tokenise`/`tokenize` on a real flow, `init`'s step-4 seeding |
+| `evals/assertions/gui.test.js` | The server lifecycle against a real process — localhost-only binding, PID + port record, a second `gui` reusing the first, `kill` on both the live and the stale path — plus the JSON API, the one parse contract, and the scope word as opening filter |
 | `evals/assertions/evals-baseline.test.js` | Every eval has a rubric, a prompt set and a baseline it has not slipped below |
 
 ### Evals

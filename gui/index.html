@@ -1,44 +1,381 @@
 <!doctype html>
 <!--
-  PLACEHOLDER — the real dashboard lands in M4 (plan §5, §8 milestone 4).
+  The Basal dashboard (plan §5).
 
-  This page is a stub so the package layout in plan §7.2 is real from M1. When
-  it is built it will be a vanilla HTML/JS/CSS single page with three views —
-  Library, Create, Token view — polling GET /state and posting to /prompt on the
-  local server in ../server/serve.py. No build step, no framework, no CDN.
+  One page, no build step, no framework, no CDN — vanilla HTML, CSS and JS,
+  served by ../server/serve.py. Three views:
+
+    Library    every component and token, read live from DESIGN-SYSTEM.md
+    Workbench  the current create session, plus a box to prompt from here
+    Tokens     a component's token usage, and which values are still raw
+
+  The page is a viewer and a prompt relay. It polls GET /state, reads GET
+  /system, and posts what the user types to POST /prompt — where the Claude
+  Code session picks it up. Nothing here decides anything.
 -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Basal — dashboard (M4)</title>
+    <title>Basal — dashboard</title>
     <style>
+      :root {
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --ink: #16181d;
+        --muted: #62676f;
+        --line: #e2e5ea;
+        --accent: #2563eb;
+        --raw: #b45309;
+        --radius: 10px;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #101216;
+          --panel: #171a20;
+          --ink: #e9ecf1;
+          --muted: #9aa1ac;
+          --line: #262b33;
+          --accent: #7aa2f7;
+          --raw: #e0a458;
+        }
+      }
+      * { box-sizing: border-box; }
       body {
-        font-family: ui-sans-serif, system-ui, sans-serif;
         margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #f6f7f9;
-        color: #1b1d21;
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, sans-serif;
       }
-      main {
-        max-width: 34rem;
-        padding: 2rem;
-        text-align: center;
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        align-items: baseline;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        position: sticky;
+        top: 0;
+        z-index: 2;
       }
-      code {
-        background: #e8eaee;
-        border-radius: 4px;
-        padding: 0.1em 0.35em;
+      h1 { font-size: 1.05rem; margin: 0; letter-spacing: 0.01em; }
+      h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+      .status { color: var(--muted); font-size: 0.82rem; margin-left: auto; }
+      nav { display: flex; gap: 0.4rem; }
+      button {
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.25rem 0.85rem;
+        cursor: pointer;
       }
+      button[aria-selected='true'] { border-color: var(--accent); color: var(--accent); }
+      main { padding: 1.5rem; display: grid; gap: 1.25rem; max-width: 1100px; }
+      section.view[hidden] { display: none; }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 1rem 1.15rem;
+      }
+      .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+      table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+      th, td { text-align: left; padding: 0.3rem 0.5rem 0.3rem 0; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 600; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+      pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+      ul { margin: 0; padding-left: 1.1rem; }
+      li { margin: 0.15rem 0; }
+      .muted { color: var(--muted); }
+      .list button { display: block; width: 100%; text-align: left; border-radius: 8px; margin-bottom: 0.3rem; }
+      .swatch { display: inline-block; width: 0.85em; height: 0.85em; border-radius: 3px; border: 1px solid var(--line); vertical-align: -1px; margin-right: 0.4em; }
+      .chip { border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.8rem; border: 1px solid var(--line); }
+      .chip.token { color: var(--accent); border-color: var(--accent); }
+      .chip.raw { color: var(--raw); border-color: var(--raw); }
+      form.prompt { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+      form.prompt input { flex: 1; font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: inherit; }
+      .drop { border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.9rem; text-align: center; color: var(--muted); margin-top: 0.75rem; }
+      .drop.over { border-color: var(--accent); color: var(--accent); }
     </style>
   </head>
   <body>
+    <header>
+      <h1>Basal</h1>
+      <nav id="views">
+        <button data-view="library" aria-selected="true">Library</button>
+        <button data-view="workbench" aria-selected="false">Workbench</button>
+        <button data-view="tokens" aria-selected="false">Token view</button>
+      </nav>
+      <span class="status" id="status">connecting…</span>
+    </header>
+
     <main>
-      <h1>Basal dashboard</h1>
-      <p>Not built yet — the GUI lands in milestone M4.</p>
-      <p>Until then, <code>basal system</code> prints the whole design system to the terminal.</p>
+      <section class="view" id="view-library">
+        <div class="panel">
+          <h2>Library</h2>
+          <nav id="filters">
+            <button data-scope="all" aria-selected="true">all</button>
+            <button data-scope="tokens" aria-selected="false">tokens</button>
+            <button data-scope="components" aria-selected="false">components</button>
+          </nav>
+        </div>
+        <div class="grid" style="margin-top: 1rem">
+          <div class="panel" id="tokens-panel"><h2>Tokens</h2><div id="tokens-body" class="muted">reading…</div></div>
+          <div class="panel" id="components-panel">
+            <h2>Components</h2>
+            <div class="list" id="component-list"></div>
+            <div id="component-detail" class="muted">Pick a component to see its spec and code.</div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top: 1rem"><h2>Backlog</h2><div id="backlog"></div></div>
+      </section>
+
+      <section class="view" id="view-workbench" hidden>
+        <div class="grid">
+          <div class="panel">
+            <h2>Your input</h2>
+            <div id="draft-input" class="muted">No create session is open.</div>
+            <form class="prompt" id="prompt-form">
+              <input id="prompt-text" placeholder="Prompt an edit — it goes to your Claude Code session" />
+              <button type="submit">Send</button>
+            </form>
+            <div class="drop" id="drop">Drop an image here to start an image-mode create</div>
+          </div>
+          <div class="panel"><h2>Generated output</h2><div id="draft-output" class="muted">Nothing yet.</div></div>
+        </div>
+        <div class="panel" style="margin-top: 1rem"><h2>Queue</h2><div id="queue" class="muted">Empty.</div></div>
+      </section>
+
+      <section class="view" id="view-tokens" hidden>
+        <div class="panel">
+          <h2>Token view</h2>
+          <p class="muted">Which tokens a component consumes, and which values are still raw — the candidates for your next <code>basal tokenise</code> run.</p>
+          <div class="list" id="token-view-list"></div>
+          <div id="token-view-detail" class="muted">Pick a component.</div>
+        </div>
+      </section>
     </main>
+
+    <script>
+      const state = { system: null, session: null, scope: 'all', view: 'library', selected: null, scopeTouched: false };
+
+      const el = (id) => document.getElementById(id);
+      const esc = (value) =>
+        String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+      function select(nav, attr, value) {
+        for (const button of nav.querySelectorAll('button')) {
+          button.setAttribute('aria-selected', String(button.dataset[attr] === value));
+        }
+      }
+
+      el('views').addEventListener('click', (event) => {
+        const view = event.target.dataset && event.target.dataset.view;
+        if (!view) return;
+        state.view = view;
+        select(el('views'), 'view', view);
+        for (const name of ['library', 'workbench', 'tokens']) el('view-' + name).hidden = name !== view;
+      });
+
+      el('filters').addEventListener('click', (event) => {
+        const scope = event.target.dataset && event.target.dataset.scope;
+        if (!scope) return;
+        state.scope = scope;
+        state.scopeTouched = true;
+        select(el('filters'), 'scope', scope);
+        renderLibrary();
+      });
+
+      // --- rendering ---------------------------------------------------------
+
+      function tokenTable(title, columns, rows) {
+        if (!rows.length) return '<h2>' + esc(title) + '</h2><p class="muted">(none yet)</p>';
+        const head = columns.map((c) => '<th>' + esc(c) + '</th>').join('');
+        const body = rows
+          .map((row) => {
+            const cells = columns.map((column, index) => {
+              const value = row[column] ?? row.cells[index] ?? '';
+              const swatch =
+                index === 1 && /^#([0-9a-f]{3,8})$/i.test(value)
+                  ? '<span class="swatch" style="background:' + esc(value) + '"></span>'
+                  : '';
+              return '<td>' + swatch + '<code>' + esc(value) + '</code></td>';
+            });
+            return '<tr>' + cells.join('') + '</tr>';
+          })
+          .join('');
+        return '<h2>' + esc(title) + ' (' + rows.length + ')</h2><table><tr>' + head + '</tr>' + body + '</table>';
+      }
+
+      function renderLibrary() {
+        const system = state.system;
+        el('tokens-panel').hidden = state.scope === 'components';
+        el('components-panel').hidden = state.scope === 'tokens';
+        if (!system || system.error) {
+          el('tokens-body').textContent = system ? system.message : 'reading…';
+          return;
+        }
+        el('tokens-body').innerHTML = [
+          tokenTable('Colours', system.columns.colours, system.tokens.colours),
+          tokenTable('Numbers', system.columns.numbers, system.tokens.numbers),
+          tokenTable('Typography', system.columns.typography, system.tokens.typography),
+        ].join('');
+
+        const list = system.components
+          .map((component, index) => '<button data-index="' + index + '">' + esc(component.name) + '</button>')
+          .join('');
+        el('component-list').innerHTML = list || '<p class="muted">No components yet. Run <code>basal create</code>.</p>';
+        el('token-view-list').innerHTML = list || '<p class="muted">No components yet.</p>';
+
+        el('backlog').innerHTML = system.backlog.length
+          ? '<ul>' + system.backlog.map((item) => '<li>' + esc(item) + '</li>').join('') + '</ul>'
+          : '<p class="muted">Nothing outstanding.</p>';
+
+        if (state.selected !== null) showComponent(state.selected);
+      }
+
+      function tokenNames() {
+        const system = state.system;
+        if (!system || system.error) return new Set();
+        const names = [];
+        for (const key of ['colours', 'numbers', 'typography']) {
+          for (const row of system.tokens[key]) names.push(row.token ?? row.cells[0]);
+        }
+        return new Set(names.filter(Boolean));
+      }
+
+      function showComponent(index) {
+        const system = state.system;
+        if (!system || system.error || !system.components[index]) return;
+        state.selected = index;
+        const component = system.components[index];
+
+        const blocks = component.blocks
+          .map((block) => '<p class="muted">' + esc(block.lang) + '</p><pre><code>' + esc(block.content) + '</code></pre>')
+          .join('');
+        el('component-detail').innerHTML = '<h2>' + esc(component.name) + '</h2>' + blocks;
+
+        const known = tokenNames();
+        const used = [];
+        const raw = [];
+        for (const line of String(component.spec || '').split('\n')) {
+          const match = line.match(/^\s*([A-Za-z-]+):\s*(.+?)\s*$/);
+          if (!match) continue;
+          const [, slot, value] = match;
+          if (known.has(value)) used.push({ slot, value });
+          else if (!/^(TODO|\{|\[|$)/.test(value)) raw.push({ slot, value });
+        }
+        el('token-view-detail').innerHTML =
+          '<h2>' + esc(component.name) + '</h2>' +
+          '<p>Tokens consumed: ' +
+          (used.length
+            ? used.map((u) => '<span class="chip token">' + esc(u.slot) + ': ' + esc(u.value) + '</span>').join(' ')
+            : '<span class="muted">none — every value is still raw</span>') +
+          '</p><p>Raw values, candidates for <code>basal tokenise</code>: ' +
+          (raw.length
+            ? raw.map((r) => '<span class="chip raw">' + esc(r.slot) + ': ' + esc(r.value) + '</span>').join(' ')
+            : '<span class="muted">none</span>') +
+          '</p>';
+      }
+
+      for (const id of ['component-list', 'token-view-list']) {
+        el(id).addEventListener('click', (event) => {
+          const index = event.target.dataset && event.target.dataset.index;
+          if (index !== undefined) showComponent(Number(index));
+        });
+      }
+
+      function renderSession() {
+        const session = state.session || {};
+        const draft = session.draft;
+        el('draft-input').innerHTML = draft
+          ? '<p><strong>' + esc(draft.name || 'draft') + '</strong> <span class="muted">(' + esc(draft.status || 'drafting') + ')</span></p>' +
+            '<pre><code>' + esc((draft.source && draft.source.input) || '') + '</code></pre>'
+          : '<span class="muted">No create session is open. Start one in the terminal, or prompt below.</span>';
+        el('draft-output').innerHTML = draft
+          ? '<pre><code>' + esc(JSON.stringify(draft.properties || {}, null, 2)) + '</code></pre>'
+          : '<span class="muted">Nothing yet.</span>';
+
+        const queue = session.queue || [];
+        el('queue').innerHTML = queue.length
+          ? '<ul>' +
+            queue
+              .map((item) => '<li><code>' + esc(item.kind) + '</code> ' + esc(item.text || item.file || '') + ' <span class="muted">' + esc(item.status) + '</span></li>')
+              .join('') +
+            '</ul>'
+          : '<span class="muted">Empty — prompts you send from here land in this queue.</span>';
+      }
+
+      // --- talking to the server ---------------------------------------------
+
+      async function poll() {
+        try {
+          const response = await fetch('/state');
+          const session = await response.json();
+          state.session = session;
+          if (!state.scopeTouched && session.scope && session.scope !== state.scope) {
+            state.scope = session.scope;
+            select(el('filters'), 'scope', session.scope);
+            renderLibrary();
+          }
+          el('status').textContent = 'connected · filter: ' + state.scope;
+          renderSession();
+        } catch (error) {
+          el('status').textContent = 'server gone — run `basal gui` again';
+        }
+      }
+
+      async function loadSystem() {
+        try {
+          const response = await fetch('/system');
+          state.system = await response.json();
+        } catch (error) {
+          state.system = { error: 'unreachable', message: 'could not read the design system' };
+        }
+        renderLibrary();
+      }
+
+      el('prompt-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const input = el('prompt-text');
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        await fetch('/prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, view: state.view }),
+        });
+        poll();
+      });
+
+      const drop = el('drop');
+      drop.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        drop.classList.add('over');
+      });
+      drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+      drop.addEventListener('drop', async (event) => {
+        event.preventDefault();
+        drop.classList.remove('over');
+        const file = event.dataTransfer.files && event.dataTransfer.files[0];
+        if (!file) return;
+        await fetch('/upload', {
+          method: 'POST',
+          headers: { 'X-Basal-Filename': file.name, 'Content-Type': 'application/octet-stream' },
+          body: file,
+        });
+        poll();
+      });
+
+      loadSystem();
+      poll();
+      setInterval(poll, 1500);
+      setInterval(loadSystem, 5000);
+    </script>
   </body>
 </html>
