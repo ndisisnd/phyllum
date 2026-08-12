@@ -1,0 +1,22 @@
+{
+  "eval": "create-anti-fabrication",
+  "case": "buttons-with-precedent",
+  "prompt": "button danger with 10px padding",
+  "fixture": "evals/fixtures/design-system/buttons-with-focus-ring.md",
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Danger",
+    "archetype": "button",
+    "properties": [
+      {
+        "key": "padding",
+        "slot": null,
+        "value": "10px",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

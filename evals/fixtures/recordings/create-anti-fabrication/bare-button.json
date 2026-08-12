@@ -1,0 +1,15 @@
+{
+  "eval": "create-anti-fabrication",
+  "case": "bare-button",
+  "prompt": "button primary",
+  "fixture": "evals/fixtures/design-system/populated.md",
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Primary",
+    "archetype": "button",
+    "properties": [],
+    "states": []
+  }
+}

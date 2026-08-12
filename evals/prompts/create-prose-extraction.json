@@ -1,0 +1,83 @@
+{
+  "eval": "create-prose-extraction",
+  "rubric": "evals/rubrics/create-prose-extraction.md",
+  "milestone": "M2",
+  "planSections": ["§3.1", "§8.5"],
+  "threshold": 0.95,
+  "status": "runnable — `pnpm run evals`; the recorded responder needs evals/fixtures/recordings/",
+  "recordingPrompt": "Load the Basal skill (skill/refs/create.md) and run Mode A on the description below. Return only the draft as JSON: { \"draft\": { \"name\", \"archetype\", \"properties\": [{ \"key\", \"slot\", \"value\", \"origin\" }], \"states\": [] } }. Extract only what the sentence says; invent nothing.",
+  "cases": [
+    {
+      "id": "canonical",
+      "prompt": "button primary with 12px padding-top and 8px padding-bottom",
+      "expected": {
+        "name": "Button/Primary",
+        "archetype": "button",
+        "properties": { "padding-top": "12px", "padding-bottom": "8px" }
+      }
+    },
+    {
+      "id": "canonical-no-conjunction",
+      "prompt": "button primary with 12px padding-top 8px padding-bottom",
+      "expected": {
+        "name": "Button/Primary",
+        "archetype": "button",
+        "properties": { "padding-top": "12px", "padding-bottom": "8px" }
+      }
+    },
+    {
+      "id": "card-padding-and-border",
+      "prompt": "a card with 16px padding and a #E5E7EB border colour",
+      "expected": {
+        "name": "Card/Default",
+        "archetype": "card",
+        "properties": { "padding": "16px", "border-colour": "#E5E7EB" }
+      }
+    },
+    {
+      "id": "named-input",
+      "prompt": "input field named SearchBox with 6px corner radius and 14px font size",
+      "expected": {
+        "name": "SearchBox",
+        "archetype": "input",
+        "properties": { "radius": "6px", "font-size": "14px" }
+      }
+    },
+    {
+      "id": "secondary-button-colours",
+      "prompt": "secondary button with a #FFFFFF background, a #2563EB text colour and 999px radius",
+      "expected": {
+        "name": "Button/Secondary",
+        "archetype": "button",
+        "properties": { "background": "#FFFFFF", "text-colour": "#2563EB", "radius": "999px" }
+      }
+    },
+    {
+      "id": "badge-typography",
+      "prompt": "badge with 12px font size and 700 font weight",
+      "expected": {
+        "name": "Badge/Default",
+        "archetype": "badge",
+        "properties": { "font-size": "12px", "font-weight": "700" }
+      }
+    },
+    {
+      "id": "modal-shadow-and-overlay",
+      "prompt": "modal with 24px padding, a 16px corner radius and a rgba(0,0,0,0.5) overlay colour",
+      "expected": {
+        "name": "Modal/Default",
+        "archetype": "modal",
+        "properties": { "padding": "24px", "radius": "16px", "overlay-colour": "rgba(0,0,0,0.5)" }
+      }
+    },
+    {
+      "id": "state-scoped-value",
+      "prompt": "button primary with a #2563EB background and a #1D4ED8 background on hover",
+      "expected": {
+        "name": "Button/Primary",
+        "archetype": "button",
+        "properties": { "background": "#2563EB" }
+      }
+    }
+  ]
+}

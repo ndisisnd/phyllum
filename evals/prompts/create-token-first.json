@@ -1,0 +1,45 @@
+{
+  "eval": "create-token-first",
+  "rubric": "evals/rubrics/create-token-first.md",
+  "milestone": "M2",
+  "planSections": ["§3.2", "§8.5"],
+  "threshold": 1,
+  "status": "runnable — `pnpm run evals`",
+  "cases": [
+    {
+      "id": "radius-token-beats-raw-value",
+      "prompt": "button primary",
+      "fixture": "evals/fixtures/design-system/populated.md",
+      "slot": "radius",
+      "expectedToken": "rounded-md",
+      "evidence": [
+        { "slot": "radius", "property": "border-radius", "value": "12px", "file": "src/styles.css", "count": 14 }
+      ],
+      "note": "The codebase shouts 12px fourteen times; the token that names it still leads."
+    },
+    {
+      "id": "background-token",
+      "prompt": "a card",
+      "fixture": "evals/fixtures/design-system/populated.md",
+      "slot": "background",
+      "expectedToken": "color-surface",
+      "note": "Colour slots read the Colours table, and the surface token is the one about backgrounds."
+    },
+    {
+      "id": "typography-token",
+      "prompt": "badge primary",
+      "fixture": "evals/fixtures/design-system/populated.md",
+      "slot": "typography",
+      "expectedToken": "highlight-small",
+      "note": "Typography slots read the Typography table."
+    },
+    {
+      "id": "extrapolated-value-leads",
+      "prompt": "button danger",
+      "fixture": "evals/fixtures/design-system/buttons-with-focus-ring.md",
+      "slot": "focus-ring",
+      "expectedToken": "color-focus",
+      "note": "Every existing button uses color-focus, so that token leads its slot."
+    }
+  ]
+}

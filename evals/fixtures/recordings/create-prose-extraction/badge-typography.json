@@ -1,0 +1,28 @@
+{
+  "eval": "create-prose-extraction",
+  "case": "badge-typography",
+  "prompt": "badge with 12px font size and 700 font weight",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Badge/Default",
+    "archetype": "badge",
+    "properties": [
+      {
+        "key": "font-size",
+        "slot": "typography",
+        "value": "12px",
+        "origin": "user prose"
+      },
+      {
+        "key": "font-weight",
+        "slot": "typography",
+        "value": "700",
+        "origin": "user prose"
+      }
+    ],
+    "states": []
+  }
+}

@@ -21,7 +21,11 @@
     "templates/"
   ],
   "scripts": {
-    "test": "node --test \"evals/assertions/**/*.test.js\""
+    "test": "node --test \"evals/assertions/**/*.test.js\"",
+    "evals": "node evals/run-evals.js",
+    "evals:record": "node evals/run-evals.js --record",
+    "evals:record-model": "node evals/record-model.js",
+    "check": "npm test && npm run evals"
   },
   "engines": {
     "node": ">=20.0.0"

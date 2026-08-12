@@ -91,7 +91,7 @@ test('menu and help work before init, without creating anything', async () => {
 test('registered but unbuilt commands say which milestone they land in', async () => {
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));
-    const expected = { create: 'M2', tokenise: 'M3', gui: 'M4', kill: 'M4' };
+    const expected = { tokenise: 'M3', gui: 'M4', kill: 'M4' };
     for (const [name, milestone] of Object.entries(expected)) {
       const { out, code } = await run(name, dir);
       assert.equal(code, 0);

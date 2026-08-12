@@ -1,19 +1,62 @@
 {
   "eval": "help-accuracy",
   "rubric": "evals/rubrics/help-accuracy.md",
-  "status": "runner lands in M2 — these prompts are pinned, not executed",
+  "status": "pinned, not scored by the M2 runner — these two need a model judge, which lands with the M6 eval harness (see evals/run.md)",
   "milestone": "M1",
-  "planSections": ["§2.2", "§3", "§4", "§5", "§6", "§6.5"],
+  "planSections": [
+    "§2.2",
+    "§3",
+    "§4",
+    "§5",
+    "§6",
+    "§6.5"
+  ],
   "cases": [
-    { "id": "help-basal", "command": "basal", "planSection": "§2.2" },
-    { "id": "help-menu", "command": "menu", "planSection": "§2.2" },
-    { "id": "help-help", "command": "help", "planSection": "§2.2" },
-    { "id": "help-create", "command": "create", "planSection": "§3" },
-    { "id": "help-tokenise", "command": "tokenise", "planSection": "§4" },
-    { "id": "help-gui", "command": "gui", "planSection": "§5" },
-    { "id": "help-kill", "command": "kill", "planSection": "§5" },
-    { "id": "help-system", "command": "system", "planSection": "§6" },
-    { "id": "help-init", "command": "init", "planSection": "§6.5" }
+    {
+      "id": "help-basal",
+      "command": "basal",
+      "planSection": "§2.2"
+    },
+    {
+      "id": "help-menu",
+      "command": "menu",
+      "planSection": "§2.2"
+    },
+    {
+      "id": "help-help",
+      "command": "help",
+      "planSection": "§2.2"
+    },
+    {
+      "id": "help-create",
+      "command": "create",
+      "planSection": "§3"
+    },
+    {
+      "id": "help-tokenise",
+      "command": "tokenise",
+      "planSection": "§4"
+    },
+    {
+      "id": "help-gui",
+      "command": "gui",
+      "planSection": "§5"
+    },
+    {
+      "id": "help-kill",
+      "command": "kill",
+      "planSection": "§5"
+    },
+    {
+      "id": "help-system",
+      "command": "system",
+      "planSection": "§6"
+    },
+    {
+      "id": "help-init",
+      "command": "init",
+      "planSection": "§6.5"
+    }
   ],
   "promptTemplate": "Here is the plan section that defines the `{{command}}` command, and here is the output of `basal help {{command}}`. Grade the help text against the rubric: does it describe what the plan says this command does, with its real modes and arguments, and nothing it does not do?"
 }

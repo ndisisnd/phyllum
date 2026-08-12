@@ -99,18 +99,27 @@ test('the M4 placeholders are marked as placeholders, not half-built', () => {
   assert.ok(gui.includes('M4'));
 });
 
-test('the eval assets are pinned and honestly labelled as not yet runnable', () => {
+test('the M1 eval assets stay pinned, and say plainly that they are not scored yet', () => {
   for (const rel of ['evals/rubrics/init-detection.md', 'evals/rubrics/help-accuracy.md']) {
     const text = read(rel);
-    assert.ok(/not runnable yet/i.test(text), `${rel} should say the runner is not here yet`);
-    assert.ok(text.includes('M2'));
+    assert.ok(/not scored yet/i.test(text), `${rel} should say it is not scored yet`);
     assert.ok(/threshold/i.test(text), `${rel} should state a pass threshold`);
+    assert.ok(/model judge/i.test(text), `${rel} should say what it is waiting for`);
   }
   for (const rel of ['evals/prompts/init-detection.json', 'evals/prompts/help-accuracy.json']) {
     const data = JSON.parse(read(rel));
-    assert.ok(data.status.includes('runner lands in M2'));
+    assert.ok(data.status.includes('not scored by the M2 runner'));
     assert.ok(data.rubric);
   }
+});
+
+test('the eval runner and its recorder ship with the package', () => {
+  for (const rel of ['evals/run-evals.js', 'evals/record-model.js', 'evals/graders.js', 'evals/baseline.json']) {
+    assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, rel)), `missing ${rel}`);
+  }
+  const scripts = JSON.parse(read('package.json')).scripts;
+  assert.equal(scripts.evals, 'node evals/run-evals.js');
+  assert.ok(scripts['evals:record'].includes('--record'));
 });
 
 test('every eval fixture codebase referenced by a prompt exists', () => {

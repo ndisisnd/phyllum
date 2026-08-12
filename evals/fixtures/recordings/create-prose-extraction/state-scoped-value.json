@@ -1,0 +1,33 @@
+{
+  "eval": "create-prose-extraction",
+  "case": "state-scoped-value",
+  "prompt": "button primary with a #2563EB background and a #1D4ED8 background on hover",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Primary",
+    "archetype": "button",
+    "properties": [
+      {
+        "key": "background",
+        "slot": "background",
+        "value": "#2563EB",
+        "origin": "prose"
+      }
+    ],
+    "states": [
+      {
+        "name": "hover",
+        "properties": [
+          {
+            "key": "background",
+            "value": "#1D4ED8",
+            "origin": "prose"
+          }
+        ]
+      }
+    ]
+  }
+}

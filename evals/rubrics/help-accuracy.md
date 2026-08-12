@@ -1,6 +1,9 @@
 # Eval — per-command help stays accurate (plan §2.2, §8.5)
 
-**Status: not runnable yet. The eval runner lands in M2.** The rubric and the
+**Status: pinned, not scored yet.** The eval runner landed in M2
+(`evals/run-evals.js`) and scores the `create` evals. This one is graded by a
+model judge rather than by comparison to a pinned answer, so it waits for the
+M6 eval harness. Nothing here fakes a model call in the meantime. The rubric and the
 prompts are pinned now; nothing here fakes a model call.
 
 ## What is being graded

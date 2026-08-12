@@ -1,0 +1,34 @@
+{
+  "eval": "create-extrapolation",
+  "rubric": "evals/rubrics/create-extrapolation.md",
+  "milestone": "M2",
+  "planSections": ["§3.1.1", "§8.5"],
+  "threshold": 1,
+  "status": "runnable — `pnpm run evals`",
+  "cases": [
+    {
+      "id": "all-buttons-define-focus-ring",
+      "prompt": "button danger with 12px padding",
+      "fixture": "evals/fixtures/design-system/buttons-with-focus-ring.md",
+      "slot": "focus-ring",
+      "expectProposed": true,
+      "note": "Three of three buttons define it, so the fourth is asked about it."
+    },
+    {
+      "id": "only-one-button-defines-focus-ring",
+      "prompt": "button danger with 12px padding",
+      "fixture": "evals/fixtures/design-system/buttons-without-focus-ring.md",
+      "slot": "focus-ring",
+      "expectProposed": false,
+      "note": "One precedent out of three is not a system, so nothing is proposed."
+    },
+    {
+      "id": "no-prior-buttons-at-all",
+      "prompt": "button danger with 12px padding",
+      "fixture": "evals/fixtures/design-system/empty.md",
+      "slot": "focus-ring",
+      "expectProposed": false,
+      "note": "Nothing to extrapolate from means nothing beyond the contract."
+    }
+  ]
+}

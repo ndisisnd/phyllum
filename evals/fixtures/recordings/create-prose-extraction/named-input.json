@@ -1,0 +1,28 @@
+{
+  "eval": "create-prose-extraction",
+  "case": "named-input",
+  "prompt": "input field named SearchBox with 6px corner radius and 14px font size",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "SearchBox",
+    "archetype": "input",
+    "properties": [
+      {
+        "key": "radius",
+        "slot": "radius",
+        "value": "6px",
+        "origin": "prose"
+      },
+      {
+        "key": "font-size",
+        "slot": "typography",
+        "value": "14px",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

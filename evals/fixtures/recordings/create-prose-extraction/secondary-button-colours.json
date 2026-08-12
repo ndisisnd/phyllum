@@ -1,0 +1,34 @@
+{
+  "eval": "create-prose-extraction",
+  "case": "secondary-button-colours",
+  "prompt": "secondary button with a #FFFFFF background, a #2563EB text colour and 999px radius",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Secondary",
+    "archetype": "button",
+    "properties": [
+      {
+        "key": "background",
+        "slot": "background",
+        "value": "#FFFFFF",
+        "origin": "prose"
+      },
+      {
+        "key": "text-colour",
+        "slot": "text-colour",
+        "value": "#2563EB",
+        "origin": "prose"
+      },
+      {
+        "key": "radius",
+        "slot": "radius",
+        "value": "999px",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

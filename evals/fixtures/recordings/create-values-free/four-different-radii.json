@@ -1,0 +1,40 @@
+{
+  "eval": "create-values-free",
+  "case": "four-different-radii",
+  "prompt": "primary button with 4px top-left radius, 8px top-right radius, 12px bottom-right radius and 16px bottom-left radius",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Primary",
+    "archetype": "button",
+    "properties": [
+      {
+        "key": "radius-top-left",
+        "slot": null,
+        "value": "4px",
+        "origin": "prose"
+      },
+      {
+        "key": "radius-top-right",
+        "slot": null,
+        "value": "8px",
+        "origin": "prose"
+      },
+      {
+        "key": "radius-bottom-right",
+        "slot": null,
+        "value": "12px",
+        "origin": "prose"
+      },
+      {
+        "key": "radius-bottom-left",
+        "slot": null,
+        "value": "16px",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

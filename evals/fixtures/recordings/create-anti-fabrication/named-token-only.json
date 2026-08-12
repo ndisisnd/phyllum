@@ -1,0 +1,22 @@
+{
+  "eval": "create-anti-fabrication",
+  "case": "named-token-only",
+  "prompt": "button secondary with the rounded-md radius",
+  "fixture": "evals/fixtures/design-system/populated.md",
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Secondary",
+    "archetype": "button",
+    "properties": [
+      {
+        "key": "radius",
+        "slot": null,
+        "value": "rounded-md",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

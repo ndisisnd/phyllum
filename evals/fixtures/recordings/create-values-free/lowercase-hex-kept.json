@@ -1,0 +1,22 @@
+{
+  "eval": "create-values-free",
+  "case": "lowercase-hex-kept",
+  "prompt": "button primary with a #2563eb background",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Primary",
+    "archetype": "button",
+    "properties": [
+      {
+        "key": "background",
+        "slot": null,
+        "value": "#2563eb",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

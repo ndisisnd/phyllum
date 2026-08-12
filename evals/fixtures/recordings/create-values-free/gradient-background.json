@@ -1,0 +1,22 @@
+{
+  "eval": "create-values-free",
+  "case": "gradient-background",
+  "prompt": "a card with a linear-gradient(#fff, #eee) background",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Card/Default",
+    "archetype": "card",
+    "properties": [
+      {
+        "key": "background",
+        "slot": null,
+        "value": "linear-gradient(#fff, #eee)",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

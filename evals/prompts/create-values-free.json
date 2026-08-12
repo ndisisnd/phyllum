@@ -1,0 +1,42 @@
+{
+  "eval": "create-values-free",
+  "rubric": "evals/rubrics/create-values-free.md",
+  "milestone": "M2",
+  "planSections": ["§3.1.1", "§8.5"],
+  "threshold": 1,
+  "status": "runnable — `pnpm run evals`; the recorded responder needs evals/fixtures/recordings/",
+  "recordingPrompt": "Load the Basal skill (skill/refs/create.md) and run Mode A on the description below. Return only the draft as JSON. Copy every value exactly as written — do not round it, convert its units, change its case, or replace it with something more conventional.",
+  "cases": [
+    {
+      "id": "four-different-radii",
+      "prompt": "primary button with 4px top-left radius, 8px top-right radius, 12px bottom-right radius and 16px bottom-left radius",
+      "expected": {
+        "properties": {
+          "radius-top-left": "4px",
+          "radius-top-right": "8px",
+          "radius-bottom-right": "12px",
+          "radius-bottom-left": "16px"
+        }
+      },
+      "note": "Four radii on one button is unusual and completely allowed."
+    },
+    {
+      "id": "gradient-background",
+      "prompt": "a card with a linear-gradient(#fff, #eee) background",
+      "expected": { "properties": { "background": "linear-gradient(#fff, #eee)" } },
+      "note": "A gradient where a flat colour is expected, taken verbatim."
+    },
+    {
+      "id": "unconventional-numbers",
+      "prompt": "badge with 3px font size and 1234px radius",
+      "expected": { "properties": { "font-size": "3px", "radius": "1234px" } },
+      "note": "Nothing here is sensible, and nothing here gets corrected."
+    },
+    {
+      "id": "lowercase-hex-kept",
+      "prompt": "button primary with a #2563eb background",
+      "expected": { "properties": { "background": "#2563eb" } },
+      "note": "Case is part of the value the user typed."
+    }
+  ]
+}

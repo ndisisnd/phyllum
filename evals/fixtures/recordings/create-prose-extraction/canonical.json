@@ -1,0 +1,28 @@
+{
+  "eval": "create-prose-extraction",
+  "case": "canonical",
+  "prompt": "button primary with 12px padding-top and 8px padding-bottom",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Button/Primary",
+    "archetype": "button",
+    "properties": [
+      {
+        "key": "padding-top",
+        "slot": "padding",
+        "value": "12px",
+        "origin": "prose"
+      },
+      {
+        "key": "padding-bottom",
+        "slot": "padding",
+        "value": "8px",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

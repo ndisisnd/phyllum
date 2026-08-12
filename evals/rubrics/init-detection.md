@@ -1,6 +1,9 @@
 # Eval — `init` step 1, "look before asking" (plan §6.5, §8.5)
 
-**Status: not runnable yet. The eval runner lands in M2.** The rubric, the
+**Status: pinned, not scored yet.** The eval runner landed in M2
+(`evals/run-evals.js`) and scores the `create` evals. This one is graded by a
+model judge rather than by comparison to a pinned answer, so it waits for the
+M6 eval harness. Nothing here fakes a model call in the meantime. The rubric, the
 prompts and the fixture codebases are pinned here now so that when the runner
 arrives it grades against a fixed target. Nothing in this directory fakes a
 model call; an eval with no runner is simply not run.

@@ -1,0 +1,15 @@
+{
+  "eval": "create-anti-fabrication",
+  "case": "bare-modal",
+  "prompt": "a modal",
+  "fixture": "evals/fixtures/design-system/populated.md",
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Modal/Default",
+    "archetype": "modal",
+    "properties": [],
+    "states": []
+  }
+}

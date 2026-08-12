@@ -1,0 +1,46 @@
+{
+  "eval": "create-values-free",
+  "case": "unconventional-numbers",
+  "prompt": "badge with 3px font size and 1234px radius",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Badge/Default",
+    "archetype": "badge",
+    "properties": [
+      {
+        "key": "font-size",
+        "slot": null,
+        "value": "3px",
+        "origin": "prose"
+      },
+      {
+        "key": "radius",
+        "slot": null,
+        "value": "1234px",
+        "origin": "prose"
+      },
+      {
+        "key": "background",
+        "slot": null,
+        "value": "TODO",
+        "origin": "prose"
+      },
+      {
+        "key": "text-colour",
+        "slot": null,
+        "value": "TODO",
+        "origin": "prose"
+      },
+      {
+        "key": "padding",
+        "slot": null,
+        "value": "TODO",
+        "origin": "prose"
+      }
+    ],
+    "states": []
+  }
+}

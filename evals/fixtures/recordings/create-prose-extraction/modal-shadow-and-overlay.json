@@ -1,0 +1,34 @@
+{
+  "eval": "create-prose-extraction",
+  "case": "modal-shadow-and-overlay",
+  "prompt": "modal with 24px padding, a 16px corner radius and a rgba(0,0,0,0.5) overlay colour",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Modal/Default",
+    "archetype": "modal",
+    "properties": [
+      {
+        "key": "padding",
+        "slot": "padding",
+        "value": "24px",
+        "origin": "user"
+      },
+      {
+        "key": "radius",
+        "slot": "radius",
+        "value": "16px",
+        "origin": "user"
+      },
+      {
+        "key": "overlay-colour",
+        "slot": "overlay-colour",
+        "value": "rgba(0,0,0,0.5)",
+        "origin": "user"
+      }
+    ],
+    "states": []
+  }
+}

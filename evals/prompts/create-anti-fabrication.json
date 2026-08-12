@@ -1,0 +1,41 @@
+{
+  "eval": "create-anti-fabrication",
+  "rubric": "evals/rubrics/create-anti-fabrication.md",
+  "milestone": "M2",
+  "planSections": ["§3.2", "§8.5"],
+  "threshold": 1,
+  "status": "runnable — `pnpm run evals`; the recorded responder needs evals/fixtures/recordings/",
+  "recordingPrompt": "Load the Basal skill (skill/refs/create.md) and run Mode A on the description below against the given DESIGN-SYSTEM.md. Return only the draft as JSON, before any follow-up questions are answered. A slot the description does not fill must stay empty — do not fill it from the archetype, from other components, or from habit.",
+  "cases": [
+    {
+      "id": "bare-button",
+      "prompt": "button primary",
+      "fixture": "evals/fixtures/design-system/populated.md",
+      "note": "The system already has a Button/Primary full of values; none of them may leak into a fresh draft."
+    },
+    {
+      "id": "card-one-value",
+      "prompt": "a card with 16px padding",
+      "fixture": "evals/fixtures/design-system/populated.md",
+      "note": "One value given, four contract slots open — all four must stay open."
+    },
+    {
+      "id": "bare-modal",
+      "prompt": "a modal",
+      "fixture": "evals/fixtures/design-system/populated.md",
+      "note": "Nothing said, so nothing may be recorded."
+    },
+    {
+      "id": "named-token-only",
+      "prompt": "button secondary with the rounded-md radius",
+      "fixture": "evals/fixtures/design-system/populated.md",
+      "note": "A token the user named is an origin; anything else is not."
+    },
+    {
+      "id": "buttons-with-precedent",
+      "prompt": "button danger with 10px padding",
+      "fixture": "evals/fixtures/design-system/buttons-with-focus-ring.md",
+      "note": "Every prior button defines focus-ring. It may be suggested, never silently recorded."
+    }
+  ]
+}

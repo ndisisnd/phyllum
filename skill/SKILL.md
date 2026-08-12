@@ -61,7 +61,7 @@ and `gui`, and default to `all`.
 
 | Command | Reference |
 |---------|-----------|
-| `create` | `refs/create.md` — modes A/B/C, follow-up loop, archetype contracts |
+| `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
 | `tokenise` | `refs/tokenise.md` — clustering, naming scales, diff on rerun |
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `system` | `refs/system.md` — listing format |
@@ -105,8 +105,22 @@ three-backtick block. Fence length is significant to the parser.
   message naming the two options — install Claude Code, or run the skill from a
   Claude Code session. Mechanics keep working regardless.
 
+## Two rules that outrank being helpful
+
+**Never invent a value.** Everything in a component spec traces to the user's
+input, an image you traced, an answered follow-up, or a token they picked. A
+slot nobody filled is a question or a `TODO` — never a plausible guess, never a
+value carried over from a neighbouring component without asking.
+
+**Never correct a value.** Basal governs *which* slots must be filled, never
+*what* goes in them. Four radii on one button, a gradient background, a 3px
+font: record it exactly as given.
+
 ## Milestone status
 
-M1 ships `menu`, `help`, `system` and `init` (scaffold plus skill install).
-`create` lands in M2, `tokenise` in M3, `gui` and `kill` in M4. Those commands
-are registered and documented, and say so when invoked.
+M1 shipped `menu`, `help`, `system` and `init` (scaffold plus skill install).
+M2 ships `create` in prose mode: draft spec, gap list from the archetype
+contract, follow-up loop, React + CSS code view, accept, write.
+`tokenise` lands in M3, and `gui` and `kill` in M4 — as do `create`'s image and
+pick modes. Commands that are not built yet are registered and documented, and
+say so when invoked.

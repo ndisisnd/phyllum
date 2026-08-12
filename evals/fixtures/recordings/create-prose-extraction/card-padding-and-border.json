@@ -1,0 +1,28 @@
+{
+  "eval": "create-prose-extraction",
+  "case": "card-padding-and-border",
+  "prompt": "a card with 16px padding and a #E5E7EB border colour",
+  "fixture": null,
+  "recordedAt": "2026-08-12",
+  "model": "haiku",
+  "how": "node evals/record-model.js — a real `claude` run, committed verbatim",
+  "draft": {
+    "name": "Card/Default",
+    "archetype": "card",
+    "properties": [
+      {
+        "key": "padding",
+        "slot": "padding",
+        "value": "16px",
+        "origin": "user prose"
+      },
+      {
+        "key": "border-colour",
+        "slot": "border-colour",
+        "value": "#E5E7EB",
+        "origin": "user prose"
+      }
+    ],
+    "states": []
+  }
+}

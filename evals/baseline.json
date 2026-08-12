@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-08-12",
+  "basalVersion": "0.1.0",
+  "milestone": "M2",
+  "note": "Scores recorded by `node evals/run-evals.js --record`. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why.",
+  "evals": {
+    "create-prose-extraction": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 0.95,
+      "points": 33,
+      "max": 33
+    },
+    "create-anti-fabrication": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 5,
+      "max": 5
+    },
+    "create-token-first": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 4,
+      "max": 4
+    },
+    "create-extrapolation": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 3,
+      "max": 3
+    },
+    "create-values-free": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 8,
+      "max": 8
+    }
+  },
+  "recordedRuns": {
+    "create-prose-extraction": {
+      "score": 1,
+      "threshold": 0.95,
+      "points": 33,
+      "max": 33,
+      "unrecordedCases": []
+    },
+    "create-anti-fabrication": {
+      "score": 1,
+      "threshold": 1,
+      "points": 5,
+      "max": 5,
+      "unrecordedCases": []
+    },
+    "create-values-free": {
+      "score": 1,
+      "threshold": 1,
+      "points": 8,
+      "max": 8,
+      "unrecordedCases": []
+    }
+  }
+}

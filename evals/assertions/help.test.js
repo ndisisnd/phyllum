@@ -92,8 +92,16 @@ test('an unknown command suggests the menu and exits cleanly', async () => {
 });
 
 test('help pages for unbuilt commands say which milestone they land in', async () => {
-  for (const command of COMMANDS.filter((c) => c.milestone !== 'M1')) {
+  for (const command of COMMANDS.filter((c) => !c.built)) {
     const { out } = await run(`help ${command.name}`);
     assert.ok(out.includes(command.milestone), `${command.name} help should name its milestone`);
+    assert.ok(out.includes('not built yet'), `${command.name} help should say it is not built`);
+  }
+});
+
+test('help pages for built commands never claim to be unbuilt', async () => {
+  for (const command of COMMANDS.filter((c) => c.built)) {
+    const { out } = await run(`help ${command.name}`);
+    assert.ok(!out.includes('not built yet'), `${command.name} is built and should not say otherwise`);
   }
 });
