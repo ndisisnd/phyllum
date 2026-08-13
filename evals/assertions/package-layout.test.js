@@ -146,6 +146,72 @@ test('the judgement rubric that still has no judge says so plainly', () => {
   assert.ok(data.rubric);
 });
 
+test('every eval says which release it was written for (M6)', () => {
+  // Two evals carried a bare `M3`, from before there was a second release with
+  // an M3 in it. An unqualified milestone reads as the current one to whoever
+  // opens the file next, which is how `tokenise-clustering` stayed misfiled for
+  // a release — the same failure this pin now makes impossible.
+  const dir = path.join(PACKAGE_ROOT, 'evals', 'prompts');
+  for (const file of fs.readdirSync(dir).sort()) {
+    if (!file.endsWith('.json')) continue;
+    const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+    assert.match(
+      String(data.milestone ?? ''),
+      /^v\d+\.\d+\.\d+ M\d+$/,
+      `${file} names a milestone without saying which release it belongs to`,
+    );
+    assert.ok(
+      fs.existsSync(path.join(PACKAGE_ROOT, data.rubric)),
+      `${file} points at a rubric that is not there`,
+    );
+  }
+});
+
+test('help-accuracy covers the surface v0.2.1 actually has (M6)', () => {
+  const data = JSON.parse(read('evals/prompts/help-accuracy.json'));
+  assert.equal(data.milestone, 'v0.2.1 M6', 're-pinned with the release, not left at the last one');
+
+  // The one eval that reads help text against the plan is only as good as its
+  // case list, and a list that only grows when a *command* is added misses a
+  // depth release entirely. v0.2.1 added no command and changed three pages.
+  const ids = new Set(data.cases.map((testCase) => testCase.id));
+  for (const id of ['help-display', 'help-assess-json', 'help-assess-score']) {
+    assert.ok(ids.has(id), `help-accuracy has no case for ${id}`);
+  }
+
+  const scopes = data.cases.find((testCase) => testCase.id === 'help-assess-scopes');
+  assert.match(
+    scopes.mustNotClaim,
+    /accepts every proposed token/,
+    'the claim most likely to rot is the one pinned by name',
+  );
+  const system = data.cases.find((testCase) => testCase.id === 'help-system');
+  assert.match(system.mustClaim, /alias/, '`system` is described as the alias, not the primary name');
+});
+
+test('the help text says what `assess update` and `display` actually do (M6)', () => {
+  const assess = COMMANDS.find((command) => command.name === 'assess');
+  const modes = assess.modes.join('\n');
+  const args = assess.args.join('\n');
+
+  // Doc drift, pinned rather than trusted. `assess update` declines a `warn`
+  // finding in `autoAnswer`, and the help page said it accepted "every proposed
+  // token" for a whole release after that stopped being true.
+  assert.match(modes, /`warn`[^\n]*never accepted/, 'the page says warnings are not auto-accepted');
+  assert.ok(
+    !/every proposed token accepted/.test(modes),
+    'and no longer claims the opposite',
+  );
+  assert.match(modes, /--json/, 'the flag that writes a file is on the page it belongs to');
+  assert.match(args, /--json \[path\]/);
+  assert.match(assess.description.join('\n'), /drift score/, 'and the run says how it ends');
+
+  // `display` leads and `system` follows, in the registry that renders both.
+  const display = COMMANDS.find((command) => command.name === 'display');
+  assert.ok(display, '`display` is the command');
+  assert.ok(display.aliases.includes('system'), 'and `system` is its alias');
+});
+
 test('init-detection is scored from M6, and says which half is scored', () => {
   const rubric = read('evals/rubrics/init-detection.md');
   assert.ok(/scored from M6/i.test(rubric), 'the rubric should say it is scored now');

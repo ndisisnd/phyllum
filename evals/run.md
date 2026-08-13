@@ -284,6 +284,21 @@ score 5 on one run and 8 on the next, which would make the number worth nothing
 Seventeen of nineteen sit at 1.0 now, and the two below are still the same
 model-dependent two.
 
+And v0.2.1 M6, which adds no eval and moves the release stamp instead. Five
+milestones kept `release` at `v0.2.0` on purpose: until a release is cut, the bar
+a change has to clear is the last *released* one, and moving the stamp early
+would have let each milestone measure itself against the milestone before it
+rather than against the last thing anyone could install. M6 cuts v0.2.1, so the
+baseline is re-recorded as `release: v0.2.1` and that becomes the bar the next
+release inherits. Nineteen evals, every score met or beaten, no threshold
+lowered — and none ever has been.
+
+The two below 1.0 are still the same two, and still deliberately so. They are the
+model-dependent ones, where the responder's wording is part of what is graded;
+holding them at 1.0 would be pinning a model's phrasing rather than Phyllum's
+behaviour, and the first model update would break a suite that had found no bug.
+The headroom is the honest reading of what those two evals can actually promise.
+
 M1 pinned two rubrics that no runner could score. M6 splits them honestly:
 
 - **`init-detection` is scored now.** Its deterministic core — framework,
@@ -292,13 +307,19 @@ M1 pinned two rubrics that no runner could score. M6 splits them honestly:
   so the runner grades it at threshold 1.0. The prose half of step 1 (what those
   artefacts *mean* for this project) still needs a model judge and stays with
   the rubric, unscored.
-- **`help-accuracy` stays pinned and unscored, and was re-pinned in M8.** Its
-  case list had not moved since v0.1.0 M1, so the one eval that checks help text
-  against the plan carried no case for any of the six commands v0.2.0 added.
-  It now pins `version`, `update`, `assess` with its three scope words, `apply`
-  and `apply run` — including the two claims most likely to rot: that `tokenise`
-  must *not* be described as scanning the codebase, and that `apply run` is the
-  only command that edits source files. Judging whether a help text is
+- **`help-accuracy` stays pinned and unscored, and was re-pinned again in
+  v0.2.1 M6.** v0.2.0 M8 re-pinned it for the six commands that release added.
+  v0.2.1 added no command at all — it is a depth release — so a case list that
+  only grows when a command appears would have missed it entirely, which is
+  exactly what happened between v0.1.0 M1 and v0.2.0 M8. M6 therefore pins the
+  three *pages that changed*: `display` as the primary read verb with `system`
+  as its alias, `assess --json`, and the drift score and verdict the assessment
+  now ends in. The claim most likely to rot is pinned by name: `assess update`
+  no longer accepts every proposed token, only the `error`-severity ones, and
+  the old sentence read true for a whole release after it stopped being so.
+  It still also pins that `tokenise` must *not* be described as scanning the
+  codebase, and that `apply run` is the only command that edits source files.
+  Judging whether a help text is
   still accurate to a plan section is free-text judgement end to end, and there
   is no way to score it without a model judge. It is left with a number nobody
   computed rather than given a fabricated one; the byte-level parts of `help`

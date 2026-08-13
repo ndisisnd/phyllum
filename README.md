@@ -28,14 +28,17 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.2.0 -->
+<!-- mkpub:release 0.2.1 -->
 > [!NOTE]
-> **🚀 New in 0.2.0 · Assess your codebase, then apply the system back**
+> **🚀 New in 0.2.1 · `assess` stops inventorying and starts judging**
 >
-> `assess` reads the raw styling already in your code and proposes tokens and
-> components from it; `apply` writes the recorded system back into your codebase,
-> always through a plan you review first, on a branch of its own. `tokenise` now
-> takes a sentence instead of a scan. Update with `phyllum update`
+> Every finding now carries a severity, near-identical components and styles are
+> scored as clones, naming drift and prop mismatches are called out, and unused
+> tokens and components are found by running coverage backwards. The run ends in
+> one drift score and one verdict. `assess --json` writes the whole assessment to
+> a file for CI, `display` reads the system back (`system` stays as an alias), and
+> every edit to `DESIGN-SYSTEM.md` now leaves a `.bak` one undo behind. Update
+> with `phyllum update`
 <!-- /mkpub:release -->
 
 ---
@@ -54,9 +57,11 @@ Three ideas govern every command:
 - **Conversational, not form-driven.** When Phyllum is missing something, it asks a
   follow-up with a suggestion attached — never a blank required field.
 - **One write target.** `DESIGN-SYSTEM.md` is the only file Phyllum touches, aside from
-  its own gitignored `.phyllum/` — session state, settings, and `apply`'s plan — and, on
-  `init`, the skill install. One command is allowed past that line, `apply run`, and only
-  from a plan you have read, on a branch of its own, one phase at a time.
+  the `DESIGN-SYSTEM.md.bak` it leaves one undo behind, its own gitignored `.phyllum/` —
+  session state, settings, and `apply`'s plan — and, on `init`, the skill install. Two
+  things are allowed past that line, and only when you ask for them by name: `assess
+  --json <path>` writes the `.json` file you typed, and `apply run` edits source, from a
+  plan you have read, on a branch of its own, one phase at a time.
 
 Two rules outrank being helpful. Phyllum never invents a value — a slot nobody filled is
 a question or a `TODO`, never a plausible guess. And it never corrects a value — four
@@ -154,9 +159,10 @@ proposed again, so a rerun shows only what has drifted.
 Three chained modes narrow the same scan. `assess tokens` walks the token suggestions
 only; `assess components` walks the component suggestions only, one candidate at a time
 with its own yes-or-no each; `assess update` skips the per-item review altogether and
-accepts every proposed token under the name it showed you. `assess update` still refuses
-to guess: a value it could see but not read stays unnamed, a component is never recorded
-without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
+accepts the proposed tokens the assessment graded as errors, under the names it showed
+you. `assess update` still refuses to guess: a warning is reported and never accepted on
+your behalf, a value it could see but not read stays unnamed, a component is never
+recorded without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
 
 The report ends in one number and one word: a **drift score** on a seven-step
 Fibonacci scale (1, 2, 3, 5, 8, 13, 21 — lower is better) for how much

@@ -231,9 +231,12 @@ the moment you skip; bare `assess` still records one component per run, because 
 assessment that turned into five queued `create` conversations would stop being an
 assessment. `assess update` is the fast-forward, and it fast-forwards on one rule:
 a question whose answer is already on the page is answered, and a question whose
-answer is only in your head is skipped. So every proposed token is accepted under
-the name the map showed and written in one go, while a value whose role Phyllum
-could not read and a component pick are both declined and reported as declined.
+answer is only in your head is skipped. So every proposed token graded `error` is
+accepted under the name the map showed and written in one go, while a `warn`
+finding — a value written once or twice, which is what a deliberate exception
+looks like — is reported and never accepted for you, and a value whose role
+Phyllum could not read and a component pick are both declined and reported as
+declined.
 Anything unrecognised is declined too, which is what stops a later flow being
 auto-accepted into by accident. `assess update` writes `DESIGN-SYSTEM.md` and
 nothing else; the codebase remains `apply`'s alone to write.

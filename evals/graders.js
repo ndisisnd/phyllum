@@ -105,9 +105,17 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * groups every finding into one row shape. Same terms as the four before it. The
  * stamp moves to `v0.2.1 M5`, the release stamp stays `v0.2.0` because that is
  * still the released bar being cleared, and no threshold is lowered.
+ *
+ * M6 is the milestone where the **release** stamp finally moves. Five milestones
+ * kept it at `v0.2.0` on purpose — until a release is cut, the bar every change
+ * has to clear is the last released one, and moving the stamp early would have
+ * meant each milestone measuring itself against the milestone before it rather
+ * than against the last thing a user could install. M6 cuts the release, so
+ * `v0.2.1` becomes the bar the next release will have to clear. Nineteen evals,
+ * every one at 1.000, no threshold lowered and none ever has been.
  */
-export const MILESTONE = 'v0.2.1 M5';
-export const RELEASE = 'v0.2.0';
+export const MILESTONE = 'v0.2.1 M6';
+export const RELEASE = 'v0.2.1';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');

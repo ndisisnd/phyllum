@@ -221,7 +221,11 @@ test('a refused path stops the run and writes nothing anywhere', async () => {
     });
     assert.equal(code, 1);
     assert.ok(out.includes('could not write'));
-    assert.ok(out.includes('never falls back'), 'and it does not quietly pick somewhere else');
+    assert.ok(out.includes('writes one file or none'), 'and it does not quietly pick somewhere else');
+    // Since M6 the refusal names the lock that closed rather than reciting the
+    // general permission model, which is a rule this user did not break.
+    assert.ok(out.includes('resolves outside it'), 'and says which lock closed');
+    assert.ok(!out.includes('during init only'), 'not the rule that has nothing to do with --json');
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
       added: [],
       changed: [],
@@ -328,8 +332,11 @@ test('a failed backup aborts the edit, and says both halves', async () => {
 
 test('the backup is taken by the funnel, so no writer can skip it', () => {
   const source = fs.readFileSync(path.join(process.cwd(), 'lib', 'write.js'), 'utf8');
-  const takenIn = source.split('backupDesignSystem(root)').length - 1;
+  // One definition and one call site, whatever arguments the call carries — M6
+  // gave the backup its own fault stages, so the call is no longer bare.
+  const takenIn = source.split(/backupDesignSystem\(/).length - 1;
   assert.equal(takenIn, 2, 'one definition, one call — and the call is inside writeGuarded');
+  assert.match(source, /if \(rel === DESIGN_SYSTEM_FILE\) backupDesignSystem\(/, 'in writeGuarded');
   for (const file of ['create.js', 'tokenise.js', 'assess-command.js', 'init.js']) {
     const text = fs.readFileSync(path.join(process.cwd(), 'lib', file), 'utf8');
     assert.ok(!text.includes('.bak'), `${file} does not take a backup of its own`);

@@ -30,7 +30,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { ERROR, WARN, assess } from '../../lib/assess.js';
+import { ERROR, SCAN_LIMITS, WARN, assess } from '../../lib/assess.js';
 import {
   UNUSED_CAVEAT,
   collisionFindings,
@@ -39,7 +39,7 @@ import {
   unusedTokens,
 } from '../../lib/assess-hygiene.js';
 import { renderHygiene } from '../../lib/assess-command.js';
-import { namesForComponent, registeredNames } from '../../lib/candidates.js';
+import { namesForComponent, registeredNames, scanMarkup } from '../../lib/candidates.js';
 import { emptyModel, parse } from '../../lib/design-system.js';
 import { detectProject } from '../../lib/detect.js';
 import { execute } from '../../lib/execute.js';
@@ -58,6 +58,8 @@ const codebase = (name) => path.join(FIXTURES, 'codebases', name);
 
 const COLLISIONS = codebase('collisions');
 const STALE = codebase('stale-system');
+/** The fixture whose colours live in custom properties and are spent as `var()`. */
+const DRIFT = codebase('dark-drift');
 
 /** The stale fixture carries its own design system; the check needs both. */
 const staleModel = () => parse(fs.readFileSync(path.join(STALE, 'DESIGN-SYSTEM.md'), 'utf8'));
@@ -228,6 +230,45 @@ test('a token whose value drifted is still used if its name is', () => {
   assert.ok(drift, 'and the drift itself is still a finding of the value rules');
 });
 
+test('a token spent only through var() is used, not unused (v0.2.1 M6)', () => {
+  const model = emptyModel();
+  model.tokens.colours.push(['color-ink', '#111827', 'body text']);
+  // Nothing here writes `#111827` — the literal lives in the custom property,
+  // and every use of it is a `var()` reference. Before M6 the declaration was
+  // dropped by the rerun diff precisely *because* the design system named that
+  // colour, so the one row carrying the token's name never reached this check
+  // and the token was reported as safe to delete.
+  assert.deepEqual(
+    unusedTokens(model, { covered: [], inventory: [], unreadable: [], names: ['--color-ink'] }).map(
+      (row) => row.token,
+    ),
+    [],
+  );
+  // And the name test stays a whole-word one: a longer custom property is not
+  // evidence for a shorter token.
+  assert.deepEqual(
+    unusedTokens(model, {
+      covered: [],
+      inventory: [],
+      unreadable: [],
+      names: ['--color-ink-strong'],
+    }).map((row) => row.token),
+    ['color-ink'],
+  );
+});
+
+test('the scan collects custom-property names, declared and spent', () => {
+  const result = assess(DRIFT, parse(fs.readFileSync(path.join(DRIFT, 'DESIGN-SYSTEM.md'), 'utf8')));
+  // The evidence is a flat, sorted list of spellings — deliberately not a
+  // finding, a severity or a proposal. It exists to answer one question.
+  assert.ok(result.values.names.includes('--color-primary'));
+  assert.deepEqual([...result.values.names].sort(), result.values.names, 'sorted, so two runs agree');
+  assert.ok(
+    !result.hygiene.unused.tokens.some((row) => row.token === 'color-primary'),
+    'and the token it is spelled from is no longer called unused',
+  );
+});
+
 test('name spellings cover the ways a codebase writes a token', () => {
   assert.deepEqual(tokenSpellings('color-primary'), ['color-primary', '--color-primary', 'colorPrimary']);
   assert.deepEqual(tokenSpellings(''), [], 'a nameless row spells nothing');
@@ -283,6 +324,47 @@ test('on a stack whose component pass did not run, components are not judged at 
   assert.equal(result.hygiene.unused.componentsChecked, false);
   assert.deepEqual(result.hygiene.unused.components, [], 'silence, rather than "all of them are unused"');
   assert.ok(result.hygiene.unused.componentsReason.includes('React-only'), 'and the reason is the honest one');
+});
+
+test('the markup is walked once and the list handed to every pass (v0.2.1 M6)', () => {
+  const root = codebase('mixed-naming');
+  const model = parse(fs.readFileSync(path.join(root, 'DESIGN-SYSTEM.md'), 'utf8'));
+
+  // Four passes want the same list of element/class signatures, and each one
+  // used to walk the tree and re-read every markup file to get it. The proof
+  // that they now share one list is that substituting the list moves all of
+  // them at once: a pass still doing its own walk would be unmoved.
+  const sentinel = [
+    {
+      signature: 'button.sentinel_btn',
+      element: 'button',
+      classes: ['sentinel_btn'],
+      count: 9,
+      files: ['src/App.jsx'],
+    },
+  ];
+  const shared = assess(root, model, { signatures: sentinel });
+  const real = assess(root, model);
+
+  assert.deepEqual(
+    shared.components.candidates.map((row) => row.signature),
+    ['button.sentinel_btn'],
+    'the candidate pass read it',
+  );
+  assert.notDeepEqual(shared.naming.findings, real.naming.findings, 'and so did naming drift');
+  assert.deepEqual(
+    shared.hygiene.unused.components.map((row) => row.value),
+    model.components.map((component) => component.name),
+    'and so did unused components — nothing in the handed-in list mentions them',
+  );
+
+  // Handing the same walk back in changes nothing at all, which is what
+  // "byte-identical" means for this refactor.
+  const again = assess(root, model, { signatures: scanMarkup(root, SCAN_LIMITS) });
+  assert.deepEqual(again.hygiene.unused.components, real.hygiene.unused.components);
+  assert.deepEqual(again.similarity.findings, real.similarity.findings);
+  assert.deepEqual(again.naming.findings, real.naming.findings);
+  assert.deepEqual(again.components.candidates, real.components.candidates);
 });
 
 test('unusedComponents refuses to answer rather than guessing when nothing read the markup', () => {

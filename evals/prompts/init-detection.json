@@ -3,7 +3,7 @@
   "rubric": "evals/rubrics/init-detection.md",
   "threshold": 1,
   "status": "scored from M6: the deterministic core (framework, styling, artefacts and the code-view fallback) is graded against pinned fixtures. The judgement half — reading those artefacts and summarising what they mean in prose — still needs a model judge and is graded by the rubric, not by this file.",
-  "milestone": "M6",
+  "milestone": "v0.1.0 M6",
   "scored": ["framework", "styling", "artefacts", "codeView"],
   "notScored": ["the prose summary of what the artefacts mean"],
   "cases": [
