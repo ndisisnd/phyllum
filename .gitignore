@@ -5,3 +5,4 @@ basal-v*.md
 .claude/settings.local.json
 .claude/.headroom_wrap_marker.json
 node_modules/
+.claude/kermit/state.json

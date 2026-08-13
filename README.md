@@ -28,6 +28,16 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
+<!-- mkpub:release 0.2.0 -->
+> [!NOTE]
+> **🚀 New in 0.2.0 · Assess your codebase, then apply the system back**
+>
+> `assess` reads the raw styling already in your code and proposes tokens and
+> components from it; `apply` writes the recorded system back into your codebase,
+> always through a plan you review first, on a branch of its own. `tokenise` now
+> takes a sentence instead of a scan. Update with `phyllum update`
+<!-- /mkpub:release -->
+
 ---
 
 ## What it is
