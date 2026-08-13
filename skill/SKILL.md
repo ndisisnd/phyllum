@@ -302,5 +302,20 @@ colour (`border: none`) records nothing; and a compound with a part Phyllum
 cannot name — a `var(…)` inside a shadow — is not half-read, it goes back to the
 seen-but-not-read bucket where a question gets asked instead.
 
+v0.2.1 M2 adds the two checks that are about the **project** rather than about
+any value in it. **Collisions**: detection has always looked for six frameworks
+and three styling systems and returned one winner, so the report now shows the
+evidence behind the winner too, and says when more than one UI framework, more
+than one major of one framework, more than one styling system or more than one
+theme file is live at once. A design system cannot have a single source of truth
+while three files each declare values. **Unused**: the coverage split run
+backwards — which tokens and registered components does the codebase never
+mention? Both are always warnings, because neither has an answer Phyllum could
+apply: two frameworks may be a migration halfway done, and an unused token may
+be the one the next screen is built on. And "unused" states its own limits every
+time it is printed — the scan is bounded and text-based, so *not seen* means
+"not seen in what was read", never "provably dead". Nothing is ever pruned, in
+any mode, including `assess update`.
+
 Commands that are not built yet are registered and documented, and say so when
 invoked.

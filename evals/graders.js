@@ -72,8 +72,13 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * `v0.2.0` — the bar being cleared is still the released one, and v0.2.1's own
  * bar is stamped in its hardening milestone, where the version is bumped and the
  * whole file is re-recorded at once.
+ *
+ * And again in v0.2.1 M2, for the same reason and with the same restraint:
+ * `assess-hygiene` joins the list, so the bar is re-recorded to stay complete,
+ * and the release stamp still says `v0.2.0` because that is still the released
+ * bar being cleared. No threshold moved.
  */
-export const MILESTONE = 'v0.2.1 M1';
+export const MILESTONE = 'v0.2.1 M2';
 export const RELEASE = 'v0.2.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
@@ -654,6 +659,149 @@ function assessSeverity() {
 }
 
 // ---------------------------------------------------------------------------
+// assess — hygiene: collisions and unused (v0.2.1 §6.1, §6.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * What collides in this project, and what does nothing use?
+ *
+ * Both halves over pinned fixtures, and both are readings of evidence rather
+ * than judgements — which packages a manifest declares, which files exist,
+ * which strings a scan saw. So there is no responder switch and no headroom in
+ * the threshold.
+ *
+ * The cases that outrank the rest are the six that assert an absence: the
+ * ordinary Tailwind app that is not two styling systems, the Next.js app that is
+ * not two frameworks, the token whose name is written even though its value
+ * drifted, and the Vue project told its components were not read rather than
+ * that they are all unused. A hygiene check that fires on healthy projects is
+ * worse than none, because every finding it makes is a warning somebody has to
+ * read and dismiss.
+ */
+function assessHygieneEval() {
+  const spec = readJson('evals/prompts/assess-hygiene.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+  const systemIn = (fixture) =>
+    parse(fs.readFileSync(path.join(rootOf(fixture), 'DESIGN-SYSTEM.md'), 'utf8'));
+
+  /**
+   * `own` reads the fixture's own design system, a named fixture borrows one —
+   * which is how the Vue case is given components it could be wrong about — and
+   * nothing at all means an empty system, where only collisions are in play.
+   */
+  const modelFor = (testCase) => {
+    if (!testCase.system) return emptyModel();
+    return systemIn(testCase.system === 'own' ? testCase.fixture : testCase.system);
+  };
+
+  // One scan per fixture-and-system pair, because several cases read the same
+  // assessment and scanning per case would grade the fixtures' size, not the code.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    const key = `${testCase.fixture}|${testCase.system ?? 'empty'}`;
+    if (!scans.has(key)) scans.set(key, assess(rootOf(testCase.fixture), modelFor(testCase)));
+    return scans.get(key);
+  };
+
+  for (const testCase of spec.cases) {
+    const result = scanFor(testCase);
+    const { hygiene } = result;
+
+    if (testCase.kind === 'collision') {
+      const finding = hygiene.collisions.find(
+        (item) => item.rule === testCase.rule && item.value === testCase.value,
+      );
+      claim(Boolean(finding), `${testCase.id}: no ${testCase.rule} naming "${testCase.value}"`);
+      if (!finding) {
+        max += 2;
+        continue;
+      }
+      claim(finding.severity === 'warn', `${testCase.id}: severity ${finding.severity}, expected warn`);
+      claim(
+        testCase.evidence.every((item) =>
+          finding.evidence.some((seen) => String(seen).includes(item)),
+        ),
+        `${testCase.id}: evidence ${finding.evidence.join(' / ')} does not show ${testCase.evidence.join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-collision') {
+      claim(
+        hygiene.collisions.length === 0,
+        `${testCase.id}: reported ${hygiene.collisions.map((item) => item.value).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unused-token' || testCase.kind === 'used-token') {
+      const row = hygiene.unused.tokens.find((item) => item.token === testCase.token);
+      if (testCase.kind === 'used-token') {
+        claim(!row, `${testCase.id}: ${testCase.token} was called unused, and the code uses it`);
+        continue;
+      }
+      claim(Boolean(row), `${testCase.id}: ${testCase.token} is not reported unused`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}, expected warn`);
+      claim(
+        row.detail.includes(hygiene.caveat),
+        `${testCase.id}: the finding does not carry the bounded-scan caveat`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unused-component' || testCase.kind === 'used-component') {
+      const row = hygiene.unused.components.find((item) => item.component === testCase.component);
+      if (testCase.kind === 'used-component') {
+        claim(!row, `${testCase.id}: ${testCase.component} was called unused, and the markup uses it`);
+        continue;
+      }
+      claim(Boolean(row), `${testCase.id}: ${testCase.component} is not reported unused`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}, expected warn`);
+      claim(
+        (row.spellings ?? []).length > 0,
+        `${testCase.id}: the finding does not say which spellings were looked for`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      claim(
+        hygiene.unused.componentsChecked === false,
+        `${testCase.id}: the component half claims to have run on a stack it cannot read`,
+      );
+      claim(
+        hygiene.unused.components.length === 0,
+        `${testCase.id}: named ${hygiene.unused.components.length} components it never looked for`,
+      );
+      claim(
+        Boolean(hygiene.unused.componentsReason),
+        `${testCase.id}: skipped the question without saying why`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
 // tokenise — the prose path, which is all `tokenise` is now (v0.2.0 §6, §7)
 // ---------------------------------------------------------------------------
 
@@ -1158,6 +1306,7 @@ export const EVALS = [
   { id: 'assess-clustering', modelDependent: false, run: clustering },
   { id: 'assess-naming', modelDependent: true, run: naming },
   { id: 'assess-severity', modelDependent: false, run: assessSeverity },
+  { id: 'assess-hygiene', modelDependent: false, run: assessHygieneEval },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
 ];
 
