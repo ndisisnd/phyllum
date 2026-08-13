@@ -1,0 +1,161 @@
+{
+  "eval": "assess-consistency",
+  "rubric": "evals/rubrics/assess-consistency.md",
+  "milestone": "v0.2.1 M4",
+  "planSections": ["§5.1", "§5.2"],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "fixtures": {
+    "mixed": "evals/fixtures/codebases/mixed-naming",
+    "clean": "evals/fixtures/codebases/react-css",
+    "ordinary": "evals/fixtures/codebases/repeated-jsx",
+    "vue": "evals/fixtures/codebases/vue-app"
+  },
+  "recordingPrompt": "Assess this codebase. Say which names in it spell one concept more than one way, which names are not written in the convention the rest of the codebase uses, and which components are handed two names for one prop, values of two different shapes for one prop, or styled from the call site when a variant already exists.",
+  "cases": [
+    {
+      "id": "one-concept-two-word-orders",
+      "kind": "drift",
+      "fixture": "mixed",
+      "system": "own",
+      "forms": ["btn--primary", "primary-btn"],
+      "drift": "order",
+      "suggested": "btn-primary",
+      "note": "the same two words in two orders — the suggestion is Base + Qualifier in the dominant convention, and `btn` is the base because `primary` is a variant word"
+    },
+    {
+      "id": "one-component-two-word-orders",
+      "kind": "drift",
+      "fixture": "mixed",
+      "system": "own",
+      "forms": ["ButtonSmall", "SmallButton"],
+      "drift": "order",
+      "suggested": "ButtonSmall",
+      "note": "component names are their own population, and their dominant convention is Pascal — so the predictable form is Pascal too"
+    },
+    {
+      "id": "one-concept-two-cases",
+      "kind": "drift",
+      "fixture": "mixed",
+      "system": "own",
+      "forms": ["panel-header", "panelHeader"],
+      "drift": "case",
+      "suggested": "panel-header",
+      "note": "the same words in the same order, spelled two ways — the casing half of the reading"
+    },
+    {
+      "id": "a-bem-modifier-is-not-drift",
+      "kind": "no-drift",
+      "fixture": "mixed",
+      "system": "own",
+      "name": "btn--ghost",
+      "note": "nothing else in the codebase is made of `btn` and `ghost`, so there is no second spelling of it"
+    },
+    {
+      "id": "the-class-convention-is-counted",
+      "kind": "convention",
+      "fixture": "mixed",
+      "system": "own",
+      "of": "class",
+      "convention": "kebab",
+      "note": "nine of eleven class names are hyphenated lower case, and the BEM modifiers are counted as the kebab they are a spelling of"
+    },
+    {
+      "id": "the-component-convention-is-counted-separately",
+      "kind": "convention",
+      "fixture": "mixed",
+      "system": "own",
+      "of": "component",
+      "convention": "pascal",
+      "note": "classes and components are separate populations — a `Card` rendering a `card` is one concept spelled two ways on purpose"
+    },
+    {
+      "id": "a-camel-name-in-a-kebab-codebase",
+      "kind": "stray",
+      "fixture": "mixed",
+      "system": "own",
+      "name": "cardBody",
+      "convention": "camel",
+      "suggested": "card-body",
+      "note": "the only camel name with no kebab twin, so it is a stray rather than drift"
+    },
+    {
+      "id": "a-bem-modifier-is-not-a-stray",
+      "kind": "no-stray",
+      "fixture": "mixed",
+      "system": "own",
+      "name": "btn--ghost",
+      "note": "the loudest failure mode this check has: BEM is kebab with two more separators, so counting it apart makes a BEM codebase stray from itself"
+    },
+    {
+      "id": "two-names-for-one-prop",
+      "kind": "synonym",
+      "fixture": "mixed",
+      "system": "own",
+      "component": "Button",
+      "spellings": ["onClick", "onPress"],
+      "note": "a component has one API, so one of these two call sites is handing it a prop it has never heard of"
+    },
+    {
+      "id": "one-prop-two-shapes",
+      "kind": "conflict",
+      "fixture": "mixed",
+      "system": "own",
+      "component": "Panel",
+      "prop": "size",
+      "kinds": ["number", "string"],
+      "note": "`size=\"lg\"` beside `size={3}` — a prop means one thing, and one of these is not it"
+    },
+    {
+      "id": "one-shape-twice-is-not-a-conflict",
+      "kind": "no-conflict",
+      "fixture": "mixed",
+      "system": "own",
+      "component": "Card",
+      "prop": "size",
+      "note": "`size=\"sm\"` and `size=\"lg\"` is a prop being used correctly, and reporting it would make the error tier meaningless"
+    },
+    {
+      "id": "styled-from-the-call-site",
+      "kind": "bypass",
+      "fixture": "mixed",
+      "system": "own",
+      "component": "Button",
+      "prop": "style",
+      "variants": ["Ghost", "Primary"],
+      "note": "an escape from the system rather than a contradiction of it, which is why it is the one warning in the prop family"
+    },
+    {
+      "id": "an-expression-is-counted-and-never-compared",
+      "kind": "unread",
+      "fixture": "mixed",
+      "system": "own",
+      "note": "`title={heading}` is a value an attribute scan can see and cannot read — counting it against a string would be a guess"
+    },
+    {
+      "id": "an-ordinary-project-reports-nothing",
+      "kind": "no-findings",
+      "fixture": "clean",
+      "note": "one component and two class modifiers is not drift, and a pass that says it is says it about every codebase"
+    },
+    {
+      "id": "a-second-ordinary-project-reports-nothing",
+      "kind": "no-findings",
+      "fixture": "ordinary",
+      "note": "chips, cards and buttons spelled one way each — the control that keeps the check quiet on normal code"
+    },
+    {
+      "id": "a-stack-with-no-component-pass-is-told-so",
+      "kind": "not-checked",
+      "fixture": "vue",
+      "note": "its components are not called inconsistently; they were never read, and saying 'no mismatches' would answer a question nobody asked"
+    },
+    {
+      "id": "no-names-means-no-dominant-convention",
+      "kind": "no-convention",
+      "fixture": "vue",
+      "of": "class",
+      "note": "a convention is counted, never assumed — with nothing read there is nothing to be dominant, and Phyllum says that instead of picking one"
+    }
+  ]
+}

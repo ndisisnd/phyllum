@@ -80,8 +80,12 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  *
  * M3 adds `assess-similarity` on exactly the same terms. The stamp moves, the
  * release does not, and every score the last recording held is met again.
+ *
+ * And M4 adds `assess-consistency`, the fourth time and the last of the
+ * assessment-depth milestones to add a family of its own. Same terms again: the
+ * stamp moves, the release stays where it is, no threshold is lowered.
  */
-export const MILESTONE = 'v0.2.1 M3';
+export const MILESTONE = 'v0.2.1 M4';
 export const RELEASE = 'v0.2.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
@@ -996,6 +1000,221 @@ function assessSimilarityEval() {
 }
 
 // ---------------------------------------------------------------------------
+// assess — consistency: naming drift and prop mismatches (v0.2.1 §5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Is one concept called one thing, and is one component used one way?
+ *
+ * The grading is harsher in spirit than anything before it, because this is the
+ * first family allowed to say `error` about somebody's markup. A wrong naming
+ * stray is an annoyance; a wrong prop synonym is Phyllum telling a developer
+ * that working code is broken. So the negative cases carry the same weight as
+ * the positive ones and there is no partial credit for finding the right thing
+ * for the wrong reason — a drift group reported without its suggestion, or a
+ * conflict reported over a value the scan could not read, scores as a miss.
+ *
+ * Every case runs over a pinned fixture and every reading is set arithmetic
+ * over names and attributes, so there is no responder and no headroom.
+ */
+function assessConsistencyEval() {
+  const spec = readJson('evals/prompts/assess-consistency.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+  const modelFor = (testCase) =>
+    testCase.system === 'own'
+      ? parse(fs.readFileSync(path.join(rootOf(testCase.fixture), 'DESIGN-SYSTEM.md'), 'utf8'))
+      : emptyModel();
+
+  // One scan per fixture-and-system pair: several cases read the same
+  // assessment, and scanning per case would grade the fixtures' size.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    const key = `${testCase.fixture}|${testCase.system ?? 'empty'}`;
+    if (!scans.has(key)) scans.set(key, assess(rootOf(testCase.fixture), modelFor(testCase)));
+    return scans.get(key);
+  };
+
+  /** A group matches however its spellings happen to be ordered. */
+  const isGroup = (row, forms) =>
+    [...(row.forms ?? [])].sort().join('|') === [...forms].sort().join('|');
+
+  for (const testCase of spec.cases) {
+    const { naming, props } = scanFor(testCase);
+
+    if (testCase.kind === 'drift') {
+      const row = naming.drift.find((item) => isGroup(item, testCase.forms));
+      claim(Boolean(row), `${testCase.id}: ${testCase.forms.join(' / ')} is not reported as drift`);
+      if (!row) {
+        max += 3;
+        continue;
+      }
+      claim(row.drift === testCase.drift, `${testCase.id}: called ${row.drift} drift`);
+      claim(
+        row.suggested === testCase.suggested,
+        `${testCase.id}: suggested \`${row.suggested}\`, expected \`${testCase.suggested}\``,
+      );
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-drift') {
+      claim(
+        !naming.drift.some((row) => (row.forms ?? []).includes(testCase.name)),
+        `${testCase.id}: ${testCase.name} was grouped with something`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'convention') {
+      const dominant = naming.conventions?.[testCase.of];
+      claim(Boolean(dominant?.decided), `${testCase.id}: no ${testCase.of} convention was decided`);
+      claim(
+        dominant?.convention === testCase.convention,
+        `${testCase.id}: called ${dominant?.convention}, expected ${testCase.convention}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-convention') {
+      const dominant = naming.conventions?.[testCase.of];
+      claim(
+        dominant?.decided === false,
+        `${testCase.id}: elected ${dominant?.convention} out of ${dominant?.voters} names`,
+      );
+      claim(Boolean(dominant?.reason), `${testCase.id}: gave no reason for having no answer`);
+      continue;
+    }
+
+    if (testCase.kind === 'stray') {
+      const row = naming.strays.find((item) => item.value === testCase.name);
+      claim(Boolean(row), `${testCase.id}: ${testCase.name} is not reported as a stray`);
+      if (!row) {
+        max += 3;
+        continue;
+      }
+      claim(
+        row.convention === testCase.convention,
+        `${testCase.id}: read as ${row.convention}, expected ${testCase.convention}`,
+      );
+      claim(
+        row.suggested === testCase.suggested,
+        `${testCase.id}: suggested \`${row.suggested}\`, expected \`${testCase.suggested}\``,
+      );
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-stray') {
+      claim(
+        !naming.findings.some((row) => row.value === testCase.name),
+        `${testCase.id}: ${testCase.name} was reported`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'synonym') {
+      const row = props.synonyms.find((item) => item.component === testCase.component);
+      claim(Boolean(row), `${testCase.id}: ${testCase.component} is not reported`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(
+        testCase.spellings.every((name) => row.spellings.includes(name)),
+        `${testCase.id}: reported ${row.spellings.join(' + ')}`,
+      );
+      claim(row.severity === 'error', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'conflict') {
+      const row = props.conflicts.find(
+        (item) => item.component === testCase.component && item.prop === testCase.prop,
+      );
+      claim(Boolean(row), `${testCase.id}: ${testCase.component}.${testCase.prop} is not reported`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(
+        [...row.kinds].sort().join('|') === [...testCase.kinds].sort().join('|'),
+        `${testCase.id}: reported ${row.kinds.join(' and ')}`,
+      );
+      claim(row.severity === 'error', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-conflict') {
+      claim(
+        !props.conflicts.some(
+          (row) => row.component === testCase.component && row.prop === testCase.prop,
+        ),
+        `${testCase.id}: ${testCase.component}.${testCase.prop} was called a conflict`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'bypass') {
+      const row = props.bypasses.find(
+        (item) => item.component === testCase.component && item.prop === testCase.prop,
+      );
+      claim(Boolean(row), `${testCase.id}: ${testCase.component}.${testCase.prop} is not reported`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}`);
+      claim(
+        testCase.variants.every((variant) => row.variants.includes(variant)),
+        `${testCase.id}: named ${row.variants.join(', ')} as the variants`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unread') {
+      claim(
+        props.compared.unread > 0,
+        `${testCase.id}: counted no unreadable values in a fixture written to have them`,
+      );
+      claim(
+        props.conflicts.every((row) => !row.kinds.includes('expression')),
+        `${testCase.id}: compared a value it could not read`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-findings') {
+      claim(
+        naming.findings.length === 0 && props.findings.length === 0,
+        `${testCase.id}: reported ${[...naming.findings, ...props.findings].map((row) => row.value).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      claim(props.checked === false, `${testCase.id}: claims to have read props it cannot read`);
+      claim(
+        props.findings.length === 0,
+        `${testCase.id}: named ${props.findings.length} mismatches it never looked for`,
+      );
+      claim(Boolean(props.reason), `${testCase.id}: skipped the question without saying why`);
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
 // tokenise — the prose path, which is all `tokenise` is now (v0.2.0 §6, §7)
 // ---------------------------------------------------------------------------
 
@@ -1502,6 +1721,7 @@ export const EVALS = [
   { id: 'assess-severity', modelDependent: false, run: assessSeverity },
   { id: 'assess-hygiene', modelDependent: false, run: assessHygieneEval },
   { id: 'assess-similarity', modelDependent: false, run: assessSimilarityEval },
+  { id: 'assess-consistency', modelDependent: false, run: assessConsistencyEval },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
 ];
 

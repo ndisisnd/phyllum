@@ -337,5 +337,27 @@ the report states the caps it ran under rather than truncating in silence. A
 merge is a suggestion and lands where every other suggestion lands: nothing here
 renames a class or rewrites a component, because writing code is `apply`'s job.
 
+v0.2.1 M4 asks the question underneath similarity: when two things are the same
+thing, are they **called** the same thing and **used** the same way?
+**Naming-convention drift** reads the names — class names, component tags, the
+components `DESIGN-SYSTEM.md` registers — and reports the same word set spelled
+two ways (`SmallButton` / `ButtonSmall`, `btn--primary` / `primary-btn`) plus the
+names that stray from the convention this codebase mostly uses. The dominant
+convention is **counted, never assumed**, and a codebase that has not chosen one
+is told so rather than given a winner; the suggestion is always the predictable
+`Base + Qualifier` form, spelled in that convention. Both naming families are
+warnings, because a name in the wrong case still works. **Prop mismatches** read
+the *attributes* — a regex attribute scan, not a JSX parser — and report one
+component handed two names for one prop (`onClick` here, `onPress` there) or one
+prop given two shapes (`size="lg"` beside `size={3}`) as **errors**, because a
+component has one API and one of those call sites cannot be right; an inline
+`style` on a component that already has variants is a **warning**, because that
+is an escape from the system rather than a contradiction of it. Three honesty
+rules bound it: `btn` and `Button` are two concepts, because resolving
+abbreviations means guessing; a value the scan cannot read is counted and never
+compared; and the prop pass is React-only, so on any other stack the answer is
+that the question was not asked. Nothing is renamed — a rename is a suggestion
+against the design system, and editing a call site is `apply`'s job.
+
 Commands that are not built yet are registered and documented, and say so when
 invoked.
