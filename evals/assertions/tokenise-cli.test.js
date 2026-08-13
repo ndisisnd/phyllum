@@ -62,15 +62,20 @@ async function withProject(body, fixture = POPULATED_FIXTURE) {
 // The spec file is the contract
 // ---------------------------------------------------------------------------
 
-test('the spec tables in refs/tokenise.md cover the three passes', () => {
+test('the spec tables in refs/tokenise.md cover every pass', () => {
   reloadSpec();
   assert.deepEqual(
     passes().map((pass) => pass.pass),
-    ['colours', 'numbers', 'typography'],
+    ['colours', 'numbers', 'typography', 'shadows', 'borders'],
   );
   assert.equal(sectionFor('colours'), 'colours');
   assert.equal(sectionFor('numbers'), 'numbers');
   assert.equal(sectionFor('typography'), 'typography');
+  // The two compound passes write into Numbers rather than into a section of
+  // their own: a shadow and a border width are lengths with a job, and a fourth
+  // token section would change every DESIGN-SYSTEM.md for no gain.
+  assert.equal(sectionFor('shadows'), 'numbers');
+  assert.equal(sectionFor('borders'), 'numbers');
 
   assert.deepEqual(
     roles().map((role) => role.role),

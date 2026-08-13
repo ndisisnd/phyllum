@@ -126,9 +126,9 @@ them, and re-run `npm run evals:record` so the baseline matches.
 
 ## The v1 regression baseline (M6)
 
-`evals/baseline.json` is stamped `"release": "v1"` — the bar every future change
-has to clear — and `"milestone"` records which change last re-recorded it
-(v0.2.0 M6, which added `apply-prd-contract`). The v1 scores themselves
+`evals/baseline.json` is stamped with the `"release"` it gates — the bar every
+future change has to clear — and `"milestone"` records which change last
+re-recorded it (v0.2.1 M1, which added `assess-severity`). The scores themselves
 only ever go up. The bar has two halves:
 
 | | Bar |
@@ -175,6 +175,7 @@ score, and commit the new baseline with that change.
 | `evals/assertions/create-pick.test.js` | Pick mode: the read-only markup scan, archetypes plus candidates, registered components dropping out, a pick seeding no values, and the follow-up loop it enters |
 | `evals/assertions/assess-scan.test.js` | `assess`'s engine: the read-only scan (proved by diffing the whole directory around it), the three passes, the language-agnostic sweep over every text file, what is never evidence — documentation, lockfiles, gitignored paths, Phyllum's own record — React-only component detection, clustering, the naming scales, coverage vs proposals, the rerun diff |
 | `evals/assertions/assess-suggest.test.js` | `assess` step 4 and step 5: the mapping table over its four buckets, the token review reusing `tokenise`'s, the component pick reusing `create`'s, the "seen but not read" bucket asked about rather than guessed, and one scan feeding both tracks |
+| `evals/assertions/assess-severity.test.js` | The severity engine and the two compound passes (v0.2.1 §3): the threshold read from its table rather than restated in code and applied alike to every family, the six rule families with `raw-radius` findable by its own name, scanners and clustering staying neutral while aggregation does the judging, a covered value carrying a family but no severity and an unread one carrying a severity but no family, the summary derived from the rows so it cannot disagree with them, `assess update` writing the drift and declining the exceptions while the interactive review still offers both, and — for the compounds — the normalisation grammar (layers, zeroes, colour case, a `var()` making the whole value unreadable), clustering part for part but never across shapes, the shadow ladder, a shadow token owning `box-shadow` and not `border`, and the double-count that must not happen when a shorthand's width is read as a border |
 | `evals/assertions/assess-cli.test.js` | The `assess` command surface: registered and reachable, the report saying what it read, no model and no network needed, the codebase byte-identical afterwards, and the four chained modes — `tokens` and `components` walking one track each, `components` looping one candidate at a time with a consent gate each, bare `assess` recording one component per run, and `assess update` accepting the proposed tokens into `DESIGN-SYSTEM.md` alone while declining every question that would be a guess |
 | `evals/assertions/apply-prd.test.js` | `apply`'s plan engine (v0.2.0 §6.5.1): harness detection and its precedence — config files beating the `.phyllum/` preference beating memory, and harnesses other than Claude Code — the host test suite detected rather than assumed, one criterion per literal per file, a token never repurposed across roles, a near-identical literal inheriting its cluster's token and saying the rendered value changes, a `TODO` component excluded by name, adoption honest about being React-only, phases grouped by kind with tokens before components, the render → parse round trip M7 depends on, and resume carrying ticks by what a criterion is about rather than by its id |
 | `evals/assertions/apply-cli.test.js` | The `apply` command surface: `.phyllum/PRD.md` the only file written — proved by diffing the whole project directory before and after — no ask, confirm, model or network needed, a second run converging byte for byte, `run` reserved and honestly unbuilt, `--fresh` as the one destructive act and what it says about it, an empty design system answered with the command that fills it, and nothing to apply writing no plan at all |
@@ -206,6 +207,7 @@ score, and commit the new baseline with that change.
 | `create-pick-candidates` | a repeated unregistered pattern appears in the picker; a registered one and a one-off do not | 1.0 |
 | `assess-clustering` | one brand blue written two ways is one token; genuinely different values stay apart; and both hold in a codebase with no stylesheet at all, because the values pass is language-agnostic | 1.0 |
 | `assess-naming` | proposed names are on the documented scales, and on the right rung | 0.9 |
+| `assess-severity` | v0.2.1's lint path over one pinned codebase: which rule family each finding belongs to (`raw-radius` split out from `raw-spacing`, and the two new compound families), whether it is systematic drift or a likely exception at the one documented threshold, and — the cases that outrank the rest — that `box-shadow: none` proposes nothing, that the width inside a border shorthand is not counted a second time as a length, and that a shadow with a `var()` in it goes back to seen-but-not-read rather than being half-read into a token | 1.0 |
 | `tokenise-prose-extraction` | one sentence in, one token out: the name when the sentence gives one, which pass and which value, whether a length's role was stated or assumed, what typography implies, and a sentence with no value coming back as a question rather than a guess | 1.0 |
 
 ### The two evals renamed in v0.2.0 M8
@@ -241,6 +243,11 @@ model run choosing one accepted answer out of several.
 So M8 raised no threshold. The bar rose anyway, in the way that costs nothing:
 `tokenise-prose-extraction` joins at 1.0, and twelve of the fourteen evals now
 sit at 1.0.
+
+v0.2.1 M1 does the same thing again for the same reason. `assess-severity` joins
+at 1.0 — it is deterministic end to end, so there is no model variation to leave
+headroom for — which makes it thirteen of fifteen at 1.0, and the three evals
+below 1.0 are still the same three model-dependent ones.
 
 M1 pinned two rubrics that no runner could score. M6 splits them honestly:
 

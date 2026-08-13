@@ -179,6 +179,105 @@ purpose.
 
 ---
 
+## Compound values — shadows and borders
+
+A shadow is `0 2px 8px rgba(0,0,0,0.1)` and a border shorthand is `1px solid
+#E5E7EB`. Neither is a length: the meaning is the whole list, so `toPx` has
+nothing to take apart and the scalar path cannot read them. Until v0.2.1 they
+fell into the bucket above — seen, not read — which was honest but unhelpful,
+because a shadow written out forty times is the plainest drift there is.
+
+They are read as wholes now, by the two passes in the `phyllum:compounds` table
+in `refs/tokenise.md`. The grammar is deterministic, and it is the same in every
+language a `property: value` pair can be written in.
+
+| Step | Rule |
+|------|------|
+| 1. layers | a comma at bracket depth zero separates layers — `box-shadow: a, b` is two shadows. Layers keep the order they were written in, because that order is the stacking |
+| 2. parts | inside a layer, whitespace at bracket depth zero separates parts, so `rgba(0, 0, 0, 0.1)` stays one part rather than four |
+| 3. lengths | a length is lowercased and a zero of any unit is written `0`, so `0px` and `0` are one value |
+| 4. colours | a colour part is normalised the way every colour is — case-folded, `#abc` expanded |
+| 5. functions | a part that is a function call other than a colour — `var(…)`, `calc(…)` — makes the whole declaration unreadable, and it goes back to the bucket above rather than being half-read |
+| 6. order | the parts are rejoined in the order they were written, one space between them. The recorded value is the code's own value, tidied — never reordered into something nobody wrote |
+
+Two rules keep the reading honest. A compound must carry **at least one length
+or one colour** to be evidence at all, so `border: none` and `box-shadow: none`
+record nothing. And a declaration read as a compound is **not also read as a
+scalar length** — that would count one fact twice — while the colour inside it
+*is* still a colour sighting, because the colours pass owns colours wherever
+they sit.
+
+---
+
+## Severity — frequency decides, you dispose
+
+Every uncovered value is a finding, and not every finding is the same size. A
+colour written forty times is systematic drift; the same colour written once is
+probably somebody's deliberate exception. Reporting both as "add a token" is how
+a tool earns the habit of being ignored.
+
+So each finding carries a severity, and the only input is how often the value is
+used across the whole codebase.
+
+<!-- phyllum:severity -->
+
+| Severity | Used | Means |
+|----------|------|-------|
+| error | >= 3 | systematic drift — proposed as a token, and accepted by `assess update` |
+| warn | <= 2 | looks like a deliberate exception — reported and counted, never accepted on your behalf |
+
+One threshold for every value family, tested in order, first match wins. It is
+one number on purpose: a per-family threshold is four more numbers to explain
+and four more ways for two runs to disagree about the same codebase.
+
+Severity is assigned **at aggregation**, once the clusters are counted — never by
+a scanner. A scanner's job is to report what it saw; how much a sighting matters
+is a question about the whole codebase, and it cannot be answered one file at a
+time.
+
+What the two severities change:
+
+| | `error` | `warn` |
+|---|---|---|
+| in the report | counted and listed | counted and listed |
+| in the review | asked, most-used first | asked, most-used first — you may promote it by hand |
+| in `assess update` | accepted under the proposed name | **skipped**, and the report says so |
+
+The interactive review treats both alike, because a rare value can still be
+worth a token and only you know that. The fast-forward does not, because
+accepting an exception nobody asked about is exactly the write `assess update`
+promises never to make.
+
+### Which rule a finding belongs to
+
+The severity says how much; the rule says what kind. Rules are named so a report
+can group by family and a later run can say "the shadows are fixed, the spacing
+is not". Rows are tested in order, and a role of `—` matches any role.
+
+<!-- phyllum:lint-rules -->
+
+| Rule | Pass | Role | Detects |
+|------|------|------|---------|
+| raw-colour | colours | — | a hex, `rgb()` or `hsl()` literal no colour token names |
+| raw-spacing | numbers | spacing | a padding, margin or gap length off the token scale |
+| raw-radius | numbers | radius | a corner radius off the radius scale |
+| raw-border | numbers | border | a border or outline width off the scale |
+| raw-border | borders | — | a border shorthand — width, style and colour written out together |
+| raw-shadow | shadows | — | a `box-shadow`, `text-shadow` or elevation literal |
+| raw-typography | typography | — | a font size, weight and line-height written out together |
+
+`raw-radius` is the one that used to have no name of its own: a corner radius was
+read, clustered and named correctly, but the report called it a number like any
+other. Splitting it out changes no behaviour and one thing about the reading — a
+radius problem is now findable in the report by the word a designer would use.
+
+A value the scan could see but **not** read has no rule. It still carries a
+severity, because how often it is written is a fact; but naming its family would
+mean guessing which family it is in, and that is the one thing the fourth bucket
+exists not to do.
+
+---
+
 ## Component detection — React in v0.2.0
 
 The component half looks for markup patterns the codebase repeats and the design
@@ -226,6 +325,16 @@ average — a value nobody wrote is never proposed. Clustering is deterministic.
 | numbers | absolute difference in px, `rem` read at 16px for comparison only | 1 | the same role |
 | typography size | absolute difference in font-size, in px | 1 | the same weight |
 | typography line-height | absolute difference in line-height | 0.1 | the same weight |
+| shadow length | absolute difference in px, part for part | 1 | the same layer count, the same keywords, the same number of lengths |
+| shadow colour | CIE76 ΔE between two layers' colours | 3 | both layers have a colour, or neither does |
+| border width | absolute difference in px, part for part | 1 | the same keywords |
+| border colour | CIE76 ΔE between two borders' colours | 3 | both carry a colour, or neither does |
+
+A compound clusters when **every part of it** clusters, by the same thresholds
+the scalar passes use — a length is a length whether it stands alone or sits in
+a shadow. Two shadows of different shapes never merge, however close their
+numbers: `0 2px 8px` and `0 2px 8px 1px` are different shadows, and averaging
+them would be inventing one.
 
 Frequency is the review order: most-used first, ties broken by value. A cluster
 any of whose values is already the value of a token in that pass's section is
@@ -313,6 +422,7 @@ on the page is answered; a question whose answer is only in your head is skipped
 |----------|-----------------|-----|
 | "Name `#2563EB` as `color-primary`?" | **accepted**, under the proposed name | the name was derived mechanically from the value and the naming scales — a review would add nothing to it |
 | the one write to `DESIGN-SYSTEM.md` | **accepted**, once | the mode *is* that consent, given on the command line |
+| "Name `#7C3AED` as `color-accent`?" (used twice) | **skipped**, value left unnamed | a `warn`-severity finding is a suspected exception, and accepting an exception nobody asked about is the write this mode promises not to make |
 | "What does `18px` apply to?" (role unknown) | **skipped**, value left unnamed | the role is not in the codebase; guessing one is how a corner radius becomes a padding |
 | "Record one of these as a component?" | **skipped**, patterns left in the report | the contract's questions have answers only you have, and unanswered slots would be written as TODOs nobody asked for |
 

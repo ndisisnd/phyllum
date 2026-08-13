@@ -1,0 +1,135 @@
+{
+  "eval": "assess-severity",
+  "rubric": "evals/rubrics/assess-severity.md",
+  "milestone": "v0.2.1 M1",
+  "planSections": ["§3.1", "§3.2"],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "fixture": "evals/fixtures/codebases/shadow-border",
+  "recordingPrompt": "Assess this codebase. For each raw value you find, say which rule family it belongs to and whether it is systematic drift or a likely exception.",
+  "cases": [
+    {
+      "id": "shadow-read-whole-and-systematic",
+      "kind": "finding",
+      "value": "0 2px 8px rgba(0,0,0,0.1)",
+      "expected": {
+        "rule": "raw-shadow",
+        "severity": "error",
+        "count": 3,
+        "appliesTo": "shadow",
+        "name": "^shadow-(xs|sm|md|lg|xl)$"
+      },
+      "note": "Three writings of one shadow — one of them spelled `2PX`, one a pixel wider in the blur — are one finding, read whole rather than mined for the lengths inside it."
+    },
+    {
+      "id": "rare-shadow-is-an-exception",
+      "kind": "finding",
+      "value": "0 1px 2px rgba(0,0,0,0.05)",
+      "expected": {
+        "rule": "raw-shadow",
+        "severity": "warn",
+        "count": 1,
+        "appliesTo": "shadow",
+        "name": "^shadow-(xs|sm|md|lg|xl)$"
+      },
+      "note": "The same rule family, a different verdict: one sighting is what a deliberate one-off looks like, so it is reported and never demanded."
+    },
+    {
+      "id": "border-shorthand-read-whole",
+      "kind": "finding",
+      "value": "1px solid #e5e7eb",
+      "expected": {
+        "rule": "raw-border",
+        "severity": "error",
+        "count": 3,
+        "appliesTo": "border",
+        "name": "^border-[a-z0-9-]+$"
+      },
+      "note": "Width, style and colour written out together are one border decision, whatever case the colour was typed in."
+    },
+    {
+      "id": "rare-border-shorthand-is-an-exception",
+      "kind": "finding",
+      "value": "2px dashed #2563eb",
+      "expected": {
+        "rule": "raw-border",
+        "severity": "warn",
+        "count": 1,
+        "appliesTo": "border",
+        "name": "^border-[a-z0-9-]+$"
+      },
+      "note": "A second border shorthand of a different shape never merges into the first: different style keyword, different fact."
+    },
+    {
+      "id": "border-width-stays-a-length",
+      "kind": "finding",
+      "value": "4px",
+      "expected": {
+        "rule": "raw-border",
+        "severity": "warn",
+        "count": 1,
+        "appliesTo": "border width",
+        "name": "^border-[a-z0-9-]+$"
+      },
+      "note": "`border-width: 4px` carries no style keyword, so it stays the scalar role it has always been — same rule family, different reading."
+    },
+    {
+      "id": "radius-has-a-rule-of-its-own",
+      "kind": "finding",
+      "value": "12px",
+      "expected": {
+        "rule": "raw-radius",
+        "severity": "error",
+        "count": 3,
+        "appliesTo": "corner radius",
+        "name": "^rounded-(xs|sm|md|lg|xl|2xl)$"
+      },
+      "note": "The v0.2.1 split: a corner radius was always read correctly and always called a number. It is findable by its own name now."
+    },
+    {
+      "id": "spacing-keeps-its-own-rule",
+      "kind": "finding",
+      "value": "16px",
+      "expected": {
+        "rule": "raw-spacing",
+        "severity": "error",
+        "count": 3,
+        "appliesTo": "spacing",
+        "name": "^space-(xs|sm|md|lg|xl|2xl)$"
+      },
+      "note": "Splitting radius out must not blur what was already right: a padding is still spacing."
+    },
+    {
+      "id": "colour-written-once-is-an-exception",
+      "kind": "finding",
+      "value": "#2563EB",
+      "expected": {
+        "rule": "raw-colour",
+        "severity": "warn",
+        "count": 1,
+        "appliesTo": "",
+        "name": "^color-[a-z0-9-]+$"
+      },
+      "note": "One threshold for every family: a brand blue used once is as much an exception as a shadow used once."
+    },
+    {
+      "id": "no-border-is-not-a-value",
+      "kind": "absent",
+      "value": "none",
+      "note": "`box-shadow: none` is a decision to have no shadow. A compound with neither a length nor a colour is not evidence of anything."
+    },
+    {
+      "id": "the-width-inside-a-shorthand-is-not-counted-twice",
+      "kind": "absent",
+      "value": "1px",
+      "note": "The fixture's only `1px` is inside a border shorthand. Reading it as a border *and* as a length would report one decision as two findings."
+    },
+    {
+      "id": "a-shadow-phyllum-cannot-read-goes-back-to-the-fourth-bucket",
+      "kind": "unread",
+      "value": "3px",
+      "expected": { "severity": "warn" },
+      "note": "`0 0 0 3px var(--ring-colour)` has a part no table names, so it is not half-read into a shadow token: it goes back to seen-but-not-read, with a severity and no rule."
+    }
+  ]
+}

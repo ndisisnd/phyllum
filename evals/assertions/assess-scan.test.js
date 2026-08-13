@@ -125,10 +125,13 @@ test('there is no write call anywhere in the scanning engine', () => {
   }
 });
 
-test('the three passes each find their own kind of value', () => {
+test('the passes each find their own kind of value', () => {
   const sightings = scanCodebase(MIXED);
   const passes = new Set(sightings.map((sighting) => sighting.pass));
-  assert.deepEqual([...passes].sort(), ['colours', 'numbers', 'typography']);
+  // Five since v0.2.1: the three scalar passes, plus the two compound ones that
+  // read a shadow or a border shorthand as one value rather than as the lengths
+  // and colours inside it.
+  assert.deepEqual([...passes].sort(), ['borders', 'colours', 'numbers', 'typography']);
 
   const colour = sightings.find((sighting) => sighting.value === '#2563EB');
   assert.equal(colour.pass, 'colours');
@@ -168,11 +171,21 @@ test('shorthands are split rather than skipped', () => {
   ]);
 
   const sightings = scanCodebase(MIXED);
-  const border = sightings.find((s) => s.pass === 'numbers' && s.role === 'border');
-  assert.equal(border.value, '1px', 'the length in `border:` is a border width');
+  // Since v0.2.1 the border shorthand is read whole rather than mined for the
+  // length inside it: `1px solid #E5E7EB` is one border, not a 1px that happens
+  // to sit next to a colour (plan §3.1).
+  const borders = sightings.filter((s) => s.pass === 'borders').map((s) => s.value);
+  assert.ok(
+    borders.includes('1px solid #2563eb') && borders.includes('1px solid #e5e7eb'),
+    'each shorthand is one value, written once',
+  );
+  assert.ok(
+    !sightings.some((s) => s.pass === 'numbers' && s.role === 'border' && s.properties.includes('border')),
+    'and the width inside it is not counted a second time as a length',
+  );
   assert.ok(
     sightings.some((s) => s.pass === 'colours' && s.properties.includes('border')),
-    'and the colour in the same shorthand is a colour',
+    'the colour in the same shorthand is still a colour, because colours are read wherever they sit',
   );
 });
 

@@ -274,5 +274,33 @@ those criteria name, and the host project's own suite is green. A failing phase
 stops the run and records why in the PRD; completed phases stay committed and
 nothing is ever rolled back. `refs/apply.md` is the contract for both halves.
 
+v0.2.1 M1 teaches `assess` to **judge** rather than only inventory. Two changes,
+both in `refs/assess.md` as tables rather than as constants in the code. Every
+finding now carries a **severity** decided by one number — how often the value is
+written across the whole codebase: three times or more is systematic drift and is
+proposed as a token; once or twice looks like a deliberate exception, so it is
+reported and counted but never accepted on your behalf. The interactive review
+still asks about both, because a rare value can genuinely deserve a token and
+only you know that; `assess update` is the one caller that declines a warning,
+and it says so. Severity is assigned at aggregation and nowhere upstream — a
+scanner reports what it saw in one file, and how much that matters is a question
+about the whole project. Every finding also carries the **rule family** it
+belongs to (`raw-colour`, `raw-spacing`, `raw-radius`, `raw-border`,
+`raw-shadow`, `raw-typography`), so a report can say which half of the drift got
+fixed; `raw-radius` is the split that costs nothing and changes the reading, a
+corner radius having always been read correctly and always called a number.
+
+The same milestone adds the two value shapes the scalar passes could never read.
+A shadow (`0 2px 8px rgba(0,0,0,0.1)`) and a border shorthand (`1px solid
+#E5E7EB`) are **compounds** — the meaning is the whole list — so they get a pass
+each, their own normalisation, and clustering that compares part for part by the
+thresholds a length and a colour already use. Both write into the Numbers
+section, because a shadow and a border width are lengths with a job. Three rules
+keep it honest: a declaration read as a compound is not *also* read as a scalar
+length, so one decision is never reported twice; a compound with no length and no
+colour (`border: none`) records nothing; and a compound with a part Phyllum
+cannot name — a `var(…)` inside a shadow — is not half-read, it goes back to the
+seen-but-not-read bucket where a question gets asked instead.
+
 Commands that are not built yet are registered and documented, and say so when
 invoked.

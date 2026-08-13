@@ -65,8 +65,15 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  *
  * The bar itself only ever tightens. Every score the v0.1.0 baseline recorded is
  * still met or beaten, and no threshold has ever been lowered.
+ *
+ * Re-stamped again in v0.2.1 M1, and for one reason: that milestone adds an eval
+ * (`assess-severity`), and an eval that exists must have a recorded score or the
+ * baseline is no longer a complete bar. The **release** stamp deliberately stays
+ * `v0.2.0` — the bar being cleared is still the released one, and v0.2.1's own
+ * bar is stamped in its hardening milestone, where the version is bumped and the
+ * whole file is re-recorded at once.
  */
-export const MILESTONE = 'v0.2.0 M8';
+export const MILESTONE = 'v0.2.1 M1';
 export const RELEASE = 'v0.2.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
@@ -559,6 +566,91 @@ function naming(responder) {
   }
 
   return { ...score(points, max), failures, unrecorded, threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
+// assess — severity and rule families (v0.2.1 §3.1, §3.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * How much does a finding matter, and what kind of finding is it?
+ *
+ * Both halves of v0.2.1's lint path over one pinned codebase, and both are
+ * facts rather than judgements — a value's severity is a function of how often
+ * it is written, and its family is a row in a table. So there is no responder
+ * switch and no headroom in the threshold.
+ *
+ * The cases that outrank the rest are the two that assert an absence: a
+ * `box-shadow: none` proposing nothing, and the `1px` inside a border shorthand
+ * not being counted a second time as a length. Double-counting is the failure
+ * the compound passes introduce if the scalar reading is not stood down, and it
+ * is invisible in any check that only looks at what *is* reported.
+ */
+function assessSeverity() {
+  const spec = readJson('evals/prompts/assess-severity.json');
+  const result = assess(path.join(PACKAGE_ROOT, spec.fixture), emptyModel());
+  const { proposals, unreadable } = result.values;
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const sameValue = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+
+  for (const testCase of spec.cases) {
+    if (testCase.kind === 'absent') {
+      claim(
+        !proposals.some(
+          (proposal) =>
+            sameValue(proposal.value, testCase.value) ||
+            proposal.members.some((member) => sameValue(member.raw, testCase.value)),
+        ),
+        `${testCase.id}: ${testCase.value} was proposed, and should not have been`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unread') {
+      const row = unreadable.find((item) => sameValue(item.value, testCase.value));
+      claim(Boolean(row), `${testCase.id}: ${testCase.value} is not in the seen-but-not-read bucket`);
+      if (!row) continue;
+      claim(
+        row.severity === testCase.expected.severity && row.rule === null,
+        `${testCase.id}: severity ${row.severity} / rule ${row.rule ?? 'none'}, expected ${testCase.expected.severity} and no rule`,
+      );
+      continue;
+    }
+
+    const proposal = proposals.find((item) => sameValue(item.value, testCase.value));
+    if (!proposal) {
+      max += 5;
+      failures.push(`${testCase.id}: nothing was proposed for ${testCase.value}`);
+      continue;
+    }
+    const expected = testCase.expected;
+
+    claim(proposal.rule === expected.rule, `${testCase.id}: rule ${proposal.rule} ≠ ${expected.rule}`);
+    claim(
+      proposal.severity === expected.severity,
+      `${testCase.id}: severity ${proposal.severity} ≠ ${expected.severity} (used ${proposal.count}×)`,
+    );
+    claim(proposal.count === expected.count, `${testCase.id}: counted ${proposal.count}×, expected ${expected.count}×`);
+    claim(
+      proposal.appliesTo === expected.appliesTo,
+      `${testCase.id}: applies to "${proposal.appliesTo}", expected "${expected.appliesTo}"`,
+    );
+    claim(
+      new RegExp(expected.name).test(proposal.name),
+      `${testCase.id}: "${proposal.name}" is not a name on the documented ladder`,
+    );
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
 // ---------------------------------------------------------------------------
@@ -1065,6 +1157,7 @@ export const EVALS = [
   { id: 'create-pick-candidates', modelDependent: false, run: pickCandidates },
   { id: 'assess-clustering', modelDependent: false, run: clustering },
   { id: 'assess-naming', modelDependent: true, run: naming },
+  { id: 'assess-severity', modelDependent: false, run: assessSeverity },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
 ];
 

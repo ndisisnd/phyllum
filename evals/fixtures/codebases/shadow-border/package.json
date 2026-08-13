@@ -1,0 +1,5 @@
+{
+  "name": "shadow-border-fixture",
+  "private": true,
+  "dependencies": { "react": "^18.0.0" }
+}
