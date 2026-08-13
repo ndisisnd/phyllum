@@ -97,7 +97,7 @@ test('accepting changes exactly one file, and never the codebase', async () => {
 
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'the codebase itself is untouched');
-    assert.deepEqual(diff.added, ['.phyllum/session.json']);
+    assert.deepEqual(diff.added, ['.phyllum/session.json', 'DESIGN-SYSTEM.md.bak']);
     assert.deepEqual(diff.removed, []);
     assert.ok(validateStructure(read(dir)).valid, 'the template contract still holds');
   });

@@ -74,7 +74,7 @@ test('an unknown command in the session points at the menu and keeps going', asy
   await withTempDir(async (dir) => {
     const out = await session(dir, ['wibble', 'menu', 'exit']);
     assert.ok(out.includes('no command called "wibble"'));
-    assert.ok(out.includes('phyllum system'));
+    assert.ok(out.includes('phyllum display'), 'and the menu it points at leads with the read verb');
   });
 });
 
@@ -106,7 +106,11 @@ test('the session runs the whole create loop: questions, answer, acceptance', as
     const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
     assert.ok(file.includes('### Button/Danger'));
     assert.ok(file.includes('padding-top: 12px'));
-    assert.deepEqual(snapshotPaths(dir).sort(), ['.phyllum/session.json', 'DESIGN-SYSTEM.md']);
+    assert.deepEqual(snapshotPaths(dir).sort(), [
+      '.phyllum/session.json',
+      'DESIGN-SYSTEM.md',
+      'DESIGN-SYSTEM.md.bak',
+    ]);
   });
 });
 
@@ -178,9 +182,21 @@ test('the session runs the whole assess flow: the map, the review, acceptance', 
 });
 
 /** The same two-value codebase the assess flow above counts its questions on. */
+/**
+ * Three uses of each value, deliberately.
+ *
+ * The severity engine (v0.2.1 §3.2) calls a value written once or twice a likely
+ * exception and `assess update` declines those, so a codebase meant to
+ * demonstrate the write path has to show drift rather than a one-off.
+ */
+const TINY_CSS =
+  '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n' +
+  '.card {\n  color: #16A34A;\n  padding: 20px;\n}\n' +
+  '.note {\n  color: #16A34A;\n  padding: 20px;\n}\n';
+
 function tinyCodebase(dir) {
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'src', 'app.css'), '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n');
+  fs.writeFileSync(path.join(dir, 'src', 'app.css'), TINY_CSS);
   fs.writeFileSync(
     path.join(dir, 'DESIGN-SYSTEM.md'),
     readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
@@ -232,7 +248,7 @@ test('the session runs `assess update` without asking the session anything', asy
     assert.ok(file.includes('| space-md | 20px | spacing |'));
     assert.equal(
       fs.readFileSync(path.join(dir, 'src', 'app.css'), 'utf8'),
-      '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n',
+      TINY_CSS,
       'and the codebase it read is byte for byte what it was',
     );
   });

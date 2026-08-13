@@ -81,7 +81,7 @@ test('accepting changes exactly one file in the codebase', async () => {
 
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md']);
-    assert.deepEqual(diff.added, ['.phyllum/session.json']);
+    assert.deepEqual(diff.added, ['.phyllum/session.json', 'DESIGN-SYSTEM.md.bak']);
     assert.deepEqual(diff.removed, []);
     assert.ok(validateStructure(read(dir)).valid, 'the template contract still holds');
   });
@@ -255,7 +255,11 @@ test('accepting a draft writes through the funnel and nowhere else', async () =>
     advance(draft, 'review');
 
     acceptDraft(dir, draft, { model });
-    assert.deepEqual(snapshotPaths(dir).sort(), ['.phyllum/session.json', 'DESIGN-SYSTEM.md']);
+    assert.deepEqual(snapshotPaths(dir).sort(), [
+      '.phyllum/session.json',
+      'DESIGN-SYSTEM.md',
+      'DESIGN-SYSTEM.md.bak',
+    ]);
     assert.equal(draft.status, 'accepted');
     assert.throws(() => writeGuarded(dir, 'src/Badge.jsx', 'nope'), PermissionError);
   });

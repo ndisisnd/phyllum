@@ -271,7 +271,7 @@ test('nothing is written until the pick is accepted, and then only one file', as
     assert.deepEqual(diff.removed, []);
     assert.deepEqual(
       diff.added.filter((rel) => !rel.startsWith('.phyllum/')),
-      [],
+      ['DESIGN-SYSTEM.md.bak'],
     );
   });
 });

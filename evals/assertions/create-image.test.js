@@ -286,8 +286,8 @@ test('on acceptance exactly one file changes, and it is DESIGN-SYSTEM.md', async
     assert.deepEqual(diff.removed, []);
     assert.deepEqual(
       diff.added.filter((rel) => !rel.startsWith('.phyllum/')),
-      [],
-      'no file outside DESIGN-SYSTEM.md and .phyllum/ is written',
+      ['DESIGN-SYSTEM.md.bak'],
+      'no file outside DESIGN-SYSTEM.md, its backup and .phyllum/ is written',
     );
 
     const written = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');

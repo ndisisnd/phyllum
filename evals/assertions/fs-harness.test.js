@@ -50,6 +50,9 @@ test('the harness recognises exactly the paths §1 enumerates', () => {
   const project = '/tmp/phyllum-test-abc';
 
   assert.ok(enumerationLabel(`${project}/DESIGN-SYSTEM.md`));
+  // v0.2.1 §6.5.2: the pre-edit backup is enumerated deliberately, as a path
+  // Phyllum may write — not tolerated as a side effect of writing beside it.
+  assert.ok(enumerationLabel(`${project}/DESIGN-SYSTEM.md.bak`));
   assert.ok(enumerationLabel(`${project}/.phyllum/session.json`));
   assert.ok(enumerationLabel(`${project}/.phyllum/uploads/shot.png`));
   assert.ok(enumerationLabel(`${project}/.claude/skills/phyllum/SKILL.md`));
@@ -64,7 +67,8 @@ test('the harness recognises exactly the paths §1 enumerates', () => {
     '.claude/settings.json',
     '.claude/skills/other/SKILL.md',
     'tailwind.config.js',
-    'DESIGN-SYSTEM.md.bak',
+    'DESIGN-SYSTEM.md.old',
+    'assess.json',
   ]) {
     assert.equal(enumerationLabel(`${project}/${rel}`), null, `${rel} is not enumerated`);
   }
@@ -234,6 +238,7 @@ test('a design system that stops validating fails the run that wrote it', async 
 
 const ENUMERATED = (rel) =>
   rel === 'DESIGN-SYSTEM.md' ||
+  rel === 'DESIGN-SYSTEM.md.bak' ||
   rel === '.gitignore' ||
   rel === '.phyllum' ||
   rel.startsWith('.phyllum/') ||

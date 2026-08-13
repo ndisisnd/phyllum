@@ -113,6 +113,29 @@ The numbers pass does not treat every length alike. A 12px corner radius and a
 | spacing | padding, padding-top, padding-right, padding-bottom, padding-left, margin, margin-top, margin-right, margin-bottom, margin-left, gap, row-gap, column-gap, p, px, py, pt, pr, pb, pl, m, mt, mr, mb, ml | spacing | spacing |
 | border | border, border-width, border-top-width, border-right-width, border-bottom-width, border-left-width, outline-width | border width | border |
 
+Two value shapes are not a single length at all. A shadow is `0 2px 8px
+rgba(0,0,0,0.1)` and a border shorthand is `1px solid #E5E7EB`: the meaning is
+the whole list, not any part of it, so neither can be read by the scalar path a
+role uses. They get a pass each. Both still write into the **Numbers** section,
+because a shadow and a border width are lengths with a job — inventing a fourth
+token section to hold them would change the shape of every `DESIGN-SYSTEM.md`
+for no gain in what the file says.
+
+<!-- phyllum:compounds -->
+
+| Pass | Token section | Properties | Applies to | Ladder | Shorthand keywords |
+|------|---------------|------------|------------|--------|--------------------|
+| shadows | Numbers | box-shadow, text-shadow, shadow, drop-shadow, elevation | shadow | shadow | — |
+| borders | Numbers | border, border-top, border-right, border-bottom, border-left, outline | border | border | solid, dashed, dotted, double, groove, ridge, inset, outset, none, hidden |
+
+The **shorthand keywords** column is the trigger, and it is what keeps one
+declaration from being counted twice. `border: 1px solid #E5E7EB` carries a style
+keyword, so it is one border sighting; `border-width: 1px` carries none, so it
+stays the scalar `border` role above. A pass with no keywords listed — shadows —
+reads every declaration on its properties as a compound. How a compound is
+normalised and clustered is in `refs/assess.md`, with the rest of the scanning
+contract.
+
 The last few spellings in each row are Phyllum's own spec keys rather than CSS
 properties. They are here because the same table answers both questions: which
 value belongs to which role, and which slot in a component spec a newly named
@@ -163,6 +186,11 @@ than all of them takes the next rung down.
 | rounded | rounded-xs, rounded-sm, rounded-md, rounded-lg, rounded-xl, rounded-2xl | rounded-md |
 | spacing | space-xs, space-sm, space-md, space-lg, space-xl, space-2xl | space-md |
 | border | border-hairline, border-sm, border-md, border-lg | border-sm |
+| shadow | shadow-xs, shadow-sm, shadow-md, shadow-lg, shadow-xl | shadow-md |
+
+A compound is laid on its ladder by size, the same as a scalar: borders by their
+width, shadows by the sum of their lengths. A shadow with a bigger spread is a
+bigger shadow, and that is the only ordering a reader would predict.
 
 **Typography.** A name is a role plus a size band: weight decides the role, size
 decides the band, and `12px / 700` therefore comes out as `highlight-small` —

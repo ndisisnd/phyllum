@@ -1,0 +1,104 @@
+{
+  "eval": "assess-similarity",
+  "rubric": "evals/rubrics/assess-similarity.md",
+  "milestone": "v0.2.1 M3",
+  "planSections": ["§4.1", "§4.2", "§4.3", "§4.4"],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "fixtures": {
+    "clones": "evals/fixtures/codebases/clone-pairs",
+    "clean": "evals/fixtures/codebases/react-css",
+    "vue": "evals/fixtures/codebases/vue-app"
+  },
+  "recordingPrompt": "Assess this codebase. Say which components in it are near-copies of each other, which named style blocks declare the same thing under different names, and which utility-class bundles are repeated often enough to be a component nobody extracted. Score every answer.",
+  "cases": [
+    {
+      "id": "one-class-apart-is-a-clone",
+      "kind": "clone",
+      "fixture": "clones",
+      "pair": [
+        "div.card.card--elevated.card--padded",
+        "div.card.card--elevated.card--padded.card--wide"
+      ],
+      "survivor": "div.card.card--elevated.card--padded",
+      "note": "three class words in common out of four, on the same tag — the same component, one variant class apart"
+    },
+    {
+      "id": "same-classes-different-tag-is-only-similar",
+      "kind": "similar",
+      "fixture": "clones",
+      "pair": ["div.panel.panel--muted", "section.panel.panel--muted"],
+      "note": "identical class words cannot reach the clone band on their own, because the tag is a quarter of the score"
+    },
+    {
+      "id": "two-unrelated-elements-are-not-a-finding",
+      "kind": "not-similar",
+      "fixture": "clones",
+      "pair": ["div.footer", "span.label"],
+      "note": "nothing in common but being elements — reported would mean every pair in a codebase is reported"
+    },
+    {
+      "id": "two-names-one-rule",
+      "kind": "duplicate",
+      "fixture": "clones",
+      "pair": [".card", ".panel"],
+      "shared": ["background: #ffffff", "border-radius: 12px", "padding: 16px"],
+      "note": "the classic: a card and a panel declaring exactly the same thing"
+    },
+    {
+      "id": "styled-components-templates-are-blocks-too",
+      "kind": "duplicate",
+      "fixture": "clones",
+      "pair": ["PrimaryBox", "SecondaryBox"],
+      "shared": ["border-radius: 4px", "padding: 24px"],
+      "note": "and they are read out of a plain `.js` file, because that is where CSS-in-JS lives"
+    },
+    {
+      "id": "two-of-three-declarations-shared-is-a-similarity",
+      "kind": "near-duplicate",
+      "fixture": "clones",
+      "pair": [".chip", ".tag"],
+      "note": "half the same is worth reporting quietly and never worth a merge suggestion"
+    },
+    {
+      "id": "a-block-nothing-matches-is-not-reported",
+      "kind": "no-duplicate",
+      "fixture": "clones",
+      "name": ".footer",
+      "note": "the control: one block declaring its own thing must appear in no pair"
+    },
+    {
+      "id": "a-bundle-repeated-across-elements",
+      "kind": "overlap",
+      "fixture": "clones",
+      "value": "flex gap-2 items-center rounded-lg",
+      "count": 3,
+      "note": "four utility classes on three elements — a component nobody extracted"
+    },
+    {
+      "id": "a-bundle-used-twice-is-not-a-bundle-yet",
+      "kind": "no-overlap",
+      "fixture": "clones",
+      "value": "card card--elevated card--padded",
+      "note": "long enough to be a bundle, not repeated often enough to be one — the uses threshold, doing its job"
+    },
+    {
+      "id": "an-ordinary-project-is-told-nothing-is-alike",
+      "kind": "no-findings",
+      "fixture": "clean",
+      "note": "two button modifiers differing by one colour are not a duplicate, and a report that says they are is a report nobody trusts"
+    },
+    {
+      "id": "markup-not-read-means-the-question-was-not-asked",
+      "kind": "not-checked",
+      "fixture": "vue",
+      "note": "a Vue project has no clones reported, is told why, and still has its stylesheets compared"
+    },
+    {
+      "id": "every-score-is-a-number-in-range-and-the-caps-are-stated",
+      "kind": "bounded",
+      "fixture": "clones",
+      "note": "a quadratic comparison has to stop somewhere, and a report that will not say where cannot be read"
+    }
+  ]
+}

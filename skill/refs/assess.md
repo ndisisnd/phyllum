@@ -179,6 +179,646 @@ purpose.
 
 ---
 
+## Compound values — shadows and borders
+
+A shadow is `0 2px 8px rgba(0,0,0,0.1)` and a border shorthand is `1px solid
+#E5E7EB`. Neither is a length: the meaning is the whole list, so `toPx` has
+nothing to take apart and the scalar path cannot read them. Until v0.2.1 they
+fell into the bucket above — seen, not read — which was honest but unhelpful,
+because a shadow written out forty times is the plainest drift there is.
+
+They are read as wholes now, by the two passes in the `phyllum:compounds` table
+in `refs/tokenise.md`. The grammar is deterministic, and it is the same in every
+language a `property: value` pair can be written in.
+
+| Step | Rule |
+|------|------|
+| 1. layers | a comma at bracket depth zero separates layers — `box-shadow: a, b` is two shadows. Layers keep the order they were written in, because that order is the stacking |
+| 2. parts | inside a layer, whitespace at bracket depth zero separates parts, so `rgba(0, 0, 0, 0.1)` stays one part rather than four |
+| 3. lengths | a length is lowercased and a zero of any unit is written `0`, so `0px` and `0` are one value |
+| 4. colours | a colour part is normalised the way every colour is — case-folded, `#abc` expanded |
+| 5. functions | a part that is a function call other than a colour — `var(…)`, `calc(…)` — makes the whole declaration unreadable, and it goes back to the bucket above rather than being half-read |
+| 6. order | the parts are rejoined in the order they were written, one space between them. The recorded value is the code's own value, tidied — never reordered into something nobody wrote |
+
+Two rules keep the reading honest. A compound must carry **at least one length
+or one colour** to be evidence at all, so `border: none` and `box-shadow: none`
+record nothing. And a declaration read as a compound is **not also read as a
+scalar length** — that would count one fact twice — while the colour inside it
+*is* still a colour sighting, because the colours pass owns colours wherever
+they sit.
+
+---
+
+## Severity — frequency decides, you dispose
+
+Every uncovered value is a finding, and not every finding is the same size. A
+colour written forty times is systematic drift; the same colour written once is
+probably somebody's deliberate exception. Reporting both as "add a token" is how
+a tool earns the habit of being ignored.
+
+So each finding carries a severity, and the only input is how often the value is
+used across the whole codebase.
+
+<!-- phyllum:severity -->
+
+| Severity | Used | Means |
+|----------|------|-------|
+| error | >= 3 | systematic drift — proposed as a token, and accepted by `assess update` |
+| warn | <= 2 | looks like a deliberate exception — reported and counted, never accepted on your behalf |
+
+One threshold for every value family, tested in order, first match wins. It is
+one number on purpose: a per-family threshold is four more numbers to explain
+and four more ways for two runs to disagree about the same codebase.
+
+Severity is assigned **at aggregation**, once the clusters are counted — never by
+a scanner. A scanner's job is to report what it saw; how much a sighting matters
+is a question about the whole codebase, and it cannot be answered one file at a
+time.
+
+What the two severities change:
+
+| | `error` | `warn` |
+|---|---|---|
+| in the report | counted and listed | counted and listed |
+| in the review | asked, most-used first | asked, most-used first — you may promote it by hand |
+| in `assess update` | accepted under the proposed name | **skipped**, and the report says so |
+
+The interactive review treats both alike, because a rare value can still be
+worth a token and only you know that. The fast-forward does not, because
+accepting an exception nobody asked about is exactly the write `assess update`
+promises never to make.
+
+### Which rule a finding belongs to
+
+The severity says how much; the rule says what kind. Rules are named so a report
+can group by family and a later run can say "the shadows are fixed, the spacing
+is not". Rows are tested in order, and a role of `—` matches any role.
+
+<!-- phyllum:lint-rules -->
+
+| Rule | Pass | Role | Detects |
+|------|------|------|---------|
+| raw-colour | colours | — | a hex, `rgb()` or `hsl()` literal no colour token names |
+| raw-spacing | numbers | spacing | a padding, margin or gap length off the token scale |
+| raw-radius | numbers | radius | a corner radius off the radius scale |
+| raw-border | numbers | border | a border or outline width off the scale |
+| raw-border | borders | — | a border shorthand — width, style and colour written out together |
+| raw-shadow | shadows | — | a `box-shadow`, `text-shadow` or elevation literal |
+| raw-typography | typography | — | a font size, weight and line-height written out together |
+
+`raw-radius` is the one that used to have no name of its own: a corner radius was
+read, clustered and named correctly, but the report called it a number like any
+other. Splitting it out changes no behaviour and one thing about the reading — a
+radius problem is now findable in the report by the word a designer would use.
+
+A value the scan could see but **not** read has no rule. It still carries a
+severity, because how often it is written is a fact; but naming its family would
+mean guessing which family it is in, and that is the one thing the fourth bucket
+exists not to do.
+
+---
+
+## Hygiene — what collides, and what nothing uses
+
+Every rule above reads one value at a time. Two questions cannot be answered
+that way, because they are about the project rather than about any value in it:
+**what is fighting what**, and **what is here that nothing needs**.
+
+<!-- phyllum:hygiene-rules -->
+
+| Rule | Severity | Detects |
+|------|----------|---------|
+| framework-collision | warn | more than one UI framework in one repository, or two majors of one framework in the dependency tree |
+| styling-collision | warn | more than one styling system live at once — Tailwind, CSS-in-JS, hand-written stylesheets |
+| theme-source-collision | warn | more than one theme file declaring values, so no one file is the source of truth |
+| unused-token | warn | a token in `DESIGN-SYSTEM.md` whose value and whose name were never seen in the scan |
+| unused-component | warn | a registered component whose name, in any spelling, was never seen in the markup scan |
+
+Every hygiene rule is a `warn`, and the severity is a column here rather than a
+number in the code for the same reason the frequency threshold is. It is a
+`warn` on purpose: unlike a raw value, none of these has an answer Phyllum could
+apply. Two frameworks in one repository may be a migration halfway done; an
+unused token may be the one the next screen is built on. So they are reported
+with the evidence, and never demanded, never removed, never auto-accepted.
+
+### Collisions — the evidence detection used to throw away
+
+`detectProject` gathers six frameworks and three styling systems and returns one
+winner, because `create` only ever needed a label. The evidence behind the
+winner is kept now, and co-existence is reported from it.
+
+| Reading | One repository, more than one of | Why it matters |
+|---------|----------------------------------|----------------|
+| frameworks | React and Vue; two majors of React in the dependency tree | two component models means two definitions of the same button |
+| styling systems | Tailwind, styled-components/emotion, hand-written stylesheets | three places to write `#2563EB`, and no way for a token to reach all three |
+| theme sources | `tailwind.config.js`, `tokens.json`, `theme.ts` | each file declares values, so none of them is *the* source of truth |
+
+Next is React and Nuxt is Vue: matching both rows is one framework described
+twice, not two frameworks, so families are counted rather than labels. Plain
+HTML never collides with anything — it is the absence of a framework, not a
+rival to one. And the Tailwind entry stylesheet does not count as a second
+styling system, because a `globals.css` full of `@tailwind` directives is how
+Tailwind is installed.
+
+`DESIGN-SYSTEM.md` is never counted as a theme source. It is Phyllum's own
+record, and counting it would make every project Phyllum manages collide with
+itself.
+
+### Unused — the coverage split, run backwards
+
+Coverage reads codebase → system: which raw values does the system already name?
+The unused check reads system → codebase, over exactly the same scan.
+
+| Finding | Means |
+|---------|-------|
+| unused-token | no sighting carried its value, and no property carried its name or CSS-variable spelling |
+| unused-component | no element, component tag or class name in the markup scan matched any spelling of its name |
+
+The caveat is part of the finding, not a footnote: **the scan is bounded and
+text-based**, so "not seen" means "not seen in what was read". A token used in a
+file past the file cap, behind a computed class name, in a language the markup
+pass does not read, or referenced only as `var(--name)` — which is a reference
+rather than a value, and so is never a sighting — is not dead. It is unseen.
+Phyllum reports the difference and never resolves it by deleting anything.
+
+The name arm is what makes the check survive a value drifting: a `space-8` the
+system records as `32px` and the code writes as `31px` is still *referenced* by
+name, so it is reported as drift by the value rules and not as a stale token by
+this one. Two findings about one token would be one finding too many.
+
+Two consequences follow, and both are deliberate. Removal is offered through the
+normal review loop, which edits `DESIGN-SYSTEM.md` and nothing else — there is
+no auto-pruning at any severity, in any mode, including `assess update`. And the
+component half does not run at all on a stack whose component pass did not run:
+a Vue project would otherwise be told every component it has is unused, which is
+a statement about the reader rather than about the project.
+
+---
+
+## Similarity — what is nearly the same as what
+
+Every rule above reads one thing at a time: one value, one project. Similarity
+is the only check that reads two things *against each other*, and it answers the
+question a codebase cannot answer by counting — **is this the same component
+twice?**
+
+Three readings, one shape. Each one produces a **score in [0, 1]** computed from
+structure alone: no model call, no heuristic that could answer differently on a
+Tuesday. The same two things always score the same number, and the number is
+what decides how loudly the finding is reported.
+
+<!-- phyllum:similarity-rules -->
+
+| Rule | Severity | Detects |
+|------|----------|---------|
+| component-clone | by band | two repeated markup signatures whose element and class words largely overlap |
+| style-duplicate | by band | two named style blocks declaring materially the same `property: value` set |
+| utility-overlap | warn | one utility-class bundle repeated across elements that no component was ever extracted from |
+
+`by band` means the score decides, by the table below. `utility-overlap` is a
+`warn` whatever its size, because a repeated utility bundle is a component
+waiting to be extracted rather than a mistake — and extracting one is a decision
+about the design system, not a defect to be fixed.
+
+### The score
+
+<!-- phyllum:similarity-weights -->
+
+| Part | Weight | Compared on |
+|------|--------|-------------|
+| class words | 0.75 | Jaccard overlap of the words in both class lists, `btn--primary` read as `btn` + `primary` |
+| element | 0.25 | 1 for the same tag; otherwise the Jaccard overlap of the words in the two tag names |
+| declarations | 1 | Jaccard overlap of two blocks' normalised `property: value` pairs |
+
+Class words rather than class names, because `btn--primary` and `PrimaryBtn` are
+one pattern spelled twice, and comparing the spellings would say they have
+nothing in common. The element part is a bonus rather than a gate: two different
+tags carrying the same classes are still worth reporting, they are just worth
+reporting more quietly — which is exactly what a 0.75 ceiling does to them.
+
+The element part is scored by words too, so `Card` and `PrimaryCard` are read as
+near rather than as unrelated. An exact tag match short-circuits to 1 so the
+common case never depends on how a tag name happens to split.
+
+<!-- phyllum:similarity-bands -->
+
+| Band | Score | Severity | Means |
+|------|-------|----------|-------|
+| clone | >= 0.8 | error | the same thing twice — reported with a merge suggestion naming the more-used one as the survivor |
+| similar | >= 0.5 | warn | a pattern similarity — reported, and nothing suggested |
+
+Below 0.5 nothing is reported at all. Two components sharing one class word are
+not evidence of anything, and a report that says so about every pair in a
+codebase is a report nobody reads twice.
+
+A merge suggestion is a **suggestion**, and it lands where every other Phyllum
+suggestion lands: the review loop that edits `DESIGN-SYSTEM.md`. Nothing here
+rewrites a component, renames a class or touches a line of code — merging two
+components is `apply`'s PRD-gated work, and `assess` is read-only in the code as
+well as in the promise.
+
+### What counts as a block, and what counts as a bundle
+
+A **style block** is a named group of declarations: a CSS rule and its selector,
+a `styled.div` template and the constant it was assigned to, or a style object
+literal and its variable name. A block is only compared when it holds at least
+two declarations and at least one property the property tables recognise —
+without that rule a configuration object of two strings would be a style
+duplicate of another configuration object, which is a scanner reading a file it
+does not understand.
+
+A **utility bundle** is a class list long enough to be doing a component's job,
+repeated often enough that somebody meant it. Both numbers are in the limits
+table, and both are deliberately blunt: this check is a nudge, not a census.
+
+### Bounded, and it says so
+
+Comparing everything to everything else is quadratic, and a scan that reads a
+big repository has to stay a scan. So the pass compares the most-used
+signatures and the first blocks it read, up to a cap, and the report states the
+cap rather than quietly truncating.
+
+<!-- phyllum:similarity-limits -->
+
+| Limit | Value | Why |
+|-------|-------|-----|
+| signatures | 40 | the most-used signatures compared to each other, the rest counted and not compared |
+| blocks | 60 | style blocks compared, in the order they were read |
+| pairs | 2000 | comparisons any one pass will make before it stops |
+| bundle classes | 3 | classes a class list needs before it is a bundle rather than a class |
+| bundle uses | 3 | elements a bundle has to appear on before it is worth extracting |
+
+Sorted before capped, always: the signatures are the most-used ones, so the cap
+drops the tail rather than an arbitrary forty. Both halves of the pass run on
+markup, so both are React-only in v0.2.1 for the same reason the component pass
+is — and both say so when they do not run. Style duplicates read stylesheets and
+theme files, so they run on every stack.
+
+---
+
+## Consistency — one concept, one name; one component, one contract
+
+Similarity asks whether two things are the *same thing*. Consistency asks the
+question underneath it: when they are, are they **called** the same thing, and
+are they **used** the same way? Two readings, and they fail differently, which
+is why they are graded differently.
+
+### Naming-convention drift
+
+Every codebase has a house style for names, and almost every codebase has a few
+names that missed it. Phyllum does not have an opinion about which style is
+right — it reads the one the codebase already mostly uses, and reports what
+strays from it.
+
+<!-- phyllum:naming-conventions -->
+
+| Convention | Written as | Example | Votes as |
+|------------|------------|---------|----------|
+| bem | a block, `__` before an element, `--` before a modifier | `card__title--large` | kebab |
+| upper | upper case, underscores between words | `BUTTON_SMALL` | upper |
+| pascal | every word capitalised, nothing between them | `ButtonSmall` | pascal |
+| camel | the first word lower case, every one after it capitalised | `buttonSmall` | camel |
+| snake | lower case, underscores between words | `button_small` | snake |
+| kebab | lower case, hyphens between words | `button-small` | kebab |
+| lower | one lower-case word, with nothing to separate | `button` | — |
+
+Rows are tested in order and the first match wins, because the conventions
+overlap by construction: BEM is kebab with two extra separators, and `Button` is
+Pascal case and a single capitalised word at the same time. The order is also
+the tie-break — when two conventions are used exactly as often, the one declared
+first is the one Phyllum calls dominant, so a tie resolves the same way twice.
+
+The `Votes as` column is where the two honesty rules of this reading live, and
+both exist because the obvious version of the vote is unusable.
+
+A name of one lower-case word votes for **nothing**. It carries no separator and
+no capital, so it is evidence of no house style at all, and counting `button` as
+a vote for kebab would let a codebase full of one-word class names elect a
+convention nobody chose. Those names are still read and still reported; they
+just do not get a say.
+
+And a BEM name votes as **kebab**, because BEM is not a rival to kebab — it is
+kebab with two more separators in it. Every BEM codebase has plain blocks
+(`panel-header`) beside modified ones (`btn--primary`) by construction, so
+counting the two apart would have a BEM codebase report half of its own names as
+strays from itself. What the vote is really measuring is whether this project
+writes names in lower case with hyphens, in camel case, in Pascal case, or in
+snake case; `bem` is a spelling of the first of those, not a fifth answer.
+
+<!-- phyllum:naming-rules -->
+
+| Rule | Severity | Detects |
+|------|----------|---------|
+| naming-drift | warn | one concept spelled more than one way — the same words in a different order, or in a different case |
+| naming-convention | warn | a name written in a convention that is not the one this codebase mostly uses |
+
+Both are `warn`, and the reason is the same reason the hygiene rules are: a name
+in the wrong case still works. Nothing here is broken, and only a person can say
+whether `Button` and `btn` are one concept with two spellings or two concepts
+that happen to rhyme. The `error` tier in this section belongs to the prop
+checks below, where a mismatch means one of two call sites cannot be right.
+
+**What counts as drift.** Two names drift when `wordsIn()` reads the same word
+*set* out of both of them and they are still spelled differently — `btn--primary`
+and `PrimaryBtn` are `{btn, primary}` twice, in two orders. That is the whole
+test, and it is deliberately narrow: `btn` and `Button` are **not** reported,
+because resolving abbreviations means a dictionary, and a dictionary means
+guessing. Phyllum says what it can prove and leaves the rest alone.
+
+Names are grouped **within their kind** — classes against classes, components
+against components — because a component called `Card` rendering a class called
+`card` is one concept spelled two ways *on purpose*, and reporting it would make
+the check unusable in every React codebase there is. A class that is a known
+spelling of a registered component is folded into that component for the same
+reason: `button-primary` is what Phyllum itself calls `Button/Primary`.
+
+**The suggestion is always the predictable form**: `Base + Qualifier`, spelled in
+the dominant convention for that kind — `ButtonSmall`, `button-primary`. The base
+is the word the codebase reuses most across its names, never a variant word
+(`primary`, `small`, `ghost` — the list `create` already keeps), because a
+qualifier is the part that changes and a base is the part that does not. Ties go
+to the word that comes first in the most-used spelling. Renames are recorded as
+suggestions against the design system; changing a line of code is `apply`'s work.
+
+### Prop mismatches within a component
+
+For each component the markup scan sees, its usages are compared against each
+other. The reader is a **regex attribute scan**, not a JSX parser and not a type
+checker — so what it cannot read, it says it cannot read.
+
+<!-- phyllum:prop-rules -->
+
+| Rule | Severity | Watches | Detects |
+|------|----------|---------|---------|
+| prop-synonym | error | — | one component given two names for the same prop across its usages |
+| prop-type-conflict | error | — | one prop on one component given values of two different kinds |
+| prop-style-bypass | warn | `style`, `css`, `sx` | a style-affecting prop on a component the design system already gives variants for |
+
+The first two are errors because they contradict the component's own contract: a
+component has one API, so `onPress` here and `onClick` there means one of the two
+call sites is not talking to it, and `size="lg"` beside `size={3}` means one of
+them is passing a value the prop cannot mean. Neither is a matter of taste. The
+third is a `warn` because it is not a contradiction but an escape: an inline
+style on a component that has variants is somebody stepping around the system,
+and sometimes stepping around the system is the right call.
+
+<!-- phyllum:prop-synonyms -->
+
+| Meaning | Spellings |
+|---------|-----------|
+| press | `onClick`, `onPress`, `onTap` |
+| change | `onChange`, `onInput` |
+| dismiss | `onClose`, `onDismiss` |
+| label | `label`, `caption` |
+| variant | `variant`, `kind`, `appearance` |
+| size | `size`, `scale` |
+| disabled | `disabled`, `isDisabled` |
+| loading | `loading`, `isLoading`, `busy` |
+
+The table is short on purpose. Every pair added to it is a pair Phyllum will call
+a mistake, so a word that has an honest second meaning on the same element —
+`type`, which is a variant to one library and an HTML attribute to every browser,
+or `title`, which is a label to one component and a tooltip to the platform —
+stays out. A synonym table that is generous is a table that cries wolf.
+
+<!-- phyllum:prop-kinds -->
+
+| Kind | Written as | Comparable |
+|------|------------|------------|
+| boolean | a bare attribute, `{true}`, `{false}` | yes |
+| number | `{3}`, `{1.5}`, `{-1}` | yes |
+| string | `"lg"`, `{'lg'}`, a template with nothing interpolated | yes |
+| object | `{{ background: '#2563EB' }}` | yes |
+| array | `{['a', 'b']}` | yes |
+| expression | `{handleClick}`, a call, anything with an operator in it | no |
+
+`Comparable` is the honesty rule of this reading. An attribute scan can see that
+`{size}` is an expression; it cannot see what that expression evaluates to
+without becoming a type checker. So an expression is recorded, counted and
+reported as unread — and never used to claim a conflict, because a conflict
+between a string and something Phyllum did not read is not a finding, it is a
+guess. Which kinds are the shapes of a value is a fact about the language and
+lives in the reader; which of them may be compared is a decision and lives here.
+
+Two more limits, both stated in the report rather than left to be discovered. A
+spread (`{...props}`) can supply any prop at all, so a usage carrying one is read
+for what it *does* say and never for what it does not — this pass reports things
+that are present, never things that are missing. And the whole prop reading is
+React-only in v0.2.1, exactly as the component pass is: on a stack whose markup
+Phyllum does not read, the answer is that the question was not asked.
+
+Which props are style-affecting is the `Watches` column above rather than a list
+in the code, and a bypass is only reported for a component the design system
+**registers with more than one variant** —
+without a variant there is nothing to bypass, and telling somebody to use a
+variant that does not exist is worse than saying nothing.
+
+<!-- phyllum:consistency-limits -->
+
+| Limit | Value | Why |
+|-------|-------|-----|
+| names | 300 | distinct names one naming pass reads, most-used first |
+| convention evidence | 4 | names that have to carry a convention before one is called dominant |
+| convention majority | 0.6 | the share the leading convention must hold before a stray is a finding |
+| components | 60 | components one prop pass compares, most-used first |
+| usages | 200 | usages of any one component the prop pass reads |
+
+Sorted before capped, as everywhere else: the names and the components are the
+most-used ones, so a cap drops the tail rather than an arbitrary three hundred.
+The majority share is the difference between a convention and a coincidence — a
+codebase split evenly between two styles has not chosen one, and Phyllum reports
+that it could not find a dominant convention rather than picking a winner.
+
+---
+
+## The smaller checks (v0.2.1 §8)
+
+Six checks that do not belong to any of the families above, because each one
+reads something the others do not: a pair of colours against each other, a dark
+theme against a light one, `DESIGN-SYSTEM.md` against itself, a spacing value
+against the scale it *nearly* sits on, and two kinds of literal — z-index and
+breakpoint widths — that no property table gives a role to. They ship as one
+family so the report has one place to put them, and each carries its own rule
+name so a reader is never told "an extra finding" and left to guess which.
+
+<!-- phyllum:extra-rules -->
+
+| Rule | Severity | Detects |
+|------|----------|---------|
+| near-duplicate-colour | warn | two token-worthy colours close enough to each other that no eye can hold them apart |
+| dark-mode-gap | warn | a colour the light theme names and the dark theme never restates — **only** in a codebase that demonstrably has a dark theme |
+| token-alias-duplicate | warn | two tokens in `DESIGN-SYSTEM.md` holding the same value under different names |
+| off-scale-spacing | error | a spacing length that misses the token scale by a hair — `15px` in an eight-point system |
+| z-index-sprawl | warn | raw `z-index` literals, inventoried, once there are enough of them to be a stack nobody planned |
+| hardcoded-breakpoint | warn | a media-query width written as a literal when a breakpoint token could name it |
+
+Every one of them is silent when the evidence for it is missing, and silence is
+the deliberate half of the design. A project with no dark theme is not nagged
+about dark coverage; a project with no spacing tokens has no scale to be off;
+two z-index values are a stack, not a sprawl. A check that fires on a healthy
+project is a check people learn to skip.
+
+<!-- phyllum:extra-limits -->
+
+| Limit | Value | Why |
+|-------|-------|-----|
+| colour distance | 8 | how close two colours have to be, in ΔE, before they are one colour written twice |
+| colour pairs | 400 | comparisons the colour check makes before it stops |
+| off-scale tolerance | 3 | how many pixels from a rung of the scale still counts as aiming at that rung and missing |
+| z-index values | 3 | distinct raw z-index values before an inventory is a sprawl |
+| files | 400 | files the extras sweep reads |
+
+**The colour distance is CIE76 ΔE, and it is an approximation on purpose.** It
+is the same measure the colour clustering uses — sRGB converted to Lab, then a
+straight-line distance between the two points — rather than CIEDE2000, which is
+a colour-science library Phyllum does not have and will not vendor for one
+check. CIE76 overstates distance in saturated blues and understates it in
+near-neutrals, and neither error matters at this range: the question is whether
+two greys are the same grey, and eight units of ΔE is comfortably inside "an eye
+cannot hold these apart".
+
+The check has a floor as well as a ceiling, and the floor is the clustering
+threshold. Anything within ΔE 3 of another colour was already merged into one
+cluster before this check ran, so a near-duplicate pair is by construction two
+values the codebase keeps apart and a person cannot: **more than 3, no more than
+8**. The number is printed in the finding so it can be argued with.
+
+<!-- phyllum:dark-evidence -->
+
+| Evidence | Written as | Read from |
+|----------|------------|-----------|
+| media query | `@media (prefers-color-scheme: dark)` | stylesheets, `<style>` blocks, any text file |
+| class scheme | `.dark`, `[data-theme="dark"]`, `[data-mode=dark]` | selectors in stylesheets and style blocks |
+| utility variant | `dark:` | class lists in markup — `dark:bg-slate-900` |
+| config switch | `darkMode` | the theme config the detector already found — `tailwind.config.*` |
+
+A **dark scope** is the body of a `prefers-color-scheme: dark` block, the body
+of a rule whose selector carries the class scheme, or the value half of a
+`dark:` utility. What counts as a **dark counterpart** inside one of those is
+deliberately per-styling-system, because "the dark version of this colour" is
+not a fact any single file format states:
+
+| The codebase writes colour | A counterpart is | Why |
+|----------------------------|------------------|-----|
+| by name — CSS custom properties, a theme object, tokens | the token's name declared again inside a dark scope | `--color-ink: #F9FAFB` under a dark media query *is* `color-ink` having a dark value, said as plainly as a file will ever say it |
+| by value — literals, utility classes | the property it sits on declared again inside a dark scope | a literal cannot be restated; its dark version is a different literal, and nothing in the text ties the two together. What can be read is whether the dark theme touches `background` at all |
+
+One gate sits over both, and it is what keeps this from being a nag. If **no**
+colour token is restated by name in any dark scope, this project does not
+express dark values per token — and a check that then called every token a gap
+would be reporting its own inability to read the convention. So it says that
+instead, and grades only the raw half.
+
+---
+
+## The findings, the score and the verdict (§7)
+
+Every family counts its findings the same way, so the report can lay them side
+by side: severity, the finding, the evidence behind it, and the one thing to do
+about it. The suggested action is a row here rather than a sentence in the
+renderer, because it is the part of a finding a reader acts on, and it should be
+editable without touching code.
+
+<!-- phyllum:actions -->
+
+| Rule | Suggested action |
+|------|------------------|
+| raw-colour | name it as a colour token, then let `apply` replace the literals |
+| raw-spacing | name it on the spacing scale, or move it onto a rung you already have |
+| raw-radius | name it as a radius token, or reuse the nearest one |
+| raw-border | name the border as a token, or reuse the border you already named |
+| raw-shadow | name the elevation as a shadow token — a shadow written out twice is two elevations |
+| raw-typography | name the size, weight and line-height together as one type token |
+| unread | tell Phyllum what it applies to, and it becomes a token like any other |
+| framework-collision | decide which framework owns the components, and finish the migration |
+| styling-collision | pick the system the tokens live in; the others read from it |
+| theme-source-collision | make one file the source of truth and generate the rest |
+| unused-token | keep it or remove it — nothing is removed for you |
+| unused-component | keep it or remove it — nothing is removed for you |
+| component-clone | merge them, keeping the more-used one |
+| style-duplicate | keep one block and reference it from the other |
+| utility-overlap | extract the bundle as a component, if it is one |
+| naming-drift | rename it to the predictable form |
+| naming-convention | spell it in the convention the rest of the codebase uses |
+| prop-synonym | pick one spelling and use it everywhere |
+| prop-type-conflict | decide which value type the prop takes, and say so in the spec |
+| prop-style-bypass | use the variant instead of the inline style |
+| near-duplicate-colour | keep one of them and point the other at it |
+| dark-mode-gap | give it a dark value, or say plainly that it has none |
+| token-alias-duplicate | keep one name and merge the other into it |
+| off-scale-spacing | move it onto the nearest rung of the scale |
+| z-index-sprawl | name the layers as tokens and stop counting upwards |
+| hardcoded-breakpoint | name the breakpoint and use it everywhere |
+
+### The drift score
+
+One number for the whole assessment, on a **seven-step Fibonacci scale — 1, 2,
+3, 5, 8, 13, 21**. Lower is better: 1 is essentially systematised, 21 is
+untamed. Fibonacci on purpose, because drift does not grow evenly and a 0–100
+score implies a precision no scan has. The widening gaps are the honest part —
+the difference between a 3 and a 5 is a morning's work, and the difference
+between a 13 and a 21 is a decision about the project.
+
+The score is built in two steps. Every finding is worth points by family and
+severity, the points are summed into one **drift mass**, and the mass falls
+into a step.
+
+<!-- phyllum:score-weights -->
+
+| Family | error | warn |
+|--------|-------|------|
+| lint | 3 | 1 |
+| similarity | 3 | 1 |
+| props | 3 | 1 |
+| naming | 2 | 1 |
+| hygiene | 2 | 1 |
+| extras | 2 | 1 |
+
+Lint, similarity and props weigh heaviest at `error` because each of them is a
+contradiction inside the code: the same value written out three times, two
+components that are one component, one prop called two things. Naming, hygiene
+and the extras weigh less because they are untidiness rather than contradiction
+— a stale token costs a reader nothing at runtime. Every `warn` is worth one
+point in every family, which is the point of a warning: it counts, and it never
+counts as much as the thing somebody has to fix.
+
+<!-- phyllum:score-steps -->
+
+| Step | Drift mass | Means |
+|------|------------|-------|
+| 1 | <= 2 | essentially systematised — what is here is named |
+| 2 | <= 5 | a handful of exceptions, and nothing systematic |
+| 3 | <= 10 | drift has started; it is still a morning's work |
+| 5 | <= 20 | a real backlog of unnamed values and untidy names |
+| 8 | <= 40 | the design system describes some of this codebase |
+| 13 | <= 80 | the codebase and the design system are two different systems |
+| 21 | — | untamed — the tokens are a document, not a contract |
+
+The cut-points double, so each step means "about twice as much as the one
+below". A row with an em dash in the mass column always matches, which is how
+the table spells "and everything above this".
+
+<!-- phyllum:verdicts -->
+
+| Verdict | When |
+|---------|------|
+| fail | one or more `error` findings anywhere in the assessment |
+| pass w/ warnings | no errors, and one or more warnings |
+| pass | nothing found at all |
+
+The verdict is derived from **severities and never from the score**, and the two
+answer different questions on purpose. The verdict says whether anything here is
+systematic drift; the score says how much of it there is. A codebase can fail
+with a score of 2 (one value written three times, and nothing else) and pass
+with warnings at 8 (a hundred deliberate exceptions). `clean` in the summary is
+exactly `verdict === 'pass'`, so one word cannot disagree with the other.
+
+Both are deterministic: same codebase, same `DESIGN-SYSTEM.md`, same score and
+same verdict. That is what makes a rerun after a fix meaningful — the number
+moves down the scale, or the work did not land.
+
+---
+
 ## Component detection — React in v0.2.0
 
 The component half looks for markup patterns the codebase repeats and the design
@@ -226,6 +866,16 @@ average — a value nobody wrote is never proposed. Clustering is deterministic.
 | numbers | absolute difference in px, `rem` read at 16px for comparison only | 1 | the same role |
 | typography size | absolute difference in font-size, in px | 1 | the same weight |
 | typography line-height | absolute difference in line-height | 0.1 | the same weight |
+| shadow length | absolute difference in px, part for part | 1 | the same layer count, the same keywords, the same number of lengths |
+| shadow colour | CIE76 ΔE between two layers' colours | 3 | both layers have a colour, or neither does |
+| border width | absolute difference in px, part for part | 1 | the same keywords |
+| border colour | CIE76 ΔE between two borders' colours | 3 | both carry a colour, or neither does |
+
+A compound clusters when **every part of it** clusters, by the same thresholds
+the scalar passes use — a length is a length whether it stands alone or sits in
+a shadow. Two shadows of different shapes never merge, however close their
+numbers: `0 2px 8px` and `0 2px 8px 1px` are different shadows, and averaging
+them would be inventing one.
 
 Frequency is the review order: most-used first, ties broken by value. A cluster
 any of whose values is already the value of a token in that pass's section is
@@ -295,9 +945,17 @@ four — the modes differ only in which tracks are walked and in who answers.
 | `assess tokens` | the token review only | you |
 | `assess components` | the component picks only, **looped** | you, once per candidate |
 | `assess update` | tokens, then components | Phyllum, where the answer is already on the page |
+| `assess --json` | none — the assessment is written to a file | nobody; it asks nothing |
+
+Every finding family reports in all four modes: the scan is one scan, so
+`assess tokens` sees the same similarity groups, naming drift, prop mismatches,
+hygiene findings and score that `assess` does. What the mode changes is which
+suggestion track is *walked*, never what was found.
 
 `tokens`, `components` and `update` are reserved words in argument position after
 `assess`. Any other word gets the list of valid ones rather than an error.
+`--json` is a flag rather than a reserved word, so `assess --json tokens` is the
+token mode written to a file — the scope word is never read as a filename.
 
 **`assess components` loops.** One candidate at a time, most-repeated first, each
 with its own pick and its own acceptance gate. After each recording it asks about
@@ -313,6 +971,7 @@ on the page is answered; a question whose answer is only in your head is skipped
 |----------|-----------------|-----|
 | "Name `#2563EB` as `color-primary`?" | **accepted**, under the proposed name | the name was derived mechanically from the value and the naming scales — a review would add nothing to it |
 | the one write to `DESIGN-SYSTEM.md` | **accepted**, once | the mode *is* that consent, given on the command line |
+| "Name `#7C3AED` as `color-accent`?" (used twice) | **skipped**, value left unnamed | a `warn`-severity finding is a suspected exception, and accepting an exception nobody asked about is the write this mode promises not to make |
 | "What does `18px` apply to?" (role unknown) | **skipped**, value left unnamed | the role is not in the codebase; guessing one is how a corner radius becomes a padding |
 | "Record one of these as a component?" | **skipped**, patterns left in the report | the contract's questions have answers only you have, and unanswered slots would be written as TODOs nobody asked for |
 
@@ -325,6 +984,48 @@ So `assess update`'s output is exactly this: new token rows in `DESIGN-SYSTEM.md
 under the names the map showed, and a report naming what it declined to answer.
 It writes `DESIGN-SYSTEM.md` and nothing else — no components, no codebase files,
 not one other byte.
+
+## `--json` — the same assessment, written to a file (§6.5.1)
+
+`--json [path]` runs any mode and writes the **whole assessment object** to a
+JSON file instead of walking any track. Default path `.phyllum/assess.json`;
+`--json out/report.json` and `--json=out/report.json` both name one of your own.
+
+| Property | What it means |
+|----------|---------------|
+| the same object | the file holds what the report renders from — findings, similarity groups, families, score, verdict — never a summary re-derived for machines |
+| `schemaVersion` | first field in the file, so a consumer can refuse a shape it does not know instead of reading a field that moved |
+| byte-stable | two runs over an unchanged codebase write byte-identical files. No timestamp, no duration, no absolute path, no random id — a diff between runs is a diff of the codebase |
+| no review | `--json` never enters the review loop. Nothing is asked, nothing accepted, `DESIGN-SYSTEM.md` untouched |
+| one file | it writes the JSON file and nothing else, and it never falls back to a second location when the first is refused |
+
+Two things are left out of the file on purpose: `sightings`, every raw reading
+the scan took, because it is tens of thousands of rows already summarised into
+the inventory above it; and `root`, because an absolute path would make the same
+project assessed from two checkouts diff against itself.
+
+**`assess update --json` is refused**, with both halves of the reason stated.
+`update` exists to accept suggestions for you and edit `DESIGN-SYSTEM.md`;
+`--json` exists to report without touching anything. Running both would either
+write the design system during a run whose whole promise is that it does not, or
+silently ignore half the command line. It exits non-zero, because a run that did
+not do what the command line asked must not report success to whatever asked.
+
+## Backups — one undo ago (§6.5.2)
+
+Every command that edits `DESIGN-SYSTEM.md` — `create`, `tokenise`, the review
+loop, `assess update` — copies the current file to **`DESIGN-SYSTEM.md.bak`**
+first. It is the state before the most recent edit, overwritten on each new one,
+so `.bak` is always exactly one undo ago.
+
+- It lives in the **single write path**, not in the commands. A backup each
+  writer remembers to take is one that a future writer forgets.
+- **A failed backup aborts the edit.** Not a warning: the file's whole value is
+  existing at the moment somebody wants it, so a write that proceeds without one
+  has quietly removed the safety it claims to provide.
+- There is nothing to back up on a first write, so none is taken.
+- `init` adds it to `.gitignore` alongside `.phyllum/` — a local undo buffer of
+  a file that is already committed has no business in a diff.
 
 ## Rerunnable
 

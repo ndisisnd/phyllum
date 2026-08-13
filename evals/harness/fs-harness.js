@@ -2,11 +2,15 @@
  * The filesystem-diff harness (plan §8.5, "cross-cutting invariants").
  *
  * The promise Phyllum makes is small enough to check mechanically: the only paths
- * it may ever create or modify in a user's project are `DESIGN-SYSTEM.md`,
- * `.phyllum/**`, and — during `init` only — `.claude/skills/phyllum/**` plus one
- * line in `.gitignore`. This file turns that promise into something the whole
- * assertion suite runs under, rather than something individual tests remember
+ * it may ever create or modify in a user's project are `DESIGN-SYSTEM.md`, its
+ * `.bak` copy, `.phyllum/**`, and — during `init` only — `.claude/skills/phyllum/**`
+ * plus its lines in `.gitignore`. This file turns that promise into something the
+ * whole assertion suite runs under, rather than something individual tests remember
  * to check.
+ *
+ * Two paths are named by the user rather than by the enumeration — the files an
+ * `apply run` phase is entitled to write, and `assess --json`'s output path —
+ * and each has a window a test opens deliberately around the run that uses it.
  *
  * It is loaded with `node --test --import=./evals/harness/fs-harness.js`, which
  * Node passes down to every test child process, so it is not optional and not
@@ -41,6 +45,11 @@ const TMP_ROOT = fs.realpathSync(os.tmpdir());
 /** Paths Phyllum is allowed to write, as suffix rules on an absolute path. */
 const ALLOWED = [
   { label: 'DESIGN-SYSTEM.md', test: (rel) => rel === 'DESIGN-SYSTEM.md' },
+  // v0.2.1 §6.5.2: the one-undo-ago copy the write funnel takes before every
+  // edit to the design system. Enumerated deliberately rather than tolerated —
+  // a new path Phyllum may write is a change to the promise, and the promise is
+  // this list.
+  { label: 'DESIGN-SYSTEM.md.bak', test: (rel) => rel === 'DESIGN-SYSTEM.md.bak' },
   { label: '.phyllum/**', test: (rel) => rel === '.phyllum' || rel.startsWith('.phyllum/') },
   {
     label: '.claude/skills/phyllum/** (init only)',
@@ -164,6 +173,39 @@ function insideApplyWindow(abs) {
   return false;
 }
 
+/**
+ * The `assess --json` window (v0.2.1 §6.5.1).
+ *
+ * `assess --json <path>` writes one JSON file wherever the user told it to, so
+ * the enumeration above cannot name the path in advance — but "anywhere the
+ * user says" must not become "anywhere". The default target is inside
+ * `.phyllum/` and needs no window at all; a test that exercises a custom path
+ * opens one naming exactly that file, the same way an `apply run` test does.
+ * Outside a window, a JSON write anywhere else still fails the whole suite.
+ */
+let jsonWindow = null;
+
+export function openJsonWindow(paths) {
+  jsonWindow = new Set(paths.map((rel) => String(rel).split(path.sep).join('/')));
+  return jsonWindow;
+}
+
+export function closeJsonWindow() {
+  jsonWindow = null;
+}
+
+function insideJsonWindow(abs) {
+  if (jsonWindow === null || jsonWindow.size === 0) return false;
+  const bare = TEMP_SUFFIX.test(abs) ? abs.replace(TEMP_SUFFIX, '') : abs;
+  const parts = bare.split(path.sep).filter(Boolean);
+  for (let start = 0; start < parts.length; start += 1) {
+    const rel = parts.slice(start).join('/');
+    if (jsonWindow.has(rel)) return true;
+    for (const named of jsonWindow) if (named.startsWith(`${rel}/`)) return true;
+  }
+  return false;
+}
+
 function checkPhyllumWrite(api, abs) {
   if (insideRepo(abs)) {
     record('repo write', `${api} wrote inside the repository: ${path.relative(PACKAGE_ROOT, abs)}`);
@@ -176,6 +218,7 @@ function checkPhyllumWrite(api, abs) {
   if (enumerationLabel(abs)) return;
   if (isEnumerationParent(abs)) return;
   if (insideApplyWindow(abs)) return;
+  if (insideJsonWindow(abs)) return;
   // A directory that *is* a sandbox root (the parent of DESIGN-SYSTEM.md) is
   // created by the funnel with `recursive: true`; it is the sandbox itself.
   if (path.basename(abs).startsWith('phyllum-test-')) return;
@@ -403,4 +446,6 @@ globalThis.__phyllumFsHarness = {
   repoDiff,
   openApplyWindow,
   closeApplyWindow,
+  openJsonWindow,
+  closeJsonWindow,
 };

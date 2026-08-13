@@ -1,0 +1,31 @@
+/* Two names, one rule: the style duplicate. */
+.card {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.panel {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* Half the same: a pattern similarity between two blocks. */
+.chip {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.tag {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 14px;
+}
+
+/* Nothing else declares this, so nothing here may be reported. */
+.footer {
+  color: #6B7280;
+  margin: 24px;
+}

@@ -22,14 +22,18 @@ Three ideas govern every command:
 
 Phyllum writes **exactly one file** in the user's codebase: `DESIGN-SYSTEM.md`.
 
-Three operational exceptions exist, all Phyllum-owned:
+A handful of operational exceptions exist, all Phyllum-owned, and each one is
+enumerated rather than tolerated — the assertion suite diffs the whole project
+directory around every command and fails on anything not in this list:
 
 | Path | When |
 |------|------|
 | `DESIGN-SYSTEM.md` | any command, after the user accepts a change |
-| `.phyllum/**` | session state, and `apply`'s plan at `.phyllum/PRD.md`; gitignored |
+| `DESIGN-SYSTEM.md.bak` | the same write, one step earlier — the pre-edit copy the funnel always takes (v0.2.1 §6.5.2) |
+| `.phyllum/**` | session state, `apply`'s plan at `.phyllum/PRD.md`, and `assess --json`'s default output; gitignored |
 | `.claude/skills/phyllum/**` | `init` — the skill install; and `update`, which re-syncs that same copy |
-| one `.phyllum/` line in `.gitignore` | `init` only, with the user's confirmation |
+| Phyllum's two `.gitignore` lines | `init` only, with the user's confirmation |
+| a JSON path you name | `assess --json <path>` only, and only a `.json` file inside the project |
 
 Nothing else, ever. Do not write generated component code into the codebase,
 do not rewrite existing styles to use tokens, do not touch config files. If a
@@ -50,12 +54,12 @@ above holds unchanged for every other command.
 | `menu` | — | List every subskill, one line per command |
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
-| `assess` | — | Read the codebase and inventory the raw styling in it |
+| `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | `tokenize` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
-| `system` | — | Print the design system to the terminal |
+| `display` | `system` | Print the design system to the terminal |
 | `version` | — | Print the installed version and check npm for a newer one |
 | `update` | — | Update this install to the latest published version |
 | `init` | — | Guided setup: scaffold the file, install this skill |
@@ -65,8 +69,8 @@ Aliases are exact equivalents — same subskill, same behaviour.
 `help` is a reserved word in argument position: `create help` is help *about*
 create, never a component named "help". A quoted `"help"` means the word.
 
-Scope words (`tokens` / `components` / `all`) are only meaningful on `system`
-and `gui`, and default to `all`. `assess` reserves its own three words in
+Scope words (`tokens` / `components` / `all`) are only meaningful on `display`
+(and its alias `system`) and `gui`, and default to `all`. `assess` reserves its own three words in
 argument position — `tokens` / `components` / `update` — for its chained modes,
 and `apply` reserves one: `run`.
 
@@ -84,7 +88,7 @@ reads the design system *and* the codebase, and writes only its own plan.
 | `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
 | `tokenise` | `refs/tokenise.md` — how a sentence is read, the three passes, the naming scales, the follow-up loop when a value or a name is missing, acceptance |
 | `gui` | `refs/gui.md` — server contract, view specs |
-| `system` | `refs/system.md` — listing format |
+| `display` | `refs/system.md` — listing format; `system` is the same command under its older name |
 | `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |
 | `update` | `refs/update.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
 | `init` | `refs/init.md` — the walkthrough, step by step |
@@ -118,7 +122,7 @@ three-backtick block. Fence length is significant to the parser.
 
 ## Execution model
 
-- **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, `version`, `update`,
+- **Mechanics** (`menu`, `help`, `display`, `gui`, `kill`, `version`, `update`,
   `apply`, `assess`'s scan, mapping table and proposed names, and `init`'s
   scaffold and install steps) run entirely in Node, with no model involved.
 - **Intelligence** (`create`, `tokenise`, `assess`'s suggestion review, and
@@ -145,7 +149,7 @@ font: record it exactly as given.
 
 ## Milestone status
 
-M1 shipped `menu`, `help`, `system` and `init` (scaffold plus skill install).
+M1 shipped `menu`, `help`, `display` (then called `system`) and `init` (scaffold plus skill install).
 M2 shipped `create` in prose mode: draft spec, gap list from the archetype
 contract, follow-up loop, React + CSS code view, accept, write.
 M3 shipped `tokenise`: the read-only scan, the three passes, clustering before
@@ -227,9 +231,12 @@ the moment you skip; bare `assess` still records one component per run, because 
 assessment that turned into five queued `create` conversations would stop being an
 assessment. `assess update` is the fast-forward, and it fast-forwards on one rule:
 a question whose answer is already on the page is answered, and a question whose
-answer is only in your head is skipped. So every proposed token is accepted under
-the name the map showed and written in one go, while a value whose role Phyllum
-could not read and a component pick are both declined and reported as declined.
+answer is only in your head is skipped. So every proposed token graded `error` is
+accepted under the name the map showed and written in one go, while a `warn`
+finding — a value written once or twice, which is what a deliberate exception
+looks like — is reported and never accepted for you, and a value whose role
+Phyllum could not read and a component pick are both declined and reported as
+declined.
 Anything unrecognised is declined too, which is what stops a later flow being
 auto-accepted into by accident. `assess update` writes `DESIGN-SYSTEM.md` and
 nothing else; the codebase remains `apply`'s alone to write.
@@ -273,6 +280,137 @@ when its own criteria verify by reading the file, its diff touches only the file
 those criteria name, and the host project's own suite is green. A failing phase
 stops the run and records why in the PRD; completed phases stay committed and
 nothing is ever rolled back. `refs/apply.md` is the contract for both halves.
+
+v0.2.1 M1 teaches `assess` to **judge** rather than only inventory. Two changes,
+both in `refs/assess.md` as tables rather than as constants in the code. Every
+finding now carries a **severity** decided by one number — how often the value is
+written across the whole codebase: three times or more is systematic drift and is
+proposed as a token; once or twice looks like a deliberate exception, so it is
+reported and counted but never accepted on your behalf. The interactive review
+still asks about both, because a rare value can genuinely deserve a token and
+only you know that; `assess update` is the one caller that declines a warning,
+and it says so. Severity is assigned at aggregation and nowhere upstream — a
+scanner reports what it saw in one file, and how much that matters is a question
+about the whole project. Every finding also carries the **rule family** it
+belongs to (`raw-colour`, `raw-spacing`, `raw-radius`, `raw-border`,
+`raw-shadow`, `raw-typography`), so a report can say which half of the drift got
+fixed; `raw-radius` is the split that costs nothing and changes the reading, a
+corner radius having always been read correctly and always called a number.
+
+The same milestone adds the two value shapes the scalar passes could never read.
+A shadow (`0 2px 8px rgba(0,0,0,0.1)`) and a border shorthand (`1px solid
+#E5E7EB`) are **compounds** — the meaning is the whole list — so they get a pass
+each, their own normalisation, and clustering that compares part for part by the
+thresholds a length and a colour already use. Both write into the Numbers
+section, because a shadow and a border width are lengths with a job. Three rules
+keep it honest: a declaration read as a compound is not *also* read as a scalar
+length, so one decision is never reported twice; a compound with no length and no
+colour (`border: none`) records nothing; and a compound with a part Phyllum
+cannot name — a `var(…)` inside a shadow — is not half-read, it goes back to the
+seen-but-not-read bucket where a question gets asked instead.
+
+v0.2.1 M2 adds the two checks that are about the **project** rather than about
+any value in it. **Collisions**: detection has always looked for six frameworks
+and three styling systems and returned one winner, so the report now shows the
+evidence behind the winner too, and says when more than one UI framework, more
+than one major of one framework, more than one styling system or more than one
+theme file is live at once. A design system cannot have a single source of truth
+while three files each declare values. **Unused**: the coverage split run
+backwards — which tokens and registered components does the codebase never
+mention? Both are always warnings, because neither has an answer Phyllum could
+apply: two frameworks may be a migration halfway done, and an unused token may
+be the one the next screen is built on. And "unused" states its own limits every
+time it is printed — the scan is bounded and text-based, so *not seen* means
+"not seen in what was read", never "provably dead". Nothing is ever pruned, in
+any mode, including `assess update`.
+
+v0.2.1 M3 adds the first check that reads two things **against each other**:
+**similarity**. Three readings, each scored in [0, 1] from structure alone.
+**Component clones** — two repeated markup signatures compared on their class
+words and their tag, so `btn--primary` and `PrimaryBtn` are recognised as one
+pattern spelled twice. **Style duplicates** — two named style blocks (a CSS
+rule, a `styled.div` template, a style object) declaring materially the same
+`property: value` set, which is how a `.card` and a `.panel` end up identical
+without anyone noticing. **Utility overlaps** — one long class bundle repeated
+across elements that no component was ever extracted from. Above 0.8 is a
+**clone**, reported as an error with a merge suggestion naming the more-used
+signature as the survivor; 0.5 to 0.8 is a **pattern similarity**, reported as a
+warning with nothing suggested; below 0.5 nothing is reported, because two
+things sharing one word are not evidence. The weights, the bands and the caps
+are all rows in `refs/assess.md`. Two properties make the number worth printing:
+it is **deterministic** — no model call, explicit sort order, the same codebase
+scoring byte-identically on every run — and the comparison is **bounded**, so
+the report states the caps it ran under rather than truncating in silence. A
+merge is a suggestion and lands where every other suggestion lands: nothing here
+renames a class or rewrites a component, because writing code is `apply`'s job.
+
+v0.2.1 M4 asks the question underneath similarity: when two things are the same
+thing, are they **called** the same thing and **used** the same way?
+**Naming-convention drift** reads the names — class names, component tags, the
+components `DESIGN-SYSTEM.md` registers — and reports the same word set spelled
+two ways (`SmallButton` / `ButtonSmall`, `btn--primary` / `primary-btn`) plus the
+names that stray from the convention this codebase mostly uses. The dominant
+convention is **counted, never assumed**, and a codebase that has not chosen one
+is told so rather than given a winner; the suggestion is always the predictable
+`Base + Qualifier` form, spelled in that convention. Both naming families are
+warnings, because a name in the wrong case still works. **Prop mismatches** read
+the *attributes* — a regex attribute scan, not a JSX parser — and report one
+component handed two names for one prop (`onClick` here, `onPress` there) or one
+prop given two shapes (`size="lg"` beside `size={3}`) as **errors**, because a
+component has one API and one of those call sites cannot be right; an inline
+`style` on a component that already has variants is a **warning**, because that
+is an escape from the system rather than a contradiction of it. Three honesty
+rules bound it: `btn` and `Button` are two concepts, because resolving
+abbreviations means guessing; a value the scan cannot read is counted and never
+compared; and the prop pass is React-only, so on any other stack the answer is
+that the question was not asked. Nothing is renamed — a rename is a suggestion
+against the design system, and editing a call site is `apply`'s job.
+
+v0.2.1 M5 is the product surface over all four of them, plus the pieces that
+move the results around.
+
+**One row shape, one number.** The report now ends by saying everything twice on
+purpose: first every finding in one table — **severity · finding · evidence ·
+suggested action**, grouped by family — because a reader triaging work needs
+them side by side rather than spread across six sections; then one **drift
+score** and one **verdict**. The score is a step on a seven-step Fibonacci scale
+(1, 2, 3, 5, 8, 13, 21, lower better), built by weighting every finding by family
+and severity into a *drift mass* and dropping the mass onto a step. Fibonacci
+because drift does not grow evenly: the widening gaps say "about twice as bad"
+honestly where a 0–100 score implies a precision no scan has. The verdict is
+`fail` / `pass w/ warnings` / `pass`, derived from **severities and never from
+the score**, because the two answer different questions — how bad, and how much.
+A codebase can fail at 1 and pass-with-warnings at 8, and both are true things.
+`clean` in the summary is exactly `verdict === 'pass'`. Every chained mode
+inherits all of it: one scan, read four ways.
+
+**Six smaller checks (§8).** Two colours nobody can tell apart (CIE76 ΔE, above
+the clustering floor and below the distance row, so a pair is by construction
+two values the code keeps apart and an eye cannot); a **dark-mode gap**, but only
+in a codebase that demonstrably has a dark theme, and read per styling system —
+by token name where colour is written by name, by property where it is written
+by value, and the whole token half declines to run rather than call every token
+a gap when no token is restated in a dark scope; two tokens holding one value
+under different names; a spacing value that misses your own scale by a hair,
+which is an `error` at any frequency because a near miss reads as a mistake
+rather than an exception; an inventory of raw z-index literals once there are
+enough to be a sprawl; and media-query widths no breakpoint token names. All six
+are silent without the evidence for them, and the silence is the design: a check
+that fires on a healthy project is one people learn to skip.
+
+**Three utilities (§6.5).** `assess --json [path]` writes the whole assessment
+object — the same one the report renders from — to `.phyllum/assess.json` or a
+path you name, with a `schemaVersion` and no timestamp, so two runs over an
+unchanged codebase are byte-identical and diff cleanly in CI. It never enters
+the review loop, and `assess update --json` is refused with the reason stated,
+because one accepts on your behalf and the other promises to touch nothing.
+Every edit to `DESIGN-SYSTEM.md` now copies the file to
+**`DESIGN-SYSTEM.md.bak`** first — always one undo ago, taken in the single
+write path so no writer can forget it, and a **failed backup aborts the edit**
+rather than proceeding without the safety it claims to provide; `init`
+gitignores it alongside `.phyllum/`. And **`display`** is the primary read verb,
+with **`system` kept permanently as its alias** — same renderer, same dispatch
+branch, byte-for-byte identical output at every scope.
 
 Commands that are not built yet are registered and documented, and say so when
 invoked.

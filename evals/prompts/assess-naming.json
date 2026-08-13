@@ -1,7 +1,7 @@
 {
   "eval": "assess-naming",
   "rubric": "evals/rubrics/assess-naming.md",
-  "milestone": "M3",
+  "milestone": "v0.2.0 M3",
   "planSections": ["§4", "§8.5"],
   "threshold": 0.9,
   "status": "runnable — `npm run evals`",

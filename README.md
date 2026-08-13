@@ -28,14 +28,17 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.2.0 -->
+<!-- mkpub:release 0.2.1 -->
 > [!NOTE]
-> **🚀 New in 0.2.0 · Assess your codebase, then apply the system back**
+> **🚀 New in 0.2.1 · `assess` stops inventorying and starts judging**
 >
-> `assess` reads the raw styling already in your code and proposes tokens and
-> components from it; `apply` writes the recorded system back into your codebase,
-> always through a plan you review first, on a branch of its own. `tokenise` now
-> takes a sentence instead of a scan. Update with `phyllum update`
+> Every finding now carries a severity, near-identical components and styles are
+> scored as clones, naming drift and prop mismatches are called out, and unused
+> tokens and components are found by running coverage backwards. The run ends in
+> one drift score and one verdict. `assess --json` writes the whole assessment to
+> a file for CI, `display` reads the system back (`system` stays as an alias), and
+> every edit to `DESIGN-SYSTEM.md` now leaves a `.bak` one undo behind. Update
+> with `phyllum update`
 <!-- /mkpub:release -->
 
 ---
@@ -54,9 +57,11 @@ Three ideas govern every command:
 - **Conversational, not form-driven.** When Phyllum is missing something, it asks a
   follow-up with a suggestion attached — never a blank required field.
 - **One write target.** `DESIGN-SYSTEM.md` is the only file Phyllum touches, aside from
-  its own gitignored `.phyllum/` — session state, settings, and `apply`'s plan — and, on
-  `init`, the skill install. One command is allowed past that line, `apply run`, and only
-  from a plan you have read, on a branch of its own, one phase at a time.
+  the `DESIGN-SYSTEM.md.bak` it leaves one undo behind, its own gitignored `.phyllum/` —
+  session state, settings, and `apply`'s plan — and, on `init`, the skill install. Two
+  things are allowed past that line, and only when you ask for them by name: `assess
+  --json <path>` writes the `.json` file you typed, and `apply run` edits source, from a
+  plan you have read, on a branch of its own, one phase at a time.
 
 Two rules outrank being helpful. Phyllum never invents a value — a slot nobody filled is
 a question or a `TODO`, never a plausible guess. And it never corrects a value — four
@@ -71,7 +76,7 @@ The commands:
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
 | `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
-| `system` | Print the design system to the terminal |
+| `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
 | `kill` | Stop the dashboard server `gui` started |
 | `init` | Guided setup — scaffold the file, install the skill |
@@ -83,7 +88,7 @@ The commands:
 
 Phyllum needs **Node 20 or newer** and has no dependencies to install.
 
-Some commands are wholly mechanical and work on their own: `menu`, `help`, `system`,
+Some commands are wholly mechanical and work on their own: `menu`, `help`, `display`,
 `gui`, `kill`, `version`, `update`, and `apply` — which only ever writes a plan.
 
 Some want [Claude Code](https://www.claude.com/product/claude-code), and run natively
@@ -154,9 +159,24 @@ proposed again, so a rerun shows only what has drifted.
 Three chained modes narrow the same scan. `assess tokens` walks the token suggestions
 only; `assess components` walks the component suggestions only, one candidate at a time
 with its own yes-or-no each; `assess update` skips the per-item review altogether and
-accepts every proposed token under the name it showed you. `assess update` still refuses
-to guess: a value it could see but not read stays unnamed, a component is never recorded
-without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
+accepts the proposed tokens the assessment graded as errors, under the names it showed
+you. `assess update` still refuses to guess: a warning is reported and never accepted on
+your behalf, a value it could see but not read stays unnamed, a component is never
+recorded without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
+
+The report ends in one number and one word: a **drift score** on a seven-step
+Fibonacci scale (1, 2, 3, 5, 8, 13, 21 — lower is better) for how much
+un-systematised styling is in there, and a **verdict** of `pass`,
+`pass w/ warnings` or `fail` derived from the findings' severities. Both are
+deterministic, so a rerun after a cleanup shows the number moving down the scale.
+Add `--json` and the whole assessment — every finding, the similarity groups, the
+score — is written to `.phyllum/assess.json` (or a path you name) instead of the
+interactive report: same object, byte-stable between runs, easy to diff in CI.
+
+And every command that edits `DESIGN-SYSTEM.md` copies it to
+`DESIGN-SYSTEM.md.bak` first, so the state before the last edit is always on
+disk. A backup that cannot be written stops the edit rather than proceeding
+without it.
 
 `tokenise` names one value from one sentence: `phyllum tokenise "our brand blue #2563EB"`.
 If the sentence names the token, that name is used; if not, Phyllum suggests one from the

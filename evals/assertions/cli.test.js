@@ -116,6 +116,9 @@ test('every alias pair behaves identically', async () => {
     ['create', 'build'],
     ['tokenise', 'tokenize'],
     ['gui', 'dashboard'],
+    // v0.2.1 §6.5.3: `display` is the primary read verb and `system` is its
+    // permanent alias, so v0.1.0 muscle memory keeps working unchanged.
+    ['display', 'system'],
   ]);
 
   for (const [canonical, alias] of pairs) {

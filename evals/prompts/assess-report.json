@@ -1,0 +1,198 @@
+{
+  "eval": "assess-report",
+  "rubric": "evals/rubrics/assess-report.md",
+  "milestone": "v0.2.1 M5",
+  "planSections": ["§7", "§7.1", "§8"],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "fixtures": {
+    "drift": "evals/fixtures/codebases/dark-drift",
+    "clean": "evals/fixtures/codebases/empty-project",
+    "react": "evals/fixtures/codebases/react-css",
+    "tailwind": "evals/fixtures/codebases/tailwind",
+    "stale": "evals/fixtures/codebases/stale-system",
+    "mixed": "evals/fixtures/codebases/tokenise-mixed"
+  },
+  "recordingPrompt": "Assess this codebase. Say how much drift is in it on the 1–21 scale, whether it passes, and what each finding is — with what to do about it.",
+  "cases": [
+    {
+      "id": "near-duplicate-tokens",
+      "kind": "extra",
+      "fixture": "drift",
+      "system": "own",
+      "rule": "near-duplicate-colour",
+      "value": "color-primary ~ color-brand",
+      "severity": "warn",
+      "detail": "ΔE",
+      "note": "Two brand blues six ΔE apart: far enough to survive clustering, close enough that no eye holds them apart."
+    },
+    {
+      "id": "near-duplicate-raw-greys",
+      "kind": "extra",
+      "fixture": "drift",
+      "system": "own",
+      "rule": "near-duplicate-colour",
+      "value": "#A1A1AA ~ #ABABB8",
+      "severity": "warn",
+      "detail": "ΔE",
+      "note": "The classic finding, in its raw form — both greys are used three times, so both are token-worthy."
+    },
+    {
+      "id": "dark-gap-on-a-token",
+      "kind": "extra",
+      "fixture": "drift",
+      "system": "own",
+      "rule": "dark-mode-gap",
+      "value": "color-primary",
+      "severity": "warn",
+      "detail": "never restated in a dark scope",
+      "note": "Two of the four colour tokens are restated under the media query, so the convention is readable and this one is missing from it."
+    },
+    {
+      "id": "token-alias-duplicate",
+      "kind": "extra",
+      "fixture": "drift",
+      "system": "own",
+      "rule": "token-alias-duplicate",
+      "value": "space-4 ~ gap-default",
+      "severity": "warn",
+      "detail": "16px",
+      "note": "Read out of DESIGN-SYSTEM.md alone — the only check in the assessment that never looks at the codebase."
+    },
+    {
+      "id": "off-scale-spacing",
+      "kind": "extra",
+      "fixture": "drift",
+      "system": "own",
+      "rule": "off-scale-spacing",
+      "value": "15px",
+      "severity": "error",
+      "detail": "1px from 16px",
+      "note": "An error at any frequency: a near miss on your own scale reads as a mistake, not as an exception."
+    },
+    {
+      "id": "z-index-sprawl",
+      "kind": "extra",
+      "fixture": "drift",
+      "system": "own",
+      "rule": "z-index-sprawl",
+      "value": "5 raw z-index values",
+      "severity": "warn",
+      "detail": "9999",
+      "note": "One finding, because the finding is the set — five layers nobody planned, not five separate problems."
+    },
+    {
+      "id": "hardcoded-breakpoint",
+      "kind": "extra",
+      "fixture": "drift",
+      "system": "own",
+      "rule": "hardcoded-breakpoint",
+      "value": "768px",
+      "severity": "warn",
+      "detail": "no token naming it",
+      "note": "Name it in DESIGN-SYSTEM.md and the finding disappears with no code change."
+    },
+    {
+      "id": "no-dark-theme-is-silence",
+      "kind": "not-checked",
+      "check": "dark",
+      "fixture": "react",
+      "system": "none",
+      "note": "A light-only product is never nagged about the dark palette it does not have."
+    },
+    {
+      "id": "no-scale-is-silence",
+      "kind": "not-checked",
+      "check": "spacing",
+      "fixture": "mixed",
+      "system": "none",
+      "note": "No spacing tokens means no scale, so nothing can be off it."
+    },
+    {
+      "id": "an-ordinary-project-has-no-extras",
+      "kind": "no-extras",
+      "fixture": "tailwind",
+      "system": "none",
+      "note": "Six checks that all stay quiet on a project with none of these problems."
+    },
+    {
+      "id": "an-empty-project-has-no-extras",
+      "kind": "no-extras",
+      "fixture": "clean",
+      "system": "none",
+      "note": "Nothing to read, and so nothing said."
+    },
+    {
+      "id": "clean-scores-the-bottom-of-the-scale",
+      "kind": "score",
+      "fixture": "clean",
+      "system": "none",
+      "score": 1,
+      "verdict": "pass",
+      "clean": true,
+      "note": "Lower is better, and 1 is the bottom — an empty project is not a zero, because the scale starts at 1."
+    },
+    {
+      "id": "drifted-project-scores-high-and-fails",
+      "kind": "score",
+      "fixture": "drift",
+      "system": "own",
+      "score": 8,
+      "verdict": "fail",
+      "clean": false,
+      "note": "Six families of finding at once, including an error-severity near miss on the spacing scale."
+    },
+    {
+      "id": "stale-system-passes-with-warnings",
+      "kind": "score",
+      "fixture": "stale",
+      "system": "own",
+      "score": 3,
+      "verdict": "pass w/ warnings",
+      "clean": false,
+      "note": "Nothing systematic, and a design system that has outrun its codebase — warnings, not failures."
+    },
+    {
+      "id": "mixed-codebase-fails-on-systematic-drift",
+      "kind": "score",
+      "fixture": "mixed",
+      "system": "none",
+      "score": 8,
+      "verdict": "fail",
+      "clean": false,
+      "note": "Values written three times or more, with no design system naming any of them."
+    },
+    {
+      "id": "score-and-verdict-are-independent",
+      "kind": "independence",
+      "note": "One error and nothing else fails near the bottom of the scale; forty exceptions and no errors passes with warnings near the top."
+    },
+    {
+      "id": "families-are-counted-once-each",
+      "kind": "arithmetic",
+      "fixture": "drift",
+      "system": "own",
+      "note": "The six family counts sum to the overall count, and the drift mass is exactly the weighted sum of them."
+    },
+    {
+      "id": "every-rule-has-an-action",
+      "kind": "actions",
+      "note": "The suggested-action column is the only part of a report a reader acts on, so no rule may be missing one — and none may be invented."
+    },
+    {
+      "id": "the-report-ends-in-the-headline",
+      "kind": "report",
+      "fixture": "drift",
+      "system": "own",
+      "note": "Findings grouped by family, each row severity · finding · evidence · action, then one score and one verdict."
+    },
+    {
+      "id": "chained-modes-inherit-everything",
+      "kind": "inheritance",
+      "fixture": "drift",
+      "system": "own",
+      "modes": ["assess", "assess tokens", "assess components"],
+      "note": "One scan read three ways: the mode changes which track is walked, never what was found."
+    }
+  ]
+}

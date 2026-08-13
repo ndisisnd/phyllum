@@ -500,8 +500,9 @@ test('writes are atomic: an interrupted write leaves the previous file intact', 
     assert.ok(validateStructure(after).valid);
     assert.equal(parse(after).components.length, 2);
 
-    // No temp file left lying around next to it.
-    assert.deepEqual(snapshotPaths(dir), ['DESIGN-SYSTEM.md']);
+    // No temp file left lying around next to it — the backup taken before the
+    // edit is the only other thing on disk.
+    assert.deepEqual(snapshotPaths(dir), ['DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak']);
   });
 });
 
@@ -512,12 +513,32 @@ test('an interrupted first write leaves no file at all', async () => {
   });
 });
 
-test('the .gitignore append adds one line and is idempotent', async () => {
+test('the .gitignore append adds Phyllum’s two lines and is idempotent', async () => {
   await withTempDir(async (dir) => {
+    // Two lines since v0.2.1: the session directory, and the design system’s
+    // pre-edit backup — a local undo buffer nobody should commit (§6.5.2).
     assert.equal(appendGitignoreLine(dir), 'created');
-    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), '.phyllum/\n');
+    assert.equal(
+      fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'),
+      '.phyllum/\nDESIGN-SYSTEM.md.bak\n',
+    );
     assert.equal(appendGitignoreLine(dir), 'already-present');
-    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), '.phyllum/\n');
+    assert.equal(
+      fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'),
+      '.phyllum/\nDESIGN-SYSTEM.md.bak\n',
+    );
+  });
+});
+
+test('a .gitignore that already ignores one line gains only the other', async () => {
+  await withTempDir(async (dir) => {
+    fs.writeFileSync(path.join(dir, '.gitignore'), '.phyllum/\n');
+    assert.equal(appendGitignoreLine(dir), 'added');
+    assert.equal(
+      fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'),
+      '.phyllum/\nDESIGN-SYSTEM.md.bak\n',
+      'the line already there is never written twice',
+    );
   });
 });
 
@@ -525,6 +546,9 @@ test('the .gitignore append tolerates a file with no trailing newline', async ()
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, '.gitignore'), 'dist');
     assert.equal(appendGitignoreLine(dir), 'added');
-    assert.equal(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), 'dist\n.phyllum/\n');
+    assert.equal(
+      fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'),
+      'dist\n.phyllum/\nDESIGN-SYSTEM.md.bak\n',
+    );
   });
 });

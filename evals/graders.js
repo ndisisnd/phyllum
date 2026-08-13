@@ -27,6 +27,9 @@ import { fileURLToPath } from 'node:url';
 import { contractFor, traceRuleFor } from '../lib/archetypes.js';
 import { commandLine, detectInstall, updateCommandFor } from '../lib/install-method.js';
 import { assess, assessValues } from '../lib/assess.js';
+import { renderAssessment } from '../lib/assess-command.js';
+import { FAMILIES, renderFindings, renderScore } from '../lib/assess-report.js';
+import { countFamilies, driftMass, scoreAssessment } from '../lib/assess-score.js';
 import { scanCandidates } from '../lib/candidates.js';
 import { detectHarness } from '../lib/harness-detect.js';
 import { buildPhases, componentChanges, criterionFields, tokenChanges } from '../lib/prd.js';
@@ -43,6 +46,17 @@ import { codeViewFor, detectProject } from '../lib/detect.js';
 import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
 import { proposeTokens, scanCodebase } from '../lib/tokenise.js';
 import { parseProse, suggestName } from '../lib/tokenise-prose.js';
+import {
+  actionFor,
+  actionRules,
+  extraRules,
+  hygieneRules,
+  lintRules,
+  namingRules,
+  propRules,
+  scoreStepFor,
+  similarityRules,
+} from '../lib/tokenise-spec.js';
 
 export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = path.resolve(EVALS_DIR, '..');
@@ -65,9 +79,43 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  *
  * The bar itself only ever tightens. Every score the v0.1.0 baseline recorded is
  * still met or beaten, and no threshold has ever been lowered.
+ *
+ * Re-stamped again in v0.2.1 M1, and for one reason: that milestone adds an eval
+ * (`assess-severity`), and an eval that exists must have a recorded score or the
+ * baseline is no longer a complete bar. The **release** stamp deliberately stays
+ * `v0.2.0` — the bar being cleared is still the released one, and v0.2.1's own
+ * bar is stamped in its hardening milestone, where the version is bumped and the
+ * whole file is re-recorded at once.
+ *
+ * And again in v0.2.1 M2, for the same reason and with the same restraint:
+ * `assess-hygiene` joins the list, so the bar is re-recorded to stay complete,
+ * and the release stamp still says `v0.2.0` because that is still the released
+ * bar being cleared. No threshold moved.
+ *
+ * M3 adds `assess-similarity` on exactly the same terms. The stamp moves, the
+ * release does not, and every score the last recording held is met again.
+ *
+ * And M4 adds `assess-consistency`, the fourth time and the last of the
+ * assessment-depth milestones to add a family of its own. Same terms again: the
+ * stamp moves, the release stays where it is, no threshold is lowered.
+ *
+ * M5 adds `assess-report`, and it is a different kind of addition: the first
+ * eval that grades the assessment as a whole rather than one family of finding —
+ * the six smaller checks, the drift score, the verdict, and the report that
+ * groups every finding into one row shape. Same terms as the four before it. The
+ * stamp moves to `v0.2.1 M5`, the release stamp stays `v0.2.0` because that is
+ * still the released bar being cleared, and no threshold is lowered.
+ *
+ * M6 is the milestone where the **release** stamp finally moves. Five milestones
+ * kept it at `v0.2.0` on purpose — until a release is cut, the bar every change
+ * has to clear is the last released one, and moving the stamp early would have
+ * meant each milestone measuring itself against the milestone before it rather
+ * than against the last thing a user could install. M6 cuts the release, so
+ * `v0.2.1` becomes the bar the next release will have to clear. Nineteen evals,
+ * every one at 1.000, no threshold lowered and none ever has been.
  */
-export const MILESTONE = 'v0.2.0 M8';
-export const RELEASE = 'v0.2.0';
+export const MILESTONE = 'v0.2.1 M6';
+export const RELEASE = 'v0.2.1';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
@@ -562,6 +610,640 @@ function naming(responder) {
 }
 
 // ---------------------------------------------------------------------------
+// assess — severity and rule families (v0.2.1 §3.1, §3.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * How much does a finding matter, and what kind of finding is it?
+ *
+ * Both halves of v0.2.1's lint path over one pinned codebase, and both are
+ * facts rather than judgements — a value's severity is a function of how often
+ * it is written, and its family is a row in a table. So there is no responder
+ * switch and no headroom in the threshold.
+ *
+ * The cases that outrank the rest are the two that assert an absence: a
+ * `box-shadow: none` proposing nothing, and the `1px` inside a border shorthand
+ * not being counted a second time as a length. Double-counting is the failure
+ * the compound passes introduce if the scalar reading is not stood down, and it
+ * is invisible in any check that only looks at what *is* reported.
+ */
+function assessSeverity() {
+  const spec = readJson('evals/prompts/assess-severity.json');
+  const result = assess(path.join(PACKAGE_ROOT, spec.fixture), emptyModel());
+  const { proposals, unreadable } = result.values;
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const sameValue = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+
+  for (const testCase of spec.cases) {
+    if (testCase.kind === 'absent') {
+      claim(
+        !proposals.some(
+          (proposal) =>
+            sameValue(proposal.value, testCase.value) ||
+            proposal.members.some((member) => sameValue(member.raw, testCase.value)),
+        ),
+        `${testCase.id}: ${testCase.value} was proposed, and should not have been`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unread') {
+      const row = unreadable.find((item) => sameValue(item.value, testCase.value));
+      claim(Boolean(row), `${testCase.id}: ${testCase.value} is not in the seen-but-not-read bucket`);
+      if (!row) continue;
+      claim(
+        row.severity === testCase.expected.severity && row.rule === null,
+        `${testCase.id}: severity ${row.severity} / rule ${row.rule ?? 'none'}, expected ${testCase.expected.severity} and no rule`,
+      );
+      continue;
+    }
+
+    const proposal = proposals.find((item) => sameValue(item.value, testCase.value));
+    if (!proposal) {
+      max += 5;
+      failures.push(`${testCase.id}: nothing was proposed for ${testCase.value}`);
+      continue;
+    }
+    const expected = testCase.expected;
+
+    claim(proposal.rule === expected.rule, `${testCase.id}: rule ${proposal.rule} ≠ ${expected.rule}`);
+    claim(
+      proposal.severity === expected.severity,
+      `${testCase.id}: severity ${proposal.severity} ≠ ${expected.severity} (used ${proposal.count}×)`,
+    );
+    claim(proposal.count === expected.count, `${testCase.id}: counted ${proposal.count}×, expected ${expected.count}×`);
+    claim(
+      proposal.appliesTo === expected.appliesTo,
+      `${testCase.id}: applies to "${proposal.appliesTo}", expected "${expected.appliesTo}"`,
+    );
+    claim(
+      new RegExp(expected.name).test(proposal.name),
+      `${testCase.id}: "${proposal.name}" is not a name on the documented ladder`,
+    );
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
+// assess — hygiene: collisions and unused (v0.2.1 §6.1, §6.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * What collides in this project, and what does nothing use?
+ *
+ * Both halves over pinned fixtures, and both are readings of evidence rather
+ * than judgements — which packages a manifest declares, which files exist,
+ * which strings a scan saw. So there is no responder switch and no headroom in
+ * the threshold.
+ *
+ * The cases that outrank the rest are the six that assert an absence: the
+ * ordinary Tailwind app that is not two styling systems, the Next.js app that is
+ * not two frameworks, the token whose name is written even though its value
+ * drifted, and the Vue project told its components were not read rather than
+ * that they are all unused. A hygiene check that fires on healthy projects is
+ * worse than none, because every finding it makes is a warning somebody has to
+ * read and dismiss.
+ */
+function assessHygieneEval() {
+  const spec = readJson('evals/prompts/assess-hygiene.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+  const systemIn = (fixture) =>
+    parse(fs.readFileSync(path.join(rootOf(fixture), 'DESIGN-SYSTEM.md'), 'utf8'));
+
+  /**
+   * `own` reads the fixture's own design system, a named fixture borrows one —
+   * which is how the Vue case is given components it could be wrong about — and
+   * nothing at all means an empty system, where only collisions are in play.
+   */
+  const modelFor = (testCase) => {
+    if (!testCase.system) return emptyModel();
+    return systemIn(testCase.system === 'own' ? testCase.fixture : testCase.system);
+  };
+
+  // One scan per fixture-and-system pair, because several cases read the same
+  // assessment and scanning per case would grade the fixtures' size, not the code.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    const key = `${testCase.fixture}|${testCase.system ?? 'empty'}`;
+    if (!scans.has(key)) scans.set(key, assess(rootOf(testCase.fixture), modelFor(testCase)));
+    return scans.get(key);
+  };
+
+  for (const testCase of spec.cases) {
+    const result = scanFor(testCase);
+    const { hygiene } = result;
+
+    if (testCase.kind === 'collision') {
+      const finding = hygiene.collisions.find(
+        (item) => item.rule === testCase.rule && item.value === testCase.value,
+      );
+      claim(Boolean(finding), `${testCase.id}: no ${testCase.rule} naming "${testCase.value}"`);
+      if (!finding) {
+        max += 2;
+        continue;
+      }
+      claim(finding.severity === 'warn', `${testCase.id}: severity ${finding.severity}, expected warn`);
+      claim(
+        testCase.evidence.every((item) =>
+          finding.evidence.some((seen) => String(seen).includes(item)),
+        ),
+        `${testCase.id}: evidence ${finding.evidence.join(' / ')} does not show ${testCase.evidence.join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-collision') {
+      claim(
+        hygiene.collisions.length === 0,
+        `${testCase.id}: reported ${hygiene.collisions.map((item) => item.value).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unused-token' || testCase.kind === 'used-token') {
+      const row = hygiene.unused.tokens.find((item) => item.token === testCase.token);
+      if (testCase.kind === 'used-token') {
+        claim(!row, `${testCase.id}: ${testCase.token} was called unused, and the code uses it`);
+        continue;
+      }
+      claim(Boolean(row), `${testCase.id}: ${testCase.token} is not reported unused`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}, expected warn`);
+      claim(
+        row.detail.includes(hygiene.caveat),
+        `${testCase.id}: the finding does not carry the bounded-scan caveat`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unused-component' || testCase.kind === 'used-component') {
+      const row = hygiene.unused.components.find((item) => item.component === testCase.component);
+      if (testCase.kind === 'used-component') {
+        claim(!row, `${testCase.id}: ${testCase.component} was called unused, and the markup uses it`);
+        continue;
+      }
+      claim(Boolean(row), `${testCase.id}: ${testCase.component} is not reported unused`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}, expected warn`);
+      claim(
+        (row.spellings ?? []).length > 0,
+        `${testCase.id}: the finding does not say which spellings were looked for`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      claim(
+        hygiene.unused.componentsChecked === false,
+        `${testCase.id}: the component half claims to have run on a stack it cannot read`,
+      );
+      claim(
+        hygiene.unused.components.length === 0,
+        `${testCase.id}: named ${hygiene.unused.components.length} components it never looked for`,
+      );
+      claim(
+        Boolean(hygiene.unused.componentsReason),
+        `${testCase.id}: skipped the question without saying why`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
+// assess — similarity: clones, duplicates, overlaps (v0.2.1 §4)
+// ---------------------------------------------------------------------------
+
+/**
+ * What in this codebase is nearly the same as what else?
+ *
+ * The first check `assess` runs that reads two things against each other, and
+ * the first whose answer is a number rather than a category — so the grading is
+ * as much about the number as about the finding. A pair reported in the wrong
+ * band is a wrong answer here, not a near miss: the bands are what a reader
+ * acts on, and 0.79 and 0.81 mean different things on purpose.
+ *
+ * Every case runs over a pinned fixture and the whole comparison is set
+ * arithmetic, so there is no responder and no headroom in the threshold. The
+ * cases that outrank the rest are the four that assert an absence — the
+ * ordinary project with nothing alike in it, the bundle not yet repeated
+ * enough, the two unrelated elements, and the Vue project whose markup was
+ * never read. A similarity pass that cannot stay quiet is a similarity pass
+ * nobody leaves switched on.
+ */
+function assessSimilarityEval() {
+  const spec = readJson('evals/prompts/assess-similarity.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+
+  // One scan per fixture: several cases read the same assessment, and scanning
+  // per case would grade the size of the fixtures rather than the code.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    if (!scans.has(testCase.fixture)) {
+      scans.set(testCase.fixture, assess(rootOf(testCase.fixture), emptyModel()));
+    }
+    return scans.get(testCase.fixture);
+  };
+
+  /** A pair matches however the two halves happen to be ordered. */
+  const isPair = (finding, pair) =>
+    [...(finding.pair ?? [])].sort().join('|') === [...pair].sort().join('|');
+
+  for (const testCase of spec.cases) {
+    const { similarity } = scanFor(testCase);
+
+    if (testCase.kind === 'clone' || testCase.kind === 'similar') {
+      const finding = similarity.clones.find((row) => isPair(row, testCase.pair));
+      claim(Boolean(finding), `${testCase.id}: ${testCase.pair.join(' ~ ')} is not reported`);
+      if (!finding) {
+        max += 3;
+        continue;
+      }
+      const clone = testCase.kind === 'clone';
+      claim(
+        finding.band === (clone ? 'clone' : 'similar'),
+        `${testCase.id}: banded ${finding.band} at ${finding.score}`,
+      );
+      claim(
+        finding.severity === (clone ? 'error' : 'warn'),
+        `${testCase.id}: severity ${finding.severity}`,
+      );
+      claim(
+        clone
+          ? finding.survivor === testCase.survivor
+          : finding.survivor === null,
+        clone
+          ? `${testCase.id}: survivor ${finding.survivor}, expected ${testCase.survivor}`
+          : `${testCase.id}: named a survivor for a pattern similarity`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-similar') {
+      claim(
+        !similarity.clones.some((row) => isPair(row, testCase.pair)),
+        `${testCase.id}: ${testCase.pair.join(' ~ ')} was reported, and shares nothing`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'duplicate' || testCase.kind === 'near-duplicate') {
+      const finding = similarity.duplicates.find((row) => isPair(row, testCase.pair));
+      claim(Boolean(finding), `${testCase.id}: ${testCase.pair.join(' ~ ')} is not reported`);
+      const duplicate = testCase.kind === 'duplicate';
+      if (!finding) {
+        max += duplicate ? 3 : 2;
+        continue;
+      }
+      claim(
+        finding.band === (duplicate ? 'clone' : 'similar'),
+        `${testCase.id}: banded ${finding.band} at ${finding.score}`,
+      );
+      claim(
+        finding.severity === (duplicate ? 'error' : 'warn'),
+        `${testCase.id}: severity ${finding.severity}`,
+      );
+      if (!duplicate) continue;
+      claim(
+        (testCase.shared ?? []).every((pair) => finding.shared.includes(pair)),
+        `${testCase.id}: shared ${finding.shared.join(' / ')} does not list ${(testCase.shared ?? []).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-duplicate') {
+      claim(
+        !similarity.duplicates.some((row) => (row.pair ?? []).includes(testCase.name)),
+        `${testCase.id}: ${testCase.name} was paired with something`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'overlap') {
+      const finding = similarity.overlaps.find((row) => row.value === testCase.value);
+      claim(Boolean(finding), `${testCase.id}: the bundle "${testCase.value}" is not reported`);
+      if (!finding) {
+        max += 2;
+        continue;
+      }
+      claim(finding.severity === 'warn', `${testCase.id}: severity ${finding.severity}`);
+      claim(
+        finding.count === testCase.count,
+        `${testCase.id}: written on ${finding.count} elements, expected ${testCase.count}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-overlap') {
+      claim(
+        !similarity.overlaps.some((row) => row.value === testCase.value),
+        `${testCase.id}: "${testCase.value}" was called a bundle`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-findings') {
+      claim(
+        similarity.findings.length === 0,
+        `${testCase.id}: reported ${similarity.findings.map((row) => row.value).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      claim(
+        similarity.markupChecked === false,
+        `${testCase.id}: claims to have compared markup it cannot read`,
+      );
+      claim(
+        similarity.clones.length === 0 && similarity.overlaps.length === 0,
+        `${testCase.id}: named ${similarity.clones.length + similarity.overlaps.length} markup findings it never looked for`,
+      );
+      claim(
+        Boolean(similarity.markupReason),
+        `${testCase.id}: skipped the question without saying why`,
+      );
+      claim(
+        similarity.compared.blocks > 0,
+        `${testCase.id}: the style blocks were not compared, and they read on any stack`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'bounded') {
+      claim(
+        similarity.findings.every((row) => row.score >= 0 && row.score <= 1),
+        `${testCase.id}: a score fell outside [0, 1]`,
+      );
+      claim(
+        similarity.caps.signatures > 0 &&
+          similarity.caps.blocks > 0 &&
+          similarity.caps.pairs > 0,
+        `${testCase.id}: the report does not state the caps it ran under`,
+      );
+      claim(
+        similarity.compared.signatures > 0 && similarity.compared.blocks > 0,
+        `${testCase.id}: the report does not say what it compared`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
+// assess — consistency: naming drift and prop mismatches (v0.2.1 §5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Is one concept called one thing, and is one component used one way?
+ *
+ * The grading is harsher in spirit than anything before it, because this is the
+ * first family allowed to say `error` about somebody's markup. A wrong naming
+ * stray is an annoyance; a wrong prop synonym is Phyllum telling a developer
+ * that working code is broken. So the negative cases carry the same weight as
+ * the positive ones and there is no partial credit for finding the right thing
+ * for the wrong reason — a drift group reported without its suggestion, or a
+ * conflict reported over a value the scan could not read, scores as a miss.
+ *
+ * Every case runs over a pinned fixture and every reading is set arithmetic
+ * over names and attributes, so there is no responder and no headroom.
+ */
+function assessConsistencyEval() {
+  const spec = readJson('evals/prompts/assess-consistency.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+  const modelFor = (testCase) =>
+    testCase.system === 'own'
+      ? parse(fs.readFileSync(path.join(rootOf(testCase.fixture), 'DESIGN-SYSTEM.md'), 'utf8'))
+      : emptyModel();
+
+  // One scan per fixture-and-system pair: several cases read the same
+  // assessment, and scanning per case would grade the fixtures' size.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    const key = `${testCase.fixture}|${testCase.system ?? 'empty'}`;
+    if (!scans.has(key)) scans.set(key, assess(rootOf(testCase.fixture), modelFor(testCase)));
+    return scans.get(key);
+  };
+
+  /** A group matches however its spellings happen to be ordered. */
+  const isGroup = (row, forms) =>
+    [...(row.forms ?? [])].sort().join('|') === [...forms].sort().join('|');
+
+  for (const testCase of spec.cases) {
+    const { naming, props } = scanFor(testCase);
+
+    if (testCase.kind === 'drift') {
+      const row = naming.drift.find((item) => isGroup(item, testCase.forms));
+      claim(Boolean(row), `${testCase.id}: ${testCase.forms.join(' / ')} is not reported as drift`);
+      if (!row) {
+        max += 3;
+        continue;
+      }
+      claim(row.drift === testCase.drift, `${testCase.id}: called ${row.drift} drift`);
+      claim(
+        row.suggested === testCase.suggested,
+        `${testCase.id}: suggested \`${row.suggested}\`, expected \`${testCase.suggested}\``,
+      );
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-drift') {
+      claim(
+        !naming.drift.some((row) => (row.forms ?? []).includes(testCase.name)),
+        `${testCase.id}: ${testCase.name} was grouped with something`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'convention') {
+      const dominant = naming.conventions?.[testCase.of];
+      claim(Boolean(dominant?.decided), `${testCase.id}: no ${testCase.of} convention was decided`);
+      claim(
+        dominant?.convention === testCase.convention,
+        `${testCase.id}: called ${dominant?.convention}, expected ${testCase.convention}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-convention') {
+      const dominant = naming.conventions?.[testCase.of];
+      claim(
+        dominant?.decided === false,
+        `${testCase.id}: elected ${dominant?.convention} out of ${dominant?.voters} names`,
+      );
+      claim(Boolean(dominant?.reason), `${testCase.id}: gave no reason for having no answer`);
+      continue;
+    }
+
+    if (testCase.kind === 'stray') {
+      const row = naming.strays.find((item) => item.value === testCase.name);
+      claim(Boolean(row), `${testCase.id}: ${testCase.name} is not reported as a stray`);
+      if (!row) {
+        max += 3;
+        continue;
+      }
+      claim(
+        row.convention === testCase.convention,
+        `${testCase.id}: read as ${row.convention}, expected ${testCase.convention}`,
+      );
+      claim(
+        row.suggested === testCase.suggested,
+        `${testCase.id}: suggested \`${row.suggested}\`, expected \`${testCase.suggested}\``,
+      );
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-stray') {
+      claim(
+        !naming.findings.some((row) => row.value === testCase.name),
+        `${testCase.id}: ${testCase.name} was reported`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'synonym') {
+      const row = props.synonyms.find((item) => item.component === testCase.component);
+      claim(Boolean(row), `${testCase.id}: ${testCase.component} is not reported`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(
+        testCase.spellings.every((name) => row.spellings.includes(name)),
+        `${testCase.id}: reported ${row.spellings.join(' + ')}`,
+      );
+      claim(row.severity === 'error', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'conflict') {
+      const row = props.conflicts.find(
+        (item) => item.component === testCase.component && item.prop === testCase.prop,
+      );
+      claim(Boolean(row), `${testCase.id}: ${testCase.component}.${testCase.prop} is not reported`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(
+        [...row.kinds].sort().join('|') === [...testCase.kinds].sort().join('|'),
+        `${testCase.id}: reported ${row.kinds.join(' and ')}`,
+      );
+      claim(row.severity === 'error', `${testCase.id}: severity ${row.severity}`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-conflict') {
+      claim(
+        !props.conflicts.some(
+          (row) => row.component === testCase.component && row.prop === testCase.prop,
+        ),
+        `${testCase.id}: ${testCase.component}.${testCase.prop} was called a conflict`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'bypass') {
+      const row = props.bypasses.find(
+        (item) => item.component === testCase.component && item.prop === testCase.prop,
+      );
+      claim(Boolean(row), `${testCase.id}: ${testCase.component}.${testCase.prop} is not reported`);
+      if (!row) {
+        max += 2;
+        continue;
+      }
+      claim(row.severity === 'warn', `${testCase.id}: severity ${row.severity}`);
+      claim(
+        testCase.variants.every((variant) => row.variants.includes(variant)),
+        `${testCase.id}: named ${row.variants.join(', ')} as the variants`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'unread') {
+      claim(
+        props.compared.unread > 0,
+        `${testCase.id}: counted no unreadable values in a fixture written to have them`,
+      );
+      claim(
+        props.conflicts.every((row) => !row.kinds.includes('expression')),
+        `${testCase.id}: compared a value it could not read`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-findings') {
+      claim(
+        naming.findings.length === 0 && props.findings.length === 0,
+        `${testCase.id}: reported ${[...naming.findings, ...props.findings].map((row) => row.value).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      claim(props.checked === false, `${testCase.id}: claims to have read props it cannot read`);
+      claim(
+        props.findings.length === 0,
+        `${testCase.id}: named ${props.findings.length} mismatches it never looked for`,
+      );
+      claim(Boolean(props.reason), `${testCase.id}: skipped the question without saying why`);
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
 // tokenise — the prose path, which is all `tokenise` is now (v0.2.0 §6, §7)
 // ---------------------------------------------------------------------------
 
@@ -1046,6 +1728,252 @@ function applyRunExecution() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// assess — the report, the score and the smaller checks (v0.2.1 §7, §8)
+// ---------------------------------------------------------------------------
+
+/**
+ * How much drift is in this codebase, how bad is it, and what do I do about it?
+ *
+ * The first eval that grades the *whole* assessment rather than one family of
+ * finding. Everything it reads is arithmetic over counts the families already
+ * produced, so there is no responder and no headroom in the threshold.
+ *
+ * The cases that outrank the rest are the four asserting an absence: six checks
+ * staying quiet on projects that do not have these problems. A report whose
+ * smaller checks fire on a healthy codebase is a report whose smaller checks
+ * get folded, and then the section might as well not exist.
+ *
+ * The next most important is `score-and-verdict-are-independent`. The two
+ * answer different questions — how much, and how bad — and a codebase that
+ * fails at the bottom of the scale and one that passes-with-warnings near the
+ * top both have to be expressible, or one of the two numbers is decoration.
+ */
+function assessReportEval() {
+  const spec = readJson('evals/prompts/assess-report.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+  const modelFor = (testCase) => {
+    if (!testCase.system || testCase.system === 'none') return emptyModel();
+    const root = rootOf(testCase.system === 'own' ? testCase.fixture : testCase.system);
+    return parse(fs.readFileSync(path.join(root, 'DESIGN-SYSTEM.md'), 'utf8'));
+  };
+
+  // One scan per fixture-and-system pair: several cases read the same
+  // assessment, and scanning per case would grade the fixtures' size.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    const key = `${testCase.fixture}|${testCase.system ?? 'none'}`;
+    if (!scans.has(key)) scans.set(key, assess(rootOf(testCase.fixture), modelFor(testCase)));
+    return scans.get(key);
+  };
+
+  for (const testCase of spec.cases) {
+    if (testCase.kind === 'extra') {
+      const { extras } = scanFor(testCase);
+      const finding = extras.findings.find(
+        (item) => item.rule === testCase.rule && item.value === testCase.value,
+      );
+      claim(Boolean(finding), `${testCase.id}: no ${testCase.rule} naming "${testCase.value}"`);
+      if (!finding) {
+        max += 3;
+        continue;
+      }
+      claim(
+        finding.severity === testCase.severity,
+        `${testCase.id}: severity ${finding.severity}, expected ${testCase.severity}`,
+      );
+      claim(
+        String(finding.detail).includes(testCase.detail),
+        `${testCase.id}: "${finding.detail}" does not say ${testCase.detail}`,
+      );
+      claim(
+        (finding.evidence ?? []).length > 0,
+        `${testCase.id}: the finding carries no evidence`,
+      );
+      claim(
+        Boolean(actionFor(finding.rule)),
+        `${testCase.id}: ${finding.rule} has no suggested action`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      const { extras } = scanFor(testCase);
+      const half = extras[testCase.check];
+      claim(
+        half.checked === false,
+        `${testCase.id}: the ${testCase.check} check claims to have run without the evidence for it`,
+      );
+      claim(
+        half.rows.length === 0,
+        `${testCase.id}: reported ${half.rows.length} findings from a check that could not run`,
+      );
+      claim(Boolean(half.reason), `${testCase.id}: skipped the question without saying why`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-extras') {
+      const { extras } = scanFor(testCase);
+      claim(
+        extras.findings.length === 0,
+        `${testCase.id}: reported ${extras.findings.map((item) => item.rule).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'score') {
+      const result = scanFor(testCase);
+      claim(
+        result.score.score === testCase.score,
+        `${testCase.id}: scored ${result.score.score} of 21, expected ${testCase.score}`,
+      );
+      claim(
+        result.score.verdict === testCase.verdict,
+        `${testCase.id}: verdict ${result.score.verdict}, expected ${testCase.verdict}`,
+      );
+      claim(
+        result.summary.clean === testCase.clean,
+        `${testCase.id}: clean is ${result.summary.clean}, expected ${testCase.clean}`,
+      );
+      claim(
+        result.score.clean === (result.score.verdict === 'pass'),
+        `${testCase.id}: clean and the verdict disagree`,
+      );
+      claim(
+        Boolean(result.score.means),
+        `${testCase.id}: the score is a number with nothing said about what it means`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'independence') {
+      const oneError = scoreAssessment({
+        values: { uncovered: [{ rule: 'raw-colour', severity: 'error' }] },
+      });
+      claim(oneError.verdict === 'fail', `${testCase.id}: one error did not fail`);
+      claim(oneError.score <= 2, `${testCase.id}: one error scored ${oneError.score}, high on the scale`);
+
+      const manyWarnings = scoreAssessment({
+        values: {
+          uncovered: Array.from({ length: 40 }, () => ({ rule: 'raw-colour', severity: 'warn' })),
+        },
+      });
+      claim(
+        manyWarnings.verdict === 'pass w/ warnings',
+        `${testCase.id}: forty exceptions did not pass with warnings`,
+      );
+      claim(
+        manyWarnings.score >= 8,
+        `${testCase.id}: forty exceptions scored ${manyWarnings.score}, low on the scale`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'arithmetic') {
+      const result = scanFor(testCase);
+      const { families, overall } = countFamilies(result);
+      const summed = Object.values(families).reduce((total, family) => total + family.total, 0);
+      claim(
+        summed === overall.total,
+        `${testCase.id}: the families sum to ${summed} and the total says ${overall.total}`,
+      );
+      claim(
+        driftMass(families) === result.score.mass,
+        `${testCase.id}: the drift mass is not the weighted sum of the families`,
+      );
+      claim(
+        scoreStepFor(result.score.mass).step === result.score.score,
+        `${testCase.id}: the mass does not land on the step the report printed`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'actions') {
+      const declared = new Set(actionRules());
+      const rules = [
+        ...lintRules(),
+        ...hygieneRules(),
+        ...similarityRules(),
+        ...namingRules(),
+        ...propRules(),
+        ...extraRules(),
+        'unread',
+      ];
+      for (const rule of rules) {
+        claim(declared.has(rule), `${testCase.id}: ${rule} has no row in the action table`);
+      }
+      claim(
+        actionFor('a-rule-nobody-wrote') === null,
+        `${testCase.id}: an action was invented for a rule that does not exist`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'report') {
+      const result = scanFor(testCase);
+      const rollUp = renderFindings(result).join('\n');
+      for (const [family] of FAMILIES) {
+        claim(rollUp.includes(`  ${family} —`), `${testCase.id}: the roll-up has no ${family} row`);
+      }
+      claim(
+        rollUp.includes('severity · finding · evidence · what to do'),
+        `${testCase.id}: the roll-up does not state its row shape`,
+      );
+      const headline = renderScore(result).join('\n');
+      claim(
+        headline.includes(`Drift score: ${result.score.score} of 21`),
+        `${testCase.id}: the headline does not print the score out of the scale`,
+      );
+      claim(
+        headline.includes(`Verdict: ${result.score.verdict}`),
+        `${testCase.id}: the headline does not print the verdict`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'inheritance') {
+      // One scan, one rendering: every chained mode prints the same report and
+      // then walks a different track, so what is graded here is that the shared
+      // rendering carries the whole judgement. The per-mode command output is
+      // asserted end to end in evals/assertions/assess-report.test.js.
+      const result = scanFor(testCase);
+      const out = renderAssessment(result).join('\n');
+      claim(
+        out.includes(`Drift score: ${result.score.score} of 21`),
+        `${testCase.id}: the shared report does not carry the score`,
+      );
+      claim(
+        out.includes(`Verdict: ${result.score.verdict}`),
+        `${testCase.id}: the shared report does not carry the verdict`,
+      );
+      claim(
+        out.includes('The smaller checks'),
+        `${testCase.id}: the shared report does not run the smaller checks`,
+      );
+      claim(
+        out.includes('The findings — severity'),
+        `${testCase.id}: the shared report does not group the findings by family`,
+      );
+      claim(
+        testCase.modes.length === 3,
+        `${testCase.id}: the case names ${testCase.modes.length} modes, expected three`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
 /** Object keys in a fixed order, so a comparison is about content. */
 function sortKeys(object) {
   return Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
@@ -1065,6 +1993,11 @@ export const EVALS = [
   { id: 'create-pick-candidates', modelDependent: false, run: pickCandidates },
   { id: 'assess-clustering', modelDependent: false, run: clustering },
   { id: 'assess-naming', modelDependent: true, run: naming },
+  { id: 'assess-severity', modelDependent: false, run: assessSeverity },
+  { id: 'assess-hygiene', modelDependent: false, run: assessHygieneEval },
+  { id: 'assess-similarity', modelDependent: false, run: assessSimilarityEval },
+  { id: 'assess-consistency', modelDependent: false, run: assessConsistencyEval },
+  { id: 'assess-report', modelDependent: false, run: assessReportEval },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
 ];
 

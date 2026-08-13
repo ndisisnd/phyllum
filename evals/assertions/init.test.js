@@ -14,7 +14,7 @@ import { execute } from '../../lib/execute.js';
 import { tokenizeLine } from '../../lib/parse-args.js';
 import { MANDATORY_HEADINGS, missingHeadings, validateStructure } from '../../lib/design-system.js';
 import { instantiateTemplate, packageVersion, skillFiles } from '../../lib/template.js';
-import { GITIGNORE_LINE } from '../../lib/write.js';
+import { GITIGNORE_LINE, GITIGNORE_LINES } from '../../lib/write.js';
 import {
   FIXTURES,
   USER_EDITED_FIXTURE,
@@ -58,12 +58,13 @@ test('init copies every skill file into .claude/skills/phyllum/', async () => {
   });
 });
 
-test('init adds exactly one .phyllum/ line to .gitignore', async () => {
+test('init adds Phyllum’s own two lines to .gitignore, and nothing else', async () => {
   await withTempDir(async (dir) => {
     fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules\n');
     await run('init', dir);
     const lines = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8').split('\n').filter(Boolean);
-    assert.deepEqual(lines, ['node_modules', GITIGNORE_LINE]);
+    assert.deepEqual(lines, ['node_modules', ...GITIGNORE_LINES]);
+    assert.ok(lines.includes('DESIGN-SYSTEM.md.bak'), 'the undo buffer is ignored, quietly');
   });
 });
 

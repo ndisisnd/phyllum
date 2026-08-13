@@ -1,7 +1,7 @@
 {
   "eval": "create-token-first",
   "rubric": "evals/rubrics/create-token-first.md",
-  "milestone": "M2",
+  "milestone": "v0.1.0 M2",
   "planSections": ["§3.2", "§8.5"],
   "threshold": 1,
   "status": "runnable — `pnpm run evals`",

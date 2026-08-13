@@ -202,7 +202,10 @@ test('accepting the review changes exactly one file, and never the codebase', as
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'the codebase Phyllum just read is untouched');
     assert.deepEqual(diff.removed, []);
-    assert.ok(diff.added.every((rel) => rel.startsWith('.phyllum/')), 'only Phyllum-owned state may appear');
+    assert.ok(
+      diff.added.every((rel) => rel.startsWith('.phyllum/') || rel === 'DESIGN-SYSTEM.md.bak'),
+      'only Phyllum-owned state and the pre-edit backup may appear',
+    );
     assert.ok(validateStructure(read(dir)).valid, 'the template contract still holds');
     assert.ok(out.includes('only `apply` ever writes it'));
   });

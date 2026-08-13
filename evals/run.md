@@ -126,9 +126,9 @@ them, and re-run `npm run evals:record` so the baseline matches.
 
 ## The v1 regression baseline (M6)
 
-`evals/baseline.json` is stamped `"release": "v1"` — the bar every future change
-has to clear — and `"milestone"` records which change last re-recorded it
-(v0.2.0 M6, which added `apply-prd-contract`). The v1 scores themselves
+`evals/baseline.json` is stamped with the `"release"` it gates — the bar every
+future change has to clear — and `"milestone"` records which change last
+re-recorded it (v0.2.1 M5, which added `assess-report`). The scores themselves
 only ever go up. The bar has two halves:
 
 | | Bar |
@@ -175,6 +175,12 @@ score, and commit the new baseline with that change.
 | `evals/assertions/create-pick.test.js` | Pick mode: the read-only markup scan, archetypes plus candidates, registered components dropping out, a pick seeding no values, and the follow-up loop it enters |
 | `evals/assertions/assess-scan.test.js` | `assess`'s engine: the read-only scan (proved by diffing the whole directory around it), the three passes, the language-agnostic sweep over every text file, what is never evidence — documentation, lockfiles, gitignored paths, Phyllum's own record — React-only component detection, clustering, the naming scales, coverage vs proposals, the rerun diff |
 | `evals/assertions/assess-suggest.test.js` | `assess` step 4 and step 5: the mapping table over its four buckets, the token review reusing `tokenise`'s, the component pick reusing `create`'s, the "seen but not read" bucket asked about rather than guessed, and one scan feeding both tracks |
+| `evals/assertions/assess-severity.test.js` | The severity engine and the two compound passes (v0.2.1 §3): the threshold read from its table rather than restated in code and applied alike to every family, the six rule families with `raw-radius` findable by its own name, scanners and clustering staying neutral while aggregation does the judging, a covered value carrying a family but no severity and an unread one carrying a severity but no family, the summary derived from the rows so it cannot disagree with them, `assess update` writing the drift and declining the exceptions while the interactive review still offers both, and — for the compounds — the normalisation grammar (layers, zeroes, colour case, a `var()` making the whole value unreadable), clustering part for part but never across shapes, the shadow ladder, a shadow token owning `box-shadow` and not `border`, and the double-count that must not happen when a shorthand's width is read as a border |
+| `evals/assertions/assess-hygiene.test.js` | The hygiene checks (v0.2.1 §6): detection keeping its single-winner contract while reporting the evidence behind it, families counted rather than labels so Next is not a second React, plain HTML never a rival to a framework, an `npm:` alias read as the package it aliases, a Tailwind entry stylesheet not counted as a second styling system, `DESIGN-SYSTEM.md` never a rival theme source, every hygiene severity read from its table, the coverage split run backwards over tokens and components, a token saved by its name after its value drifted, the bounded-scan caveat carried on every finding and printed next to the rows it applies to, a stack with no component pass told the question was not asked, and `assess update` leaving every stale row exactly where it found it |
+| `evals/assertions/assess-similarity.test.js` | The similarity pass (v0.2.1 §4): every weight, band and cap read from its table rather than restated in code, the parts of a score summing to one so a score cannot leave [0, 1], both sides of both band boundaries, class *words* compared so `btn--primary` and `btnPrimary` meet, the tag a bonus and never a gate, a survivor chosen by use and by name only when use ties, a bare element never compared at all, a bundle needing both its thresholds and never one the system already registers, a styled-components template read out of a plain `.js` file, a configuration object refused as a style block, one rule read twice out of one file not counted as a duplicate, the cap stopping the comparison and the report saying so, a Vue project told its markup was not read while its stylesheets still were, an ordinary project told plainly that nothing is alike, the same codebase scoring byte-identically on every run, similarity counted beside the value findings and never folded into them, and — the promise the section rests on — a merge suggested, never made, with no write call anywhere in the module |
+| `evals/assertions/assess-consistency.test.js` | The consistency checks (v0.2.1 §5): every convention, severity, synonym, value kind and cap read from its table rather than restated in code, drift being the same word set spelled twice and never an abbreviation resolved by guesswork, classes and components kept as separate populations so a `Card` rendering a `card` is not a finding, a registered component absorbing every spelling of itself, the dominant convention counted rather than assumed — earned by evidence, held by a majority, and a BEM name counted as the kebab it is a spelling of rather than as a rival to it — a codebase with no house style told so, a name reported as drift never reported again as a stray, the base of a suggestion being the reused word and never a variant word, the attribute reader getting a nested object whole and a lowercase tag not at all, two names for one prop and two shapes for one prop as errors while a style bypass with no variant to bypass is not a finding at all, a value the scan could not read counted and never compared, two ordinary React projects reporting nothing, a Vue project told the question was not asked, the same codebase reading identically on every run, consistency counted beside the other findings and never folded into them, and — the promise the section rests on — a rename suggested, never made, with no write call in either module |
+| `evals/assertions/assess-report.test.js` | The report, the score and the smaller checks (v0.2.1 §7, §8): every extra rule read from its table with its own severity, near-duplicate colours bounded above by the distance row and below by the clustering threshold so a pair here is two values the code keeps apart and an eye cannot, a dark counterpart defined per styling system — by name where colour is written by name, by property where it is written by value — and the whole token half declining to run rather than calling every token a gap when no token is restated in a dark scope, a spacing value on the scale never reported and one a pixel off it reported as an error at any frequency, z-index a sprawl only past its threshold and a breakpoint a finding only while no token names it, the seven Fibonacci steps all reachable with no holes and monotonic in the mass, a family the weights table does not name unable to inflate anything, the family counts summing to the overall count, `clean` being exactly `verdict === 'pass'`, a small failure and a large pass both expressible because the verdict is never derived from the score, every rule having a suggested action and no rule inventing one, and every chained mode carrying the same findings, score and verdict |
+| `evals/assertions/utilities.test.js` | The three utilities (v0.2.1 §6.5): `--json` in both spellings with a scope word after it read as a mode and never as a filename, the file parsing and holding the object the report renders from, two identical runs writing byte-identical files with no timestamp, no absolute path and no raw sightings in them, one file written and no question asked, a path of your own checked rather than trusted and refused without falling back to another, `assess update --json` refused non-zero with both halves of the reason, a first write taking no backup and every later one leaving a `.bak` equal to the pre-edit file, the backup being one undo ago rather than a history, a failed backup provably aborting the edit with the design system byte-identical afterwards, the backup taken in the funnel so no writer can skip it, and `display` and `system` byte-for-byte identical at every scope |
 | `evals/assertions/assess-cli.test.js` | The `assess` command surface: registered and reachable, the report saying what it read, no model and no network needed, the codebase byte-identical afterwards, and the four chained modes — `tokens` and `components` walking one track each, `components` looping one candidate at a time with a consent gate each, bare `assess` recording one component per run, and `assess update` accepting the proposed tokens into `DESIGN-SYSTEM.md` alone while declining every question that would be a guess |
 | `evals/assertions/apply-prd.test.js` | `apply`'s plan engine (v0.2.0 §6.5.1): harness detection and its precedence — config files beating the `.phyllum/` preference beating memory, and harnesses other than Claude Code — the host test suite detected rather than assumed, one criterion per literal per file, a token never repurposed across roles, a near-identical literal inheriting its cluster's token and saying the rendered value changes, a `TODO` component excluded by name, adoption honest about being React-only, phases grouped by kind with tokens before components, the render → parse round trip M7 depends on, and resume carrying ticks by what a criterion is about rather than by its id |
 | `evals/assertions/apply-cli.test.js` | The `apply` command surface: `.phyllum/PRD.md` the only file written — proved by diffing the whole project directory before and after — no ask, confirm, model or network needed, a second run converging byte for byte, `run` reserved and honestly unbuilt, `--fresh` as the one destructive act and what it says about it, an empty design system answered with the command that fills it, and nothing to apply writing no plan at all |
@@ -206,6 +212,11 @@ score, and commit the new baseline with that change.
 | `create-pick-candidates` | a repeated unregistered pattern appears in the picker; a registered one and a one-off do not | 1.0 |
 | `assess-clustering` | one brand blue written two ways is one token; genuinely different values stay apart; and both hold in a codebase with no stylesheet at all, because the values pass is language-agnostic | 1.0 |
 | `assess-naming` | proposed names are on the documented scales, and on the right rung | 0.9 |
+| `assess-severity` | v0.2.1's lint path over one pinned codebase: which rule family each finding belongs to (`raw-radius` split out from `raw-spacing`, and the two new compound families), whether it is systematic drift or a likely exception at the one documented threshold, and — the cases that outrank the rest — that `box-shadow: none` proposes nothing, that the width inside a border shorthand is not counted a second time as a length, and that a shadow with a `var()` in it goes back to seen-but-not-read rather than being half-read into a token | 1.0 |
+| `assess-hygiene` | v0.2.1's hygiene checks over two pinned projects: a repository mid-migration reporting its colliding frameworks, framework majors, styling systems and theme sources with the evidence for each, a design system richer than its codebase reporting the tokens and components nothing uses, and — the cases that outrank the rest — an ordinary Tailwind app, a Next.js app, a token whose name is written though its value drifted, and a Vue project told its components were not read rather than that they are all unused | 1.0 |
+| `assess-similarity` | v0.2.1's similarity pass over three pinned projects: a codebase built pair by pair, where one class apart on one tag is a clone with the more-used signature named as survivor, the same classes on a different tag is only a pattern similarity, two names for one rule and two `styled.div` templates are style duplicates, and a four-class bundle on three elements is a component nobody extracted — and, the cases that outrank the rest, an ordinary React project reporting nothing at all, a bundle repeated only twice, two unrelated elements, and a Vue project told its markup was never read | 1.0 |
+| `assess-consistency` | v0.2.1's consistency checks over four pinned projects: a codebase that never agreed on how to spell anything, where the same two words in two orders and the same two words in two cases are drift with the predictable `Base + Qualifier` form suggested, the dominant convention is counted separately for classes and for components, and one camel name with no kebab twin is a stray — plus the prop half, where two names for one prop and two shapes for one prop are errors and an inline style on a component with variants is a warning — and, the cases that outrank the rest, two ordinary React projects reporting nothing at all, a BEM modifier that is evidence for the house style rather than a stray from it, a prop given one shape twice, a value the attribute scan could not read, and a Vue project told its props were never compared | 1.0 |
+| `assess-report` | v0.2.1's report, score and smaller checks over five pinned projects: a codebase with all six of the smaller problems at once — two brand blues six ΔE apart, two greys four apart, a dark theme that restates two colours out of four, two tokens holding one value under different names, a `15px` padding one pixel off an eight-point scale, five unplanned z-index layers and two hardcoded breakpoints — scoring 8 of 21 and failing, an empty project scoring 1 and passing, a stale design system passing with warnings, and — the cases that outrank the rest — a light-only project never nagged about dark values, a project with no spacing tokens never told its spacing is off a scale it does not have, two ordinary projects reporting no extras at all, one error failing at the bottom of the scale while forty exceptions pass with warnings near the top, the family counts summing to the total, and every rule carrying a suggested action | 1.0 |
 | `tokenise-prose-extraction` | one sentence in, one token out: the name when the sentence gives one, which pass and which value, whether a length's role was stated or assumed, what typography implies, and a sentence with no value coming back as a question rather than a guess | 1.0 |
 
 ### The two evals renamed in v0.2.0 M8
@@ -242,6 +253,52 @@ So M8 raised no threshold. The bar rose anyway, in the way that costs nothing:
 `tokenise-prose-extraction` joins at 1.0, and twelve of the fourteen evals now
 sit at 1.0.
 
+v0.2.1 M1 does the same thing again for the same reason. `assess-severity` joins
+at 1.0 — it is deterministic end to end, so there is no model variation to leave
+headroom for — which makes it thirteen of fifteen at 1.0, and the three evals
+below 1.0 are still the same three model-dependent ones.
+
+And v0.2.1 M2 again, with `assess-hygiene` at 1.0 for the same reason: which
+packages a manifest declares and which strings a scan saw are facts, not
+judgements. Fourteen of sixteen sit at 1.0 now, and the two thresholds below it
+are still the same model-dependent two.
+
+And v0.2.1 M3 again, with `assess-similarity` at 1.0 for the third time and the
+same reason, sharpened: a similarity score is set arithmetic over structure, so
+`0.813` has to mean one thing on every run — a threshold below 1.0 would be
+conceding that it might not. Fifteen of seventeen sit at 1.0 now, and the two
+below are still the same model-dependent two.
+
+And v0.2.1 M4 again, with `assess-consistency` at 1.0 for the fourth time —
+and the threshold matters more here than anywhere before it. This is the first
+family allowed to say `error` about somebody's markup, so a false positive is
+not a slightly worse report, it is Phyllum telling a developer that working
+code is broken. Sixteen of eighteen sit at 1.0 now, and the two below are
+still the same model-dependent two.
+
+And v0.2.1 M5 again, with `assess-report` at 1.0 for the fifth time, and for
+the plainest reason yet: the score is arithmetic over counts that are themselves
+arithmetic. A threshold below 1.0 would be saying that the same codebase might
+score 5 on one run and 8 on the next, which would make the number worth nothing
+— the whole point of a headline is that it is the same number tomorrow.
+Seventeen of nineteen sit at 1.0 now, and the two below are still the same
+model-dependent two.
+
+And v0.2.1 M6, which adds no eval and moves the release stamp instead. Five
+milestones kept `release` at `v0.2.0` on purpose: until a release is cut, the bar
+a change has to clear is the last *released* one, and moving the stamp early
+would have let each milestone measure itself against the milestone before it
+rather than against the last thing anyone could install. M6 cuts v0.2.1, so the
+baseline is re-recorded as `release: v0.2.1` and that becomes the bar the next
+release inherits. Nineteen evals, every score met or beaten, no threshold
+lowered — and none ever has been.
+
+The two below 1.0 are still the same two, and still deliberately so. They are the
+model-dependent ones, where the responder's wording is part of what is graded;
+holding them at 1.0 would be pinning a model's phrasing rather than Phyllum's
+behaviour, and the first model update would break a suite that had found no bug.
+The headroom is the honest reading of what those two evals can actually promise.
+
 M1 pinned two rubrics that no runner could score. M6 splits them honestly:
 
 - **`init-detection` is scored now.** Its deterministic core — framework,
@@ -250,13 +307,19 @@ M1 pinned two rubrics that no runner could score. M6 splits them honestly:
   so the runner grades it at threshold 1.0. The prose half of step 1 (what those
   artefacts *mean* for this project) still needs a model judge and stays with
   the rubric, unscored.
-- **`help-accuracy` stays pinned and unscored, and was re-pinned in M8.** Its
-  case list had not moved since v0.1.0 M1, so the one eval that checks help text
-  against the plan carried no case for any of the six commands v0.2.0 added.
-  It now pins `version`, `update`, `assess` with its three scope words, `apply`
-  and `apply run` — including the two claims most likely to rot: that `tokenise`
-  must *not* be described as scanning the codebase, and that `apply run` is the
-  only command that edits source files. Judging whether a help text is
+- **`help-accuracy` stays pinned and unscored, and was re-pinned again in
+  v0.2.1 M6.** v0.2.0 M8 re-pinned it for the six commands that release added.
+  v0.2.1 added no command at all — it is a depth release — so a case list that
+  only grows when a command appears would have missed it entirely, which is
+  exactly what happened between v0.1.0 M1 and v0.2.0 M8. M6 therefore pins the
+  three *pages that changed*: `display` as the primary read verb with `system`
+  as its alias, `assess --json`, and the drift score and verdict the assessment
+  now ends in. The claim most likely to rot is pinned by name: `assess update`
+  no longer accepts every proposed token, only the `error`-severity ones, and
+  the old sentence read true for a whole release after it stopped being so.
+  It still also pins that `tokenise` must *not* be described as scanning the
+  codebase, and that `apply run` is the only command that edits source files.
+  Judging whether a help text is
   still accurate to a plan section is free-text judgement end to end, and there
   is no way to score it without a model judge. It is left with a number nobody
   computed rather than given a fabricated one; the byte-level parts of `help`

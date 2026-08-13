@@ -1,7 +1,7 @@
 {
   "eval": "assess-clustering",
   "rubric": "evals/rubrics/assess-clustering.md",
-  "milestone": "M3",
+  "milestone": "v0.2.0 M3",
   "planSections": [
     "§4",
     "§8.5"

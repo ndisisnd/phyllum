@@ -1,7 +1,7 @@
 {
   "eval": "create-pick-candidates",
   "rubric": "evals/rubrics/create-pick-candidates.md",
-  "milestone": "M5",
+  "milestone": "v0.1.0 M5",
   "planSections": ["§3.1", "§8.5"],
   "threshold": 1,
   "status": "runnable — `npm run evals`",

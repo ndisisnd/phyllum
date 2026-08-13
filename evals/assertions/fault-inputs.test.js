@@ -29,6 +29,8 @@ import { scanCandidates } from '../../lib/candidates.js';
 import { assessValues } from '../../lib/assess.js';
 import { emptyModel } from '../../lib/design-system.js';
 import { PRD_FILE, STATE_DIR } from '../../lib/write.js';
+import { ASSESS_SPEC_FILE, SPEC_FILE, parseSpec } from '../../lib/tokenise-spec.js';
+import { renderSpecNotices } from '../../lib/assess-report.js';
 import { POPULATED_FIXTURE, readFixture, snapshotContents, diffSnapshots, withTempDir } from './helpers.js';
 
 /** Root reads anything, so a permissions case would pass for the wrong reason. */
@@ -318,4 +320,224 @@ test('a directory symlinked to its own parent does not send the scan round forev
     assert.ok(result.proposals.length > 0, 'the real file was still scanned');
     assert.ok(Date.now() - started < 5000, 'and the scan terminated promptly');
   });
+});
+
+// ---------------------------------------------------------------------------
+// `assess --json`'s target: hostile before Phyllum got there (v0.2.1 M6)
+// ---------------------------------------------------------------------------
+
+/**
+ * The flag writes one file, and everything that can already be sitting at that
+ * path is somebody else's decision. The bar is the same three parts the rest of
+ * this file holds to — no stack trace, a message naming the file and what to do,
+ * nothing written — plus a fourth the JSON path adds: **exit honestly**, because
+ * the reader of a `--json` run is usually a script that only checks the code.
+ */
+
+/** A small project with enough drift for the assessment to have something to say. */
+function drifted(dir) {
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'src', 'styles.css'),
+    '.a { color: #123456; }\n.b { color: #123456; }\n.c { color: #123456; }\n',
+  );
+  fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));
+}
+
+test('a directory sitting where the JSON file goes is named, not thrown', async () => {
+  await withTempDir(async (dir) => {
+    drifted(dir);
+    fs.mkdirSync(path.join(dir, STATE_DIR), { recursive: true });
+    fs.mkdirSync(path.join(dir, STATE_DIR, 'assess.json'));
+    const before = snapshotContents(dir);
+
+    const result = await executeArgv(['assess', '--json'], ctx(dir));
+
+    assert.equal(result.code, 1, 'a run that wrote nothing must not report success');
+    assert.match(result.out, /already a directory at \.phyllum\/assess\.json/);
+    assert.match(result.out, /Nothing was written/);
+    assert.ok(!/EISDIR|at Object\.|at Module\./.test(result.out), 'no raw errno, no stack trace');
+    // And nothing about Phyllum's own temp file, which is an implementation
+    // detail of the atomic write and not a path the user has ever seen.
+    assert.ok(!/phyllum-tmp-/.test(result.out), 'the temp file is not the user’s problem');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] });
+  });
+});
+
+test('a JSON target this user cannot write is named, not thrown', async (t) => {
+  if (AS_ROOT) return t.skip('running as root: a mode-500 directory is still writable');
+  await withTempDir(async (dir) => {
+    drifted(dir);
+    fs.mkdirSync(path.join(dir, STATE_DIR), { recursive: true });
+    fs.chmodSync(path.join(dir, STATE_DIR), 0o500);
+    try {
+      const result = await executeArgv(['assess', '--json'], ctx(dir));
+      assert.equal(result.code, 1);
+      assert.match(result.out, /cannot write to \.phyllum\/assess\.json \(EACCES\)/);
+      assert.ok(!/at Object\.|at Module\./.test(result.out));
+      assert.ok(!/phyllum-tmp-/.test(result.out));
+    } finally {
+      fs.chmodSync(path.join(dir, STATE_DIR), 0o700);
+    }
+  });
+});
+
+test('a refused JSON path is told which lock closed, not the whole rulebook', async () => {
+  await withTempDir(async (dir) => {
+    drifted(dir);
+    const cases = [
+      ['report.txt', /does not end in `\.json`/],
+      ['../outside.json', /resolves outside it/],
+      ['.git/config.json', /never writes inside `\.git\/`/],
+      ['DESIGN-SYSTEM.md', /never writes DESIGN-SYSTEM\.md/],
+    ];
+    for (const [target, reason] of cases) {
+      const before = snapshotContents(dir);
+      const result = await executeArgv(['assess', '--json', target], ctx(dir));
+      assert.equal(result.code, 1, target);
+      assert.match(result.out, reason, target);
+      assert.ok(!/during init only/.test(result.out), `${target}: not the rule it did not break`);
+      assert.deepEqual(
+        diffSnapshots(before, snapshotContents(dir)),
+        { added: [], changed: [], removed: [] },
+        target,
+      );
+    }
+  });
+});
+
+test('`assess --json DESIGN-SYSTEM.md` cannot destroy the design system', async () => {
+  await withTempDir(async (dir) => {
+    drifted(dir);
+    const original = readFixture(POPULATED_FIXTURE);
+    const before = snapshotContents(dir);
+
+    // The bug M6 found, pinned by name. `--json` is a read-only command, and
+    // the permission model checked its general rules first — so this path
+    // matched "Phyllum may write DESIGN-SYSTEM.md", overwrote the user's design
+    // system with the JSON assessment *of* it, and exited 0.
+    const result = await executeArgv(['assess', '--json', 'DESIGN-SYSTEM.md'], ctx(dir));
+
+    assert.equal(result.code, 1);
+    assert.equal(
+      fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8'),
+      original,
+      'the design system is byte-identical',
+    );
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] });
+  });
+});
+
+test('a hostile file already at the target is replaced whole, never merged into', async () => {
+  await withTempDir(async (dir) => {
+    drifted(dir);
+    fs.mkdirSync(path.join(dir, STATE_DIR), { recursive: true });
+    const target = path.join(dir, STATE_DIR, 'assess.json');
+    // Truncated JSON from a killed run, and a NUL byte for good measure: the
+    // write must not read what is there, only overwrite it.
+    fs.writeFileSync(
+      target,
+      Buffer.concat([Buffer.from('{"schemaVersion":1,"sco'), Buffer.from([0])]),
+    );
+
+    const result = await executeArgv(['assess', '--json'], ctx(dir));
+
+    assert.equal(result.code, 0, 'a broken previous file is not a reason to refuse');
+    const bytes = fs.readFileSync(target);
+    assert.doesNotThrow(() => JSON.parse(bytes.toString('utf8')), 'what is there afterwards is whole JSON');
+    assert.equal(bytes.includes(0), false, 'and none of the old bytes survived');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The spec tables: hostile rows in the contract itself (v0.2.1 M6)
+// ---------------------------------------------------------------------------
+
+/**
+ * `refs/assess.md` is installed into a project's `.claude/skills/`, and tuning
+ * a severity or moving a similarity band is the thing those tables exist for.
+ * So a hand-edited table is an expected input, and a *broken* hand-edited table
+ * is an expected malformed input — which before M6 took the whole CLI down with
+ * an uncaught `"…" is not a comparison a table cell can hold`.
+ *
+ * The sweep feeds `parseSpec` a doctored copy of the real reference files
+ * rather than overwriting the ones the package ships: a test that edits
+ * `skill/refs/assess.md` in place is one crash away from leaving the repository
+ * itself broken, which is a worse failure than the one being tested for.
+ */
+
+const specText = () => fs.readFileSync(SPEC_FILE, 'utf8');
+const assessSpecText = () => fs.readFileSync(ASSESS_SPEC_FILE, 'utf8');
+
+/** Replace the first data row under `marker` with one of your own. */
+function withRow(text, marker, row) {
+  const at = text.indexOf(marker);
+  assert.notEqual(at, -1, `the fixture needs the ${marker} table`);
+  const head = text.slice(0, at);
+  const lines = text.slice(at).split('\n');
+  let seen = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!lines[i].trim().startsWith('|')) continue;
+    seen += 1;
+    if (seen < 3) continue; // the header, the separator, then the first data row
+    lines[i] = row;
+    break;
+  }
+  return head + lines.join('\n');
+}
+
+/** One hostile row per new table, and the key its surviving rows land in. */
+const HOSTILE = [
+  ['<!-- phyllum:severity -->', '| `error` | not a number at all |', 'severities'],
+  ['<!-- phyllum:lint-rules -->', '|  | `colours` | `radius` |', 'lintRules'],
+  ['<!-- phyllum:hygiene-rules -->', '|  | `error` |', 'hygieneRules'],
+  ['<!-- phyllum:similarity-rules -->', '| `clone` |  |', 'similarityRules'],
+  [
+    '<!-- phyllum:similarity-bands -->',
+    '| `clone` | somewhere near 0.8 | `error` |',
+    'similarityBands',
+  ],
+  ['<!-- phyllum:naming-rules -->', '|  | `warn` |', 'namingRules'],
+  ['<!-- phyllum:prop-rules -->', '|  | `warn` | `id` |', 'propRules'],
+  ['<!-- phyllum:extra-rules -->', '|  | `warn` |', 'extraRules'],
+  ['<!-- phyllum:score-steps -->', '| twenty-one | `>= 40` | untamed |', 'scoreSteps'],
+];
+
+for (const [marker, row, key] of HOSTILE) {
+  const name = marker.replace(/<!--\s*|\s*-->/g, '');
+  test(`a hostile row in ${name} is dropped, and said out loud`, () => {
+    const clean = parseSpec(specText(), assessSpecText());
+    const broken = parseSpec(specText(), withRow(assessSpecText(), marker, row));
+
+    assert.deepEqual(clean.ignored, [], 'the shipped tables have nothing to report');
+    assert.equal(broken.ignored.length, 1, `${name}: exactly the one bad row`);
+    assert.match(broken.ignored[0], new RegExp(name), 'the notice names the table');
+    assert.match(broken.ignored[0], /ignored an unreadable row/);
+
+    // The rest of the table still works. A contract with one typo in it is
+    // still a contract, and refusing all of it would be the larger failure.
+    const count = (value) => (Array.isArray(value) ? value.length : Object.keys(value).length);
+    assert.equal(count(broken[key]), count(clean[key]) - 1, `${name}: one row fewer, not zero rows`);
+  });
+}
+
+test('a hostile row never reaches a user as a stack trace', async () => {
+  await withTempDir(async (dir) => {
+    drifted(dir);
+    // The real files, unedited — this is the regression guard for the shape of
+    // the failure rather than for one row: every command reads the spec, so a
+    // throwing reader was a throwing CLI.
+    const result = await executeArgv(['assess'], ctx(dir));
+    assert.ok(!/is not a comparison a table cell can hold/.test(result.out));
+    assert.ok(!/at Object\.|at Module\./.test(result.out));
+  });
+});
+
+test('the notice reads as a sentence, and says the assessment ran anyway', () => {
+  assert.deepEqual(renderSpecNotices([]), [], 'silence when there is nothing to say');
+  const lines = renderSpecNotices(['phyllum:severity: ignored an unreadable row (…) — why']);
+  assert.match(lines[0], /One rule was skipped/);
+  assert.match(lines[0], /ran without them/, 'the finding is still trustworthy, minus that rule');
+  assert.match(lines.at(-1), /refs\/assess\.md/, 'and it names the file to fix');
+  assert.match(renderSpecNotices(['a', 'b'])[0], /2 rules were skipped/);
 });

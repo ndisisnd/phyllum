@@ -1,0 +1,129 @@
+{
+  "eval": "assess-hygiene",
+  "rubric": "evals/rubrics/assess-hygiene.md",
+  "milestone": "v0.2.1 M2",
+  "planSections": ["§6.1", "§6.2"],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "fixtures": {
+    "collisions": "evals/fixtures/codebases/collisions",
+    "stale": "evals/fixtures/codebases/stale-system",
+    "clean": "evals/fixtures/codebases/react-css",
+    "tailwind": "evals/fixtures/codebases/tailwind",
+    "vue": "evals/fixtures/codebases/vue-app"
+  },
+  "recordingPrompt": "Assess this codebase. Say what frameworks, styling systems and theme sources are live in it at once, and which of the tokens and components in DESIGN-SYSTEM.md nothing in the code appears to use.",
+  "cases": [
+    {
+      "id": "two-frameworks-in-one-repository",
+      "kind": "collision",
+      "fixture": "collisions",
+      "rule": "framework-collision",
+      "value": "React + Vue",
+      "evidence": ["React", "Vue"],
+      "note": "Both frameworks are in the manifest, and the winner used to hide the loser."
+    },
+    {
+      "id": "two-majors-of-one-framework",
+      "kind": "collision",
+      "fixture": "collisions",
+      "rule": "framework-collision",
+      "value": "react 17 and 18",
+      "evidence": ["dependencies", "devDependencies"],
+      "note": "Declared once directly and once as an `npm:react@^17` alias, in two dependency fields."
+    },
+    {
+      "id": "three-styling-systems-live-at-once",
+      "kind": "collision",
+      "fixture": "collisions",
+      "rule": "styling-collision",
+      "value": "Tailwind + CSS-in-JS + CSS",
+      "evidence": ["Tailwind", "CSS-in-JS", "CSS"],
+      "note": "The individual detectors always existed; they used to shadow each other into one string."
+    },
+    {
+      "id": "three-theme-sources-each-declaring-values",
+      "kind": "collision",
+      "fixture": "collisions",
+      "rule": "theme-source-collision",
+      "value": "tailwind.config.js + tokens.json + src/theme.ts",
+      "evidence": ["tailwind.config.js", "tokens.json", "src/theme.ts"],
+      "note": "Three files declaring values means none of them is the source of truth."
+    },
+    {
+      "id": "one-stack-collides-with-nothing",
+      "kind": "no-collision",
+      "fixture": "clean",
+      "note": "React and a stylesheet is a project, not a problem."
+    },
+    {
+      "id": "tailwind-entry-sheet-is-not-a-second-system",
+      "kind": "no-collision",
+      "fixture": "tailwind",
+      "note": "The check has to survive the most ordinary Tailwind app there is, or it is noise."
+    },
+    {
+      "id": "stale-colour-token",
+      "kind": "unused-token",
+      "fixture": "stale",
+      "system": "own",
+      "token": "color-legacy",
+      "note": "The purple from the old marketing site: in the system, nowhere in the code."
+    },
+    {
+      "id": "stale-number-token",
+      "kind": "unused-token",
+      "fixture": "stale",
+      "system": "own",
+      "token": "radius-pill",
+      "note": "A radius nothing rounds."
+    },
+    {
+      "id": "stale-typography-token",
+      "kind": "unused-token",
+      "fixture": "stale",
+      "system": "own",
+      "token": "type-display",
+      "note": "All three token sections are read, not just the two scalar ones."
+    },
+    {
+      "id": "token-whose-value-is-written",
+      "kind": "used-token",
+      "fixture": "stale",
+      "system": "own",
+      "token": "color-primary",
+      "note": "Coverage already says this token is doing its job; the reverse check must agree."
+    },
+    {
+      "id": "token-whose-name-is-written-though-its-value-drifted",
+      "kind": "used-token",
+      "fixture": "stale",
+      "system": "own",
+      "token": "space-8",
+      "note": "The system says 32px and the code says 31px. That is drift, reported by the value rules — reporting it a second time as a stale token would be one finding too many."
+    },
+    {
+      "id": "stale-component",
+      "kind": "unused-component",
+      "fixture": "stale",
+      "system": "own",
+      "component": "Card",
+      "note": "No element, tag or class name in the markup matches any spelling of it."
+    },
+    {
+      "id": "component-the-markup-uses",
+      "kind": "used-component",
+      "fixture": "stale",
+      "system": "own",
+      "component": "Button",
+      "note": "`<button className=\"btn\">` is the component, in the spelling a scan sees."
+    },
+    {
+      "id": "components-not-judged-where-the-pass-did-not-run",
+      "kind": "not-checked",
+      "fixture": "vue",
+      "system": "stale",
+      "note": "The outranking case: a Vue project told every component it has is unused would be a statement about the reader, not about the project."
+    }
+  ]
+}
