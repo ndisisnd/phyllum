@@ -59,7 +59,14 @@ for (const stage of BEFORE_SWAP) {
       assert.equal(read(dir), original, 'the previous file is byte-identical');
       assert.ok(validateStructure(read(dir)).valid, 'and still validates against the template');
       assert.equal(parse(read(dir)).components.length, 2, 'and still parses to the same model');
-      assert.deepEqual(snapshotPaths(dir), ['DESIGN-SYSTEM.md'], 'no temp file is left behind');
+      assert.deepEqual(
+        snapshotPaths(dir),
+        ['DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak'],
+        'no temp file is left behind — only the design system and the backup taken before the edit',
+      );
+      // The interrupted edit is exactly the case the backup exists for, so it
+      // has to hold the state the interruption preserved rather than a stale one.
+      assert.equal(read(dir, 'DESIGN-SYSTEM.md.bak'), original, 'and the backup is that same file');
     });
   });
 
@@ -84,7 +91,8 @@ test('an interruption after the rename means the new file is the live one', asyn
     const after = read(dir);
     assert.ok(after === next || after === original, 'the file is one version or the other');
     assert.ok(validateStructure(after).valid);
-    assert.deepEqual(snapshotPaths(dir), ['DESIGN-SYSTEM.md']);
+    assert.deepEqual(snapshotPaths(dir), ['DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak']);
+    assert.equal(read(dir, 'DESIGN-SYSTEM.md.bak'), original, 'and one undo ago is the file before it');
   });
 });
 
@@ -175,7 +183,11 @@ test('the next write sweeps up the temp file a killed process left behind', asyn
     assert.equal(litter.length, 1, 'a killed process does leave litter — that is the point');
 
     writeDesignSystem(dir, `${original}\n`);
-    assert.deepEqual(snapshotPaths(dir), ['DESIGN-SYSTEM.md'], 'and the next write clears it');
+    assert.deepEqual(
+      snapshotPaths(dir),
+      ['DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak'],
+      'and the next write clears it',
+    );
     assert.ok(validateStructure(read(dir)).valid);
   });
 });

@@ -71,7 +71,7 @@ The commands:
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
 | `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
-| `system` | Print the design system to the terminal |
+| `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
 | `kill` | Stop the dashboard server `gui` started |
 | `init` | Guided setup — scaffold the file, install the skill |
@@ -83,7 +83,7 @@ The commands:
 
 Phyllum needs **Node 20 or newer** and has no dependencies to install.
 
-Some commands are wholly mechanical and work on their own: `menu`, `help`, `system`,
+Some commands are wholly mechanical and work on their own: `menu`, `help`, `display`,
 `gui`, `kill`, `version`, `update`, and `apply` — which only ever writes a plan.
 
 Some want [Claude Code](https://www.claude.com/product/claude-code), and run natively
@@ -157,6 +157,20 @@ with its own yes-or-no each; `assess update` skips the per-item review altogethe
 accepts every proposed token under the name it showed you. `assess update` still refuses
 to guess: a value it could see but not read stays unnamed, a component is never recorded
 without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
+
+The report ends in one number and one word: a **drift score** on a seven-step
+Fibonacci scale (1, 2, 3, 5, 8, 13, 21 — lower is better) for how much
+un-systematised styling is in there, and a **verdict** of `pass`,
+`pass w/ warnings` or `fail` derived from the findings' severities. Both are
+deterministic, so a rerun after a cleanup shows the number moving down the scale.
+Add `--json` and the whole assessment — every finding, the similarity groups, the
+score — is written to `.phyllum/assess.json` (or a path you name) instead of the
+interactive report: same object, byte-stable between runs, easy to diff in CI.
+
+And every command that edits `DESIGN-SYSTEM.md` copies it to
+`DESIGN-SYSTEM.md.bak` first, so the state before the last edit is always on
+disk. A backup that cannot be written stops the edit rather than proceeding
+without it.
 
 `tokenise` names one value from one sentence: `phyllum tokenise "our brand blue #2563EB"`.
 If the sentence names the token, that name is used; if not, Phyllum suggests one from the

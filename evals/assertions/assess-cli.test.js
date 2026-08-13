@@ -312,7 +312,11 @@ test('assess update writes DESIGN-SYSTEM.md and not one other byte', async () =>
     const before = snapshotContents(dir);
     await run('assess update', dir, { env: {} });
     const diff = diffSnapshots(before, snapshotContents(dir));
-    assert.deepEqual(diff.added, [], 'no new files, not even a report');
+    assert.deepEqual(
+      diff.added,
+      ['DESIGN-SYSTEM.md.bak'],
+      'the one new file is the backup the funnel took before the edit — no report, no state',
+    );
     assert.deepEqual(diff.removed, []);
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'the design system file is the only thing it may touch');
   }, EMPTY_FIXTURE);

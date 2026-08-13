@@ -246,9 +246,9 @@ test('assess update writes the systematic drift and leaves the exceptions alone'
     assert.ok(out.includes('used only once or twice'), 'and the report says which it declined, and why');
 
     const diff = diffSnapshots(before, snapshotContents(dir));
-    assert.deepEqual(diff.added, [], 'no new files');
+    assert.deepEqual(diff.added, ['DESIGN-SYSTEM.md.bak'], 'the backup, and nothing else new');
     assert.deepEqual(diff.removed, []);
-    assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'one file, as ever');
+    assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'one file edited, as ever');
   });
 });
 

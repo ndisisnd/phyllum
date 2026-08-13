@@ -27,6 +27,9 @@ import { fileURLToPath } from 'node:url';
 import { contractFor, traceRuleFor } from '../lib/archetypes.js';
 import { commandLine, detectInstall, updateCommandFor } from '../lib/install-method.js';
 import { assess, assessValues } from '../lib/assess.js';
+import { renderAssessment } from '../lib/assess-command.js';
+import { FAMILIES, renderFindings, renderScore } from '../lib/assess-report.js';
+import { countFamilies, driftMass, scoreAssessment } from '../lib/assess-score.js';
 import { scanCandidates } from '../lib/candidates.js';
 import { detectHarness } from '../lib/harness-detect.js';
 import { buildPhases, componentChanges, criterionFields, tokenChanges } from '../lib/prd.js';
@@ -43,6 +46,17 @@ import { codeViewFor, detectProject } from '../lib/detect.js';
 import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
 import { proposeTokens, scanCodebase } from '../lib/tokenise.js';
 import { parseProse, suggestName } from '../lib/tokenise-prose.js';
+import {
+  actionFor,
+  actionRules,
+  extraRules,
+  hygieneRules,
+  lintRules,
+  namingRules,
+  propRules,
+  scoreStepFor,
+  similarityRules,
+} from '../lib/tokenise-spec.js';
 
 export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = path.resolve(EVALS_DIR, '..');
@@ -84,8 +98,15 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * And M4 adds `assess-consistency`, the fourth time and the last of the
  * assessment-depth milestones to add a family of its own. Same terms again: the
  * stamp moves, the release stays where it is, no threshold is lowered.
+ *
+ * M5 adds `assess-report`, and it is a different kind of addition: the first
+ * eval that grades the assessment as a whole rather than one family of finding —
+ * the six smaller checks, the drift score, the verdict, and the report that
+ * groups every finding into one row shape. Same terms as the four before it. The
+ * stamp moves to `v0.2.1 M5`, the release stamp stays `v0.2.0` because that is
+ * still the released bar being cleared, and no threshold is lowered.
  */
-export const MILESTONE = 'v0.2.1 M4';
+export const MILESTONE = 'v0.2.1 M5';
 export const RELEASE = 'v0.2.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
@@ -1699,6 +1720,252 @@ function applyRunExecution() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// assess — the report, the score and the smaller checks (v0.2.1 §7, §8)
+// ---------------------------------------------------------------------------
+
+/**
+ * How much drift is in this codebase, how bad is it, and what do I do about it?
+ *
+ * The first eval that grades the *whole* assessment rather than one family of
+ * finding. Everything it reads is arithmetic over counts the families already
+ * produced, so there is no responder and no headroom in the threshold.
+ *
+ * The cases that outrank the rest are the four asserting an absence: six checks
+ * staying quiet on projects that do not have these problems. A report whose
+ * smaller checks fire on a healthy codebase is a report whose smaller checks
+ * get folded, and then the section might as well not exist.
+ *
+ * The next most important is `score-and-verdict-are-independent`. The two
+ * answer different questions — how much, and how bad — and a codebase that
+ * fails at the bottom of the scale and one that passes-with-warnings near the
+ * top both have to be expressible, or one of the two numbers is decoration.
+ */
+function assessReportEval() {
+  const spec = readJson('evals/prompts/assess-report.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+  const modelFor = (testCase) => {
+    if (!testCase.system || testCase.system === 'none') return emptyModel();
+    const root = rootOf(testCase.system === 'own' ? testCase.fixture : testCase.system);
+    return parse(fs.readFileSync(path.join(root, 'DESIGN-SYSTEM.md'), 'utf8'));
+  };
+
+  // One scan per fixture-and-system pair: several cases read the same
+  // assessment, and scanning per case would grade the fixtures' size.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    const key = `${testCase.fixture}|${testCase.system ?? 'none'}`;
+    if (!scans.has(key)) scans.set(key, assess(rootOf(testCase.fixture), modelFor(testCase)));
+    return scans.get(key);
+  };
+
+  for (const testCase of spec.cases) {
+    if (testCase.kind === 'extra') {
+      const { extras } = scanFor(testCase);
+      const finding = extras.findings.find(
+        (item) => item.rule === testCase.rule && item.value === testCase.value,
+      );
+      claim(Boolean(finding), `${testCase.id}: no ${testCase.rule} naming "${testCase.value}"`);
+      if (!finding) {
+        max += 3;
+        continue;
+      }
+      claim(
+        finding.severity === testCase.severity,
+        `${testCase.id}: severity ${finding.severity}, expected ${testCase.severity}`,
+      );
+      claim(
+        String(finding.detail).includes(testCase.detail),
+        `${testCase.id}: "${finding.detail}" does not say ${testCase.detail}`,
+      );
+      claim(
+        (finding.evidence ?? []).length > 0,
+        `${testCase.id}: the finding carries no evidence`,
+      );
+      claim(
+        Boolean(actionFor(finding.rule)),
+        `${testCase.id}: ${finding.rule} has no suggested action`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      const { extras } = scanFor(testCase);
+      const half = extras[testCase.check];
+      claim(
+        half.checked === false,
+        `${testCase.id}: the ${testCase.check} check claims to have run without the evidence for it`,
+      );
+      claim(
+        half.rows.length === 0,
+        `${testCase.id}: reported ${half.rows.length} findings from a check that could not run`,
+      );
+      claim(Boolean(half.reason), `${testCase.id}: skipped the question without saying why`);
+      continue;
+    }
+
+    if (testCase.kind === 'no-extras') {
+      const { extras } = scanFor(testCase);
+      claim(
+        extras.findings.length === 0,
+        `${testCase.id}: reported ${extras.findings.map((item) => item.rule).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'score') {
+      const result = scanFor(testCase);
+      claim(
+        result.score.score === testCase.score,
+        `${testCase.id}: scored ${result.score.score} of 21, expected ${testCase.score}`,
+      );
+      claim(
+        result.score.verdict === testCase.verdict,
+        `${testCase.id}: verdict ${result.score.verdict}, expected ${testCase.verdict}`,
+      );
+      claim(
+        result.summary.clean === testCase.clean,
+        `${testCase.id}: clean is ${result.summary.clean}, expected ${testCase.clean}`,
+      );
+      claim(
+        result.score.clean === (result.score.verdict === 'pass'),
+        `${testCase.id}: clean and the verdict disagree`,
+      );
+      claim(
+        Boolean(result.score.means),
+        `${testCase.id}: the score is a number with nothing said about what it means`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'independence') {
+      const oneError = scoreAssessment({
+        values: { uncovered: [{ rule: 'raw-colour', severity: 'error' }] },
+      });
+      claim(oneError.verdict === 'fail', `${testCase.id}: one error did not fail`);
+      claim(oneError.score <= 2, `${testCase.id}: one error scored ${oneError.score}, high on the scale`);
+
+      const manyWarnings = scoreAssessment({
+        values: {
+          uncovered: Array.from({ length: 40 }, () => ({ rule: 'raw-colour', severity: 'warn' })),
+        },
+      });
+      claim(
+        manyWarnings.verdict === 'pass w/ warnings',
+        `${testCase.id}: forty exceptions did not pass with warnings`,
+      );
+      claim(
+        manyWarnings.score >= 8,
+        `${testCase.id}: forty exceptions scored ${manyWarnings.score}, low on the scale`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'arithmetic') {
+      const result = scanFor(testCase);
+      const { families, overall } = countFamilies(result);
+      const summed = Object.values(families).reduce((total, family) => total + family.total, 0);
+      claim(
+        summed === overall.total,
+        `${testCase.id}: the families sum to ${summed} and the total says ${overall.total}`,
+      );
+      claim(
+        driftMass(families) === result.score.mass,
+        `${testCase.id}: the drift mass is not the weighted sum of the families`,
+      );
+      claim(
+        scoreStepFor(result.score.mass).step === result.score.score,
+        `${testCase.id}: the mass does not land on the step the report printed`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'actions') {
+      const declared = new Set(actionRules());
+      const rules = [
+        ...lintRules(),
+        ...hygieneRules(),
+        ...similarityRules(),
+        ...namingRules(),
+        ...propRules(),
+        ...extraRules(),
+        'unread',
+      ];
+      for (const rule of rules) {
+        claim(declared.has(rule), `${testCase.id}: ${rule} has no row in the action table`);
+      }
+      claim(
+        actionFor('a-rule-nobody-wrote') === null,
+        `${testCase.id}: an action was invented for a rule that does not exist`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'report') {
+      const result = scanFor(testCase);
+      const rollUp = renderFindings(result).join('\n');
+      for (const [family] of FAMILIES) {
+        claim(rollUp.includes(`  ${family} —`), `${testCase.id}: the roll-up has no ${family} row`);
+      }
+      claim(
+        rollUp.includes('severity · finding · evidence · what to do'),
+        `${testCase.id}: the roll-up does not state its row shape`,
+      );
+      const headline = renderScore(result).join('\n');
+      claim(
+        headline.includes(`Drift score: ${result.score.score} of 21`),
+        `${testCase.id}: the headline does not print the score out of the scale`,
+      );
+      claim(
+        headline.includes(`Verdict: ${result.score.verdict}`),
+        `${testCase.id}: the headline does not print the verdict`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'inheritance') {
+      // One scan, one rendering: every chained mode prints the same report and
+      // then walks a different track, so what is graded here is that the shared
+      // rendering carries the whole judgement. The per-mode command output is
+      // asserted end to end in evals/assertions/assess-report.test.js.
+      const result = scanFor(testCase);
+      const out = renderAssessment(result).join('\n');
+      claim(
+        out.includes(`Drift score: ${result.score.score} of 21`),
+        `${testCase.id}: the shared report does not carry the score`,
+      );
+      claim(
+        out.includes(`Verdict: ${result.score.verdict}`),
+        `${testCase.id}: the shared report does not carry the verdict`,
+      );
+      claim(
+        out.includes('The smaller checks'),
+        `${testCase.id}: the shared report does not run the smaller checks`,
+      );
+      claim(
+        out.includes('The findings — severity'),
+        `${testCase.id}: the shared report does not group the findings by family`,
+      );
+      claim(
+        testCase.modes.length === 3,
+        `${testCase.id}: the case names ${testCase.modes.length} modes, expected three`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
 /** Object keys in a fixed order, so a comparison is about content. */
 function sortKeys(object) {
   return Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
@@ -1722,6 +1989,7 @@ export const EVALS = [
   { id: 'assess-hygiene', modelDependent: false, run: assessHygieneEval },
   { id: 'assess-similarity', modelDependent: false, run: assessSimilarityEval },
   { id: 'assess-consistency', modelDependent: false, run: assessConsistencyEval },
+  { id: 'assess-report', modelDependent: false, run: assessReportEval },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
 ];
 

@@ -1,0 +1,20 @@
+/* A codebase that has a dark theme and has not finished it, plus the four
+   smaller kinds of drift: two greys nobody can tell apart, a spacing value one
+   pixel off the scale, an unplanned stacking order, and breakpoints written as
+   literals. The light half names everything; the dark half restates two of the
+   four colours and forgets the brand. */
+
+:root {
+  --color-surface: #FFFFFF;
+  --color-ink: #111827;
+  --color-primary: #2563EB;
+  --color-muted: #A1A1AA;
+  --color-muted-alt: #A5A5AE;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #0B1120;
+    --color-ink: #F9FAFB;
+  }
+}

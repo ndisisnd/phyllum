@@ -22,14 +22,18 @@ Three ideas govern every command:
 
 Phyllum writes **exactly one file** in the user's codebase: `DESIGN-SYSTEM.md`.
 
-Three operational exceptions exist, all Phyllum-owned:
+A handful of operational exceptions exist, all Phyllum-owned, and each one is
+enumerated rather than tolerated — the assertion suite diffs the whole project
+directory around every command and fails on anything not in this list:
 
 | Path | When |
 |------|------|
 | `DESIGN-SYSTEM.md` | any command, after the user accepts a change |
-| `.phyllum/**` | session state, and `apply`'s plan at `.phyllum/PRD.md`; gitignored |
+| `DESIGN-SYSTEM.md.bak` | the same write, one step earlier — the pre-edit copy the funnel always takes (v0.2.1 §6.5.2) |
+| `.phyllum/**` | session state, `apply`'s plan at `.phyllum/PRD.md`, and `assess --json`'s default output; gitignored |
 | `.claude/skills/phyllum/**` | `init` — the skill install; and `update`, which re-syncs that same copy |
-| one `.phyllum/` line in `.gitignore` | `init` only, with the user's confirmation |
+| Phyllum's two `.gitignore` lines | `init` only, with the user's confirmation |
+| a JSON path you name | `assess --json <path>` only, and only a `.json` file inside the project |
 
 Nothing else, ever. Do not write generated component code into the codebase,
 do not rewrite existing styles to use tokens, do not touch config files. If a
@@ -50,12 +54,12 @@ above holds unchanged for every other command.
 | `menu` | — | List every subskill, one line per command |
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
-| `assess` | — | Read the codebase and inventory the raw styling in it |
+| `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | `tokenize` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
-| `system` | — | Print the design system to the terminal |
+| `display` | `system` | Print the design system to the terminal |
 | `version` | — | Print the installed version and check npm for a newer one |
 | `update` | — | Update this install to the latest published version |
 | `init` | — | Guided setup: scaffold the file, install this skill |
@@ -65,8 +69,8 @@ Aliases are exact equivalents — same subskill, same behaviour.
 `help` is a reserved word in argument position: `create help` is help *about*
 create, never a component named "help". A quoted `"help"` means the word.
 
-Scope words (`tokens` / `components` / `all`) are only meaningful on `system`
-and `gui`, and default to `all`. `assess` reserves its own three words in
+Scope words (`tokens` / `components` / `all`) are only meaningful on `display`
+(and its alias `system`) and `gui`, and default to `all`. `assess` reserves its own three words in
 argument position — `tokens` / `components` / `update` — for its chained modes,
 and `apply` reserves one: `run`.
 
@@ -84,7 +88,7 @@ reads the design system *and* the codebase, and writes only its own plan.
 | `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
 | `tokenise` | `refs/tokenise.md` — how a sentence is read, the three passes, the naming scales, the follow-up loop when a value or a name is missing, acceptance |
 | `gui` | `refs/gui.md` — server contract, view specs |
-| `system` | `refs/system.md` — listing format |
+| `display` | `refs/system.md` — listing format; `system` is the same command under its older name |
 | `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |
 | `update` | `refs/update.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
 | `init` | `refs/init.md` — the walkthrough, step by step |
@@ -118,7 +122,7 @@ three-backtick block. Fence length is significant to the parser.
 
 ## Execution model
 
-- **Mechanics** (`menu`, `help`, `system`, `gui`, `kill`, `version`, `update`,
+- **Mechanics** (`menu`, `help`, `display`, `gui`, `kill`, `version`, `update`,
   `apply`, `assess`'s scan, mapping table and proposed names, and `init`'s
   scaffold and install steps) run entirely in Node, with no model involved.
 - **Intelligence** (`create`, `tokenise`, `assess`'s suggestion review, and
@@ -145,7 +149,7 @@ font: record it exactly as given.
 
 ## Milestone status
 
-M1 shipped `menu`, `help`, `system` and `init` (scaffold plus skill install).
+M1 shipped `menu`, `help`, `display` (then called `system`) and `init` (scaffold plus skill install).
 M2 shipped `create` in prose mode: draft spec, gap list from the archetype
 contract, follow-up loop, React + CSS code view, accept, write.
 M3 shipped `tokenise`: the read-only scan, the three passes, clustering before
@@ -358,6 +362,52 @@ abbreviations means guessing; a value the scan cannot read is counted and never
 compared; and the prop pass is React-only, so on any other stack the answer is
 that the question was not asked. Nothing is renamed — a rename is a suggestion
 against the design system, and editing a call site is `apply`'s job.
+
+v0.2.1 M5 is the product surface over all four of them, plus the pieces that
+move the results around.
+
+**One row shape, one number.** The report now ends by saying everything twice on
+purpose: first every finding in one table — **severity · finding · evidence ·
+suggested action**, grouped by family — because a reader triaging work needs
+them side by side rather than spread across six sections; then one **drift
+score** and one **verdict**. The score is a step on a seven-step Fibonacci scale
+(1, 2, 3, 5, 8, 13, 21, lower better), built by weighting every finding by family
+and severity into a *drift mass* and dropping the mass onto a step. Fibonacci
+because drift does not grow evenly: the widening gaps say "about twice as bad"
+honestly where a 0–100 score implies a precision no scan has. The verdict is
+`fail` / `pass w/ warnings` / `pass`, derived from **severities and never from
+the score**, because the two answer different questions — how bad, and how much.
+A codebase can fail at 1 and pass-with-warnings at 8, and both are true things.
+`clean` in the summary is exactly `verdict === 'pass'`. Every chained mode
+inherits all of it: one scan, read four ways.
+
+**Six smaller checks (§8).** Two colours nobody can tell apart (CIE76 ΔE, above
+the clustering floor and below the distance row, so a pair is by construction
+two values the code keeps apart and an eye cannot); a **dark-mode gap**, but only
+in a codebase that demonstrably has a dark theme, and read per styling system —
+by token name where colour is written by name, by property where it is written
+by value, and the whole token half declines to run rather than call every token
+a gap when no token is restated in a dark scope; two tokens holding one value
+under different names; a spacing value that misses your own scale by a hair,
+which is an `error` at any frequency because a near miss reads as a mistake
+rather than an exception; an inventory of raw z-index literals once there are
+enough to be a sprawl; and media-query widths no breakpoint token names. All six
+are silent without the evidence for them, and the silence is the design: a check
+that fires on a healthy project is one people learn to skip.
+
+**Three utilities (§6.5).** `assess --json [path]` writes the whole assessment
+object — the same one the report renders from — to `.phyllum/assess.json` or a
+path you name, with a `schemaVersion` and no timestamp, so two runs over an
+unchanged codebase are byte-identical and diff cleanly in CI. It never enters
+the review loop, and `assess update --json` is refused with the reason stated,
+because one accepts on your behalf and the other promises to touch nothing.
+Every edit to `DESIGN-SYSTEM.md` now copies the file to
+**`DESIGN-SYSTEM.md.bak`** first — always one undo ago, taken in the single
+write path so no writer can forget it, and a **failed backup aborts the edit**
+rather than proceeding without the safety it claims to provide; `init`
+gitignores it alongside `.phyllum/`. And **`display`** is the primary read verb,
+with **`system` kept permanently as its alias** — same renderer, same dispatch
+branch, byte-for-byte identical output at every scope.
 
 Commands that are not built yet are registered and documented, and say so when
 invoked.

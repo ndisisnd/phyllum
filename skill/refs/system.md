@@ -1,8 +1,16 @@
-# `system`
+# `display` (alias: `system`)
 
-Print the design system, fully listed out, to the terminal. `system` keeps no
+Print the design system, fully listed out, to the terminal. `display` keeps no
 state of its own: it is a formatted read of `DESIGN-SYSTEM.md`, so it is always
 truthful to the source file. Running it writes nothing.
+
+**`display` is the primary name; `system` is a permanent alias** (v0.2.1
+§6.5.3). The verb changed because the old one named the thing rather than the
+act — every other command here is something you do, and "display" is what this
+one does. Nothing about the behaviour changed with it: both words reach the same
+renderer through the same branch of the dispatch, so their output is
+byte-for-byte identical at every scope, and `system` is kept indefinitely so no
+habit and no document has to be rewritten.
 
 ## Listing format
 
@@ -37,18 +45,22 @@ and line count, because the file itself is the place to read code.
 
 | Invocation | Shows |
 |------------|-------|
-| `phyllum system tokens` | tokens only |
-| `phyllum system components` | components only |
-| `phyllum system all` | everything — identical to bare `phyllum system` |
+| `phyllum display tokens` | tokens only |
+| `phyllum display components` | components only |
+| `phyllum display all` | everything — identical to bare `phyllum display` |
 
-`all` is the default, so `system` and `system all` produce byte-identical
-output. An unrecognised scope word prints the valid scopes rather than erroring.
-The same three scopes are the opening filter for `gui` / `dashboard`.
+`all` is the default, so `display` and `display all` produce byte-identical
+output, and so do `system` and `system all`. An unrecognised scope word prints
+the valid scopes rather than erroring, naming the word you typed so the
+correction matches the command you ran. The same three scopes are the opening
+filter for `gui` / `dashboard`.
 
-Flags are reserved for later (`--json`, `--component <name>`); v1 ships the
-listing plus the three scopes.
+Flags are reserved for later (`--component <name>`); the listing plus the three
+scopes is the whole surface. `--json` belongs to `assess`, which has a whole
+assessment object worth serialising — a formatted read of a Markdown file you
+can already open is not one.
 
 ## Before init
 
-If there is no `DESIGN-SYSTEM.md`, `system` says so, points at `phyllum init`, and
-exits cleanly. It never creates the file implicitly.
+If there is no `DESIGN-SYSTEM.md`, `display` says so, points at `phyllum init`,
+and exits cleanly. It never creates the file implicitly.

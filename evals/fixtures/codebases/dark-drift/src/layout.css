@@ -1,0 +1,39 @@
+.header {
+  z-index: 100;
+  padding: 15px;
+  background: #A1A1AA;
+}
+
+.drawer {
+  z-index: 200;
+  padding: 15px;
+  background: #A1A1AA;
+}
+
+.modal {
+  z-index: 9999;
+  padding: 15px;
+  background: #A1A1AA;
+}
+
+.toast {
+  z-index: 10000;
+  color: #ABABB8;
+}
+
+.tooltip {
+  z-index: 12;
+  color: #ABABB8;
+}
+
+@media (min-width: 768px) {
+  .header {
+    padding: 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .drawer {
+    color: #ABABB8;
+  }
+}

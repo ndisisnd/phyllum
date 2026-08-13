@@ -631,6 +631,194 @@ that it could not find a dominant convention rather than picking a winner.
 
 ---
 
+## The smaller checks (v0.2.1 §8)
+
+Six checks that do not belong to any of the families above, because each one
+reads something the others do not: a pair of colours against each other, a dark
+theme against a light one, `DESIGN-SYSTEM.md` against itself, a spacing value
+against the scale it *nearly* sits on, and two kinds of literal — z-index and
+breakpoint widths — that no property table gives a role to. They ship as one
+family so the report has one place to put them, and each carries its own rule
+name so a reader is never told "an extra finding" and left to guess which.
+
+<!-- phyllum:extra-rules -->
+
+| Rule | Severity | Detects |
+|------|----------|---------|
+| near-duplicate-colour | warn | two token-worthy colours close enough to each other that no eye can hold them apart |
+| dark-mode-gap | warn | a colour the light theme names and the dark theme never restates — **only** in a codebase that demonstrably has a dark theme |
+| token-alias-duplicate | warn | two tokens in `DESIGN-SYSTEM.md` holding the same value under different names |
+| off-scale-spacing | error | a spacing length that misses the token scale by a hair — `15px` in an eight-point system |
+| z-index-sprawl | warn | raw `z-index` literals, inventoried, once there are enough of them to be a stack nobody planned |
+| hardcoded-breakpoint | warn | a media-query width written as a literal when a breakpoint token could name it |
+
+Every one of them is silent when the evidence for it is missing, and silence is
+the deliberate half of the design. A project with no dark theme is not nagged
+about dark coverage; a project with no spacing tokens has no scale to be off;
+two z-index values are a stack, not a sprawl. A check that fires on a healthy
+project is a check people learn to skip.
+
+<!-- phyllum:extra-limits -->
+
+| Limit | Value | Why |
+|-------|-------|-----|
+| colour distance | 8 | how close two colours have to be, in ΔE, before they are one colour written twice |
+| colour pairs | 400 | comparisons the colour check makes before it stops |
+| off-scale tolerance | 3 | how many pixels from a rung of the scale still counts as aiming at that rung and missing |
+| z-index values | 3 | distinct raw z-index values before an inventory is a sprawl |
+| files | 400 | files the extras sweep reads |
+
+**The colour distance is CIE76 ΔE, and it is an approximation on purpose.** It
+is the same measure the colour clustering uses — sRGB converted to Lab, then a
+straight-line distance between the two points — rather than CIEDE2000, which is
+a colour-science library Phyllum does not have and will not vendor for one
+check. CIE76 overstates distance in saturated blues and understates it in
+near-neutrals, and neither error matters at this range: the question is whether
+two greys are the same grey, and eight units of ΔE is comfortably inside "an eye
+cannot hold these apart".
+
+The check has a floor as well as a ceiling, and the floor is the clustering
+threshold. Anything within ΔE 3 of another colour was already merged into one
+cluster before this check ran, so a near-duplicate pair is by construction two
+values the codebase keeps apart and a person cannot: **more than 3, no more than
+8**. The number is printed in the finding so it can be argued with.
+
+<!-- phyllum:dark-evidence -->
+
+| Evidence | Written as | Read from |
+|----------|------------|-----------|
+| media query | `@media (prefers-color-scheme: dark)` | stylesheets, `<style>` blocks, any text file |
+| class scheme | `.dark`, `[data-theme="dark"]`, `[data-mode=dark]` | selectors in stylesheets and style blocks |
+| utility variant | `dark:` | class lists in markup — `dark:bg-slate-900` |
+| config switch | `darkMode` | the theme config the detector already found — `tailwind.config.*` |
+
+A **dark scope** is the body of a `prefers-color-scheme: dark` block, the body
+of a rule whose selector carries the class scheme, or the value half of a
+`dark:` utility. What counts as a **dark counterpart** inside one of those is
+deliberately per-styling-system, because "the dark version of this colour" is
+not a fact any single file format states:
+
+| The codebase writes colour | A counterpart is | Why |
+|----------------------------|------------------|-----|
+| by name — CSS custom properties, a theme object, tokens | the token's name declared again inside a dark scope | `--color-ink: #F9FAFB` under a dark media query *is* `color-ink` having a dark value, said as plainly as a file will ever say it |
+| by value — literals, utility classes | the property it sits on declared again inside a dark scope | a literal cannot be restated; its dark version is a different literal, and nothing in the text ties the two together. What can be read is whether the dark theme touches `background` at all |
+
+One gate sits over both, and it is what keeps this from being a nag. If **no**
+colour token is restated by name in any dark scope, this project does not
+express dark values per token — and a check that then called every token a gap
+would be reporting its own inability to read the convention. So it says that
+instead, and grades only the raw half.
+
+---
+
+## The findings, the score and the verdict (§7)
+
+Every family counts its findings the same way, so the report can lay them side
+by side: severity, the finding, the evidence behind it, and the one thing to do
+about it. The suggested action is a row here rather than a sentence in the
+renderer, because it is the part of a finding a reader acts on, and it should be
+editable without touching code.
+
+<!-- phyllum:actions -->
+
+| Rule | Suggested action |
+|------|------------------|
+| raw-colour | name it as a colour token, then let `apply` replace the literals |
+| raw-spacing | name it on the spacing scale, or move it onto a rung you already have |
+| raw-radius | name it as a radius token, or reuse the nearest one |
+| raw-border | name the border as a token, or reuse the border you already named |
+| raw-shadow | name the elevation as a shadow token — a shadow written out twice is two elevations |
+| raw-typography | name the size, weight and line-height together as one type token |
+| unread | tell Phyllum what it applies to, and it becomes a token like any other |
+| framework-collision | decide which framework owns the components, and finish the migration |
+| styling-collision | pick the system the tokens live in; the others read from it |
+| theme-source-collision | make one file the source of truth and generate the rest |
+| unused-token | keep it or remove it — nothing is removed for you |
+| unused-component | keep it or remove it — nothing is removed for you |
+| component-clone | merge them, keeping the more-used one |
+| style-duplicate | keep one block and reference it from the other |
+| utility-overlap | extract the bundle as a component, if it is one |
+| naming-drift | rename it to the predictable form |
+| naming-convention | spell it in the convention the rest of the codebase uses |
+| prop-synonym | pick one spelling and use it everywhere |
+| prop-type-conflict | decide which value type the prop takes, and say so in the spec |
+| prop-style-bypass | use the variant instead of the inline style |
+| near-duplicate-colour | keep one of them and point the other at it |
+| dark-mode-gap | give it a dark value, or say plainly that it has none |
+| token-alias-duplicate | keep one name and merge the other into it |
+| off-scale-spacing | move it onto the nearest rung of the scale |
+| z-index-sprawl | name the layers as tokens and stop counting upwards |
+| hardcoded-breakpoint | name the breakpoint and use it everywhere |
+
+### The drift score
+
+One number for the whole assessment, on a **seven-step Fibonacci scale — 1, 2,
+3, 5, 8, 13, 21**. Lower is better: 1 is essentially systematised, 21 is
+untamed. Fibonacci on purpose, because drift does not grow evenly and a 0–100
+score implies a precision no scan has. The widening gaps are the honest part —
+the difference between a 3 and a 5 is a morning's work, and the difference
+between a 13 and a 21 is a decision about the project.
+
+The score is built in two steps. Every finding is worth points by family and
+severity, the points are summed into one **drift mass**, and the mass falls
+into a step.
+
+<!-- phyllum:score-weights -->
+
+| Family | error | warn |
+|--------|-------|------|
+| lint | 3 | 1 |
+| similarity | 3 | 1 |
+| props | 3 | 1 |
+| naming | 2 | 1 |
+| hygiene | 2 | 1 |
+| extras | 2 | 1 |
+
+Lint, similarity and props weigh heaviest at `error` because each of them is a
+contradiction inside the code: the same value written out three times, two
+components that are one component, one prop called two things. Naming, hygiene
+and the extras weigh less because they are untidiness rather than contradiction
+— a stale token costs a reader nothing at runtime. Every `warn` is worth one
+point in every family, which is the point of a warning: it counts, and it never
+counts as much as the thing somebody has to fix.
+
+<!-- phyllum:score-steps -->
+
+| Step | Drift mass | Means |
+|------|------------|-------|
+| 1 | <= 2 | essentially systematised — what is here is named |
+| 2 | <= 5 | a handful of exceptions, and nothing systematic |
+| 3 | <= 10 | drift has started; it is still a morning's work |
+| 5 | <= 20 | a real backlog of unnamed values and untidy names |
+| 8 | <= 40 | the design system describes some of this codebase |
+| 13 | <= 80 | the codebase and the design system are two different systems |
+| 21 | — | untamed — the tokens are a document, not a contract |
+
+The cut-points double, so each step means "about twice as much as the one
+below". A row with an em dash in the mass column always matches, which is how
+the table spells "and everything above this".
+
+<!-- phyllum:verdicts -->
+
+| Verdict | When |
+|---------|------|
+| fail | one or more `error` findings anywhere in the assessment |
+| pass w/ warnings | no errors, and one or more warnings |
+| pass | nothing found at all |
+
+The verdict is derived from **severities and never from the score**, and the two
+answer different questions on purpose. The verdict says whether anything here is
+systematic drift; the score says how much of it there is. A codebase can fail
+with a score of 2 (one value written three times, and nothing else) and pass
+with warnings at 8 (a hundred deliberate exceptions). `clean` in the summary is
+exactly `verdict === 'pass'`, so one word cannot disagree with the other.
+
+Both are deterministic: same codebase, same `DESIGN-SYSTEM.md`, same score and
+same verdict. That is what makes a rerun after a fix meaningful — the number
+moves down the scale, or the work did not land.
+
+---
+
 ## Component detection — React in v0.2.0
 
 The component half looks for markup patterns the codebase repeats and the design
@@ -757,9 +945,17 @@ four — the modes differ only in which tracks are walked and in who answers.
 | `assess tokens` | the token review only | you |
 | `assess components` | the component picks only, **looped** | you, once per candidate |
 | `assess update` | tokens, then components | Phyllum, where the answer is already on the page |
+| `assess --json` | none — the assessment is written to a file | nobody; it asks nothing |
+
+Every finding family reports in all four modes: the scan is one scan, so
+`assess tokens` sees the same similarity groups, naming drift, prop mismatches,
+hygiene findings and score that `assess` does. What the mode changes is which
+suggestion track is *walked*, never what was found.
 
 `tokens`, `components` and `update` are reserved words in argument position after
 `assess`. Any other word gets the list of valid ones rather than an error.
+`--json` is a flag rather than a reserved word, so `assess --json tokens` is the
+token mode written to a file — the scope word is never read as a filename.
 
 **`assess components` loops.** One candidate at a time, most-repeated first, each
 with its own pick and its own acceptance gate. After each recording it asks about
@@ -788,6 +984,48 @@ So `assess update`'s output is exactly this: new token rows in `DESIGN-SYSTEM.md
 under the names the map showed, and a report naming what it declined to answer.
 It writes `DESIGN-SYSTEM.md` and nothing else — no components, no codebase files,
 not one other byte.
+
+## `--json` — the same assessment, written to a file (§6.5.1)
+
+`--json [path]` runs any mode and writes the **whole assessment object** to a
+JSON file instead of walking any track. Default path `.phyllum/assess.json`;
+`--json out/report.json` and `--json=out/report.json` both name one of your own.
+
+| Property | What it means |
+|----------|---------------|
+| the same object | the file holds what the report renders from — findings, similarity groups, families, score, verdict — never a summary re-derived for machines |
+| `schemaVersion` | first field in the file, so a consumer can refuse a shape it does not know instead of reading a field that moved |
+| byte-stable | two runs over an unchanged codebase write byte-identical files. No timestamp, no duration, no absolute path, no random id — a diff between runs is a diff of the codebase |
+| no review | `--json` never enters the review loop. Nothing is asked, nothing accepted, `DESIGN-SYSTEM.md` untouched |
+| one file | it writes the JSON file and nothing else, and it never falls back to a second location when the first is refused |
+
+Two things are left out of the file on purpose: `sightings`, every raw reading
+the scan took, because it is tens of thousands of rows already summarised into
+the inventory above it; and `root`, because an absolute path would make the same
+project assessed from two checkouts diff against itself.
+
+**`assess update --json` is refused**, with both halves of the reason stated.
+`update` exists to accept suggestions for you and edit `DESIGN-SYSTEM.md`;
+`--json` exists to report without touching anything. Running both would either
+write the design system during a run whose whole promise is that it does not, or
+silently ignore half the command line. It exits non-zero, because a run that did
+not do what the command line asked must not report success to whatever asked.
+
+## Backups — one undo ago (§6.5.2)
+
+Every command that edits `DESIGN-SYSTEM.md` — `create`, `tokenise`, the review
+loop, `assess update` — copies the current file to **`DESIGN-SYSTEM.md.bak`**
+first. It is the state before the most recent edit, overwritten on each new one,
+so `.bak` is always exactly one undo ago.
+
+- It lives in the **single write path**, not in the commands. A backup each
+  writer remembers to take is one that a future writer forgets.
+- **A failed backup aborts the edit.** Not a warning: the file's whole value is
+  existing at the moment somebody wants it, so a write that proceeds without one
+  has quietly removed the safety it claims to provide.
+- There is nothing to back up on a first write, so none is taken.
+- `init` adds it to `.gitignore` alongside `.phyllum/` — a local undo buffer of
+  a file that is already committed has no business in a diff.
 
 ## Rerunnable
 

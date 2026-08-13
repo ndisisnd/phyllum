@@ -74,7 +74,7 @@ test('an unknown command in the session points at the menu and keeps going', asy
   await withTempDir(async (dir) => {
     const out = await session(dir, ['wibble', 'menu', 'exit']);
     assert.ok(out.includes('no command called "wibble"'));
-    assert.ok(out.includes('phyllum system'));
+    assert.ok(out.includes('phyllum display'), 'and the menu it points at leads with the read verb');
   });
 });
 
@@ -106,7 +106,11 @@ test('the session runs the whole create loop: questions, answer, acceptance', as
     const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
     assert.ok(file.includes('### Button/Danger'));
     assert.ok(file.includes('padding-top: 12px'));
-    assert.deepEqual(snapshotPaths(dir).sort(), ['.phyllum/session.json', 'DESIGN-SYSTEM.md']);
+    assert.deepEqual(snapshotPaths(dir).sort(), [
+      '.phyllum/session.json',
+      'DESIGN-SYSTEM.md',
+      'DESIGN-SYSTEM.md.bak',
+    ]);
   });
 });
 
