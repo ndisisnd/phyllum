@@ -4,7 +4,17 @@ What's new for you, release by release.
 
 ## v0.2.1 — 2026-08-14
 
-> A hardening release: `assess` can no longer overwrite your design-system file by accident, a single bad row in a hand-edited spec can't crash an assessment, and usage detection stopped flagging tokens that are actually in use. Everything about this release is aimed at making assessments safe to run and safe to trust.
+> `assess` stops inventorying and starts judging. Every finding now carries a severity, near-identical components and styles are scored as clones, naming drift and prop mismatches are called out, and the whole run ends in one drift score and one verdict. A hardening sweep rides along: `assess` can no longer overwrite your design-system file by accident, and bad input can't crash an assessment.
+
+### ✨ New
+- Every finding now carries a severity, so you can tell at a glance what needs fixing now and what can wait.
+- Near-identical components and styles are detected and scored as clones — including duplicated styles and overlapping utilities you didn't know you had.
+- Naming drift and prop mismatches are called out, so components that disagree with your own conventions no longer hide.
+- Unused tokens and components are found by running coverage backwards: anything your design system declares but your code never touches gets surfaced.
+- An assessment now ends in one drift score and one verdict, so you can track whether your codebase is converging on the design system or drifting away.
+- `assess --json <path>` writes the whole assessment to a file of your choosing — ready to feed into CI.
+- A new `display` command prints your design system to the terminal (`system` still works as an alias).
+- Every edit to your design-system file now leaves a `.bak` behind — one undo, always available.
 
 ### 📈 Improved
 - Assessments run noticeably faster — your files are scanned once instead of four times, with identical results.
