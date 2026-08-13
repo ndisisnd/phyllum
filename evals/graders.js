@@ -77,8 +77,11 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * `assess-hygiene` joins the list, so the bar is re-recorded to stay complete,
  * and the release stamp still says `v0.2.0` because that is still the released
  * bar being cleared. No threshold moved.
+ *
+ * M3 adds `assess-similarity` on exactly the same terms. The stamp moves, the
+ * release does not, and every score the last recording held is met again.
  */
-export const MILESTONE = 'v0.2.1 M2';
+export const MILESTONE = 'v0.2.1 M3';
 export const RELEASE = 'v0.2.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
@@ -802,6 +805,197 @@ function assessHygieneEval() {
 }
 
 // ---------------------------------------------------------------------------
+// assess — similarity: clones, duplicates, overlaps (v0.2.1 §4)
+// ---------------------------------------------------------------------------
+
+/**
+ * What in this codebase is nearly the same as what else?
+ *
+ * The first check `assess` runs that reads two things against each other, and
+ * the first whose answer is a number rather than a category — so the grading is
+ * as much about the number as about the finding. A pair reported in the wrong
+ * band is a wrong answer here, not a near miss: the bands are what a reader
+ * acts on, and 0.79 and 0.81 mean different things on purpose.
+ *
+ * Every case runs over a pinned fixture and the whole comparison is set
+ * arithmetic, so there is no responder and no headroom in the threshold. The
+ * cases that outrank the rest are the four that assert an absence — the
+ * ordinary project with nothing alike in it, the bundle not yet repeated
+ * enough, the two unrelated elements, and the Vue project whose markup was
+ * never read. A similarity pass that cannot stay quiet is a similarity pass
+ * nobody leaves switched on.
+ */
+function assessSimilarityEval() {
+  const spec = readJson('evals/prompts/assess-similarity.json');
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const rootOf = (fixture) => path.join(PACKAGE_ROOT, spec.fixtures[fixture]);
+
+  // One scan per fixture: several cases read the same assessment, and scanning
+  // per case would grade the size of the fixtures rather than the code.
+  const scans = new Map();
+  const scanFor = (testCase) => {
+    if (!scans.has(testCase.fixture)) {
+      scans.set(testCase.fixture, assess(rootOf(testCase.fixture), emptyModel()));
+    }
+    return scans.get(testCase.fixture);
+  };
+
+  /** A pair matches however the two halves happen to be ordered. */
+  const isPair = (finding, pair) =>
+    [...(finding.pair ?? [])].sort().join('|') === [...pair].sort().join('|');
+
+  for (const testCase of spec.cases) {
+    const { similarity } = scanFor(testCase);
+
+    if (testCase.kind === 'clone' || testCase.kind === 'similar') {
+      const finding = similarity.clones.find((row) => isPair(row, testCase.pair));
+      claim(Boolean(finding), `${testCase.id}: ${testCase.pair.join(' ~ ')} is not reported`);
+      if (!finding) {
+        max += 3;
+        continue;
+      }
+      const clone = testCase.kind === 'clone';
+      claim(
+        finding.band === (clone ? 'clone' : 'similar'),
+        `${testCase.id}: banded ${finding.band} at ${finding.score}`,
+      );
+      claim(
+        finding.severity === (clone ? 'error' : 'warn'),
+        `${testCase.id}: severity ${finding.severity}`,
+      );
+      claim(
+        clone
+          ? finding.survivor === testCase.survivor
+          : finding.survivor === null,
+        clone
+          ? `${testCase.id}: survivor ${finding.survivor}, expected ${testCase.survivor}`
+          : `${testCase.id}: named a survivor for a pattern similarity`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-similar') {
+      claim(
+        !similarity.clones.some((row) => isPair(row, testCase.pair)),
+        `${testCase.id}: ${testCase.pair.join(' ~ ')} was reported, and shares nothing`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'duplicate' || testCase.kind === 'near-duplicate') {
+      const finding = similarity.duplicates.find((row) => isPair(row, testCase.pair));
+      claim(Boolean(finding), `${testCase.id}: ${testCase.pair.join(' ~ ')} is not reported`);
+      const duplicate = testCase.kind === 'duplicate';
+      if (!finding) {
+        max += duplicate ? 3 : 2;
+        continue;
+      }
+      claim(
+        finding.band === (duplicate ? 'clone' : 'similar'),
+        `${testCase.id}: banded ${finding.band} at ${finding.score}`,
+      );
+      claim(
+        finding.severity === (duplicate ? 'error' : 'warn'),
+        `${testCase.id}: severity ${finding.severity}`,
+      );
+      if (!duplicate) continue;
+      claim(
+        (testCase.shared ?? []).every((pair) => finding.shared.includes(pair)),
+        `${testCase.id}: shared ${finding.shared.join(' / ')} does not list ${(testCase.shared ?? []).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-duplicate') {
+      claim(
+        !similarity.duplicates.some((row) => (row.pair ?? []).includes(testCase.name)),
+        `${testCase.id}: ${testCase.name} was paired with something`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'overlap') {
+      const finding = similarity.overlaps.find((row) => row.value === testCase.value);
+      claim(Boolean(finding), `${testCase.id}: the bundle "${testCase.value}" is not reported`);
+      if (!finding) {
+        max += 2;
+        continue;
+      }
+      claim(finding.severity === 'warn', `${testCase.id}: severity ${finding.severity}`);
+      claim(
+        finding.count === testCase.count,
+        `${testCase.id}: written on ${finding.count} elements, expected ${testCase.count}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-overlap') {
+      claim(
+        !similarity.overlaps.some((row) => row.value === testCase.value),
+        `${testCase.id}: "${testCase.value}" was called a bundle`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'no-findings') {
+      claim(
+        similarity.findings.length === 0,
+        `${testCase.id}: reported ${similarity.findings.map((row) => row.value).join(', ')}`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'not-checked') {
+      claim(
+        similarity.markupChecked === false,
+        `${testCase.id}: claims to have compared markup it cannot read`,
+      );
+      claim(
+        similarity.clones.length === 0 && similarity.overlaps.length === 0,
+        `${testCase.id}: named ${similarity.clones.length + similarity.overlaps.length} markup findings it never looked for`,
+      );
+      claim(
+        Boolean(similarity.markupReason),
+        `${testCase.id}: skipped the question without saying why`,
+      );
+      claim(
+        similarity.compared.blocks > 0,
+        `${testCase.id}: the style blocks were not compared, and they read on any stack`,
+      );
+      continue;
+    }
+
+    if (testCase.kind === 'bounded') {
+      claim(
+        similarity.findings.every((row) => row.score >= 0 && row.score <= 1),
+        `${testCase.id}: a score fell outside [0, 1]`,
+      );
+      claim(
+        similarity.caps.signatures > 0 &&
+          similarity.caps.blocks > 0 &&
+          similarity.caps.pairs > 0,
+        `${testCase.id}: the report does not state the caps it ran under`,
+      );
+      claim(
+        similarity.compared.signatures > 0 && similarity.compared.blocks > 0,
+        `${testCase.id}: the report does not say what it compared`,
+      );
+    }
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+// ---------------------------------------------------------------------------
 // tokenise — the prose path, which is all `tokenise` is now (v0.2.0 §6, §7)
 // ---------------------------------------------------------------------------
 
@@ -1307,6 +1501,7 @@ export const EVALS = [
   { id: 'assess-naming', modelDependent: true, run: naming },
   { id: 'assess-severity', modelDependent: false, run: assessSeverity },
   { id: 'assess-hygiene', modelDependent: false, run: assessHygieneEval },
+  { id: 'assess-similarity', modelDependent: false, run: assessSimilarityEval },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
 ];
 

@@ -317,5 +317,25 @@ time it is printed — the scan is bounded and text-based, so *not seen* means
 "not seen in what was read", never "provably dead". Nothing is ever pruned, in
 any mode, including `assess update`.
 
+v0.2.1 M3 adds the first check that reads two things **against each other**:
+**similarity**. Three readings, each scored in [0, 1] from structure alone.
+**Component clones** — two repeated markup signatures compared on their class
+words and their tag, so `btn--primary` and `PrimaryBtn` are recognised as one
+pattern spelled twice. **Style duplicates** — two named style blocks (a CSS
+rule, a `styled.div` template, a style object) declaring materially the same
+`property: value` set, which is how a `.card` and a `.panel` end up identical
+without anyone noticing. **Utility overlaps** — one long class bundle repeated
+across elements that no component was ever extracted from. Above 0.8 is a
+**clone**, reported as an error with a merge suggestion naming the more-used
+signature as the survivor; 0.5 to 0.8 is a **pattern similarity**, reported as a
+warning with nothing suggested; below 0.5 nothing is reported, because two
+things sharing one word are not evidence. The weights, the bands and the caps
+are all rows in `refs/assess.md`. Two properties make the number worth printing:
+it is **deterministic** — no model call, explicit sort order, the same codebase
+scoring byte-identically on every run — and the comparison is **bounded**, so
+the report states the caps it ran under rather than truncating in silence. A
+merge is a suggestion and lands where every other suggestion lands: nothing here
+renames a class or rewrites a component, because writing code is `apply`'s job.
+
 Commands that are not built yet are registered and documented, and say so when
 invoked.
