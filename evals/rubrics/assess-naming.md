@@ -1,7 +1,7 @@
 # Eval — would a designer recognise the name? (plan §4, §8.5)
 
 **Status: runnable.** `node evals/run-evals.js` scores it. Prompts:
-`evals/prompts/tokenise-naming.json`. Fixture:
+`evals/prompts/assess-naming.json`. Fixture:
 `evals/fixtures/codebases/tokenise-mixed`.
 
 ## What is being graded

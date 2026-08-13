@@ -110,7 +110,7 @@ test('the session runs the whole create loop: questions, answer, acceptance', as
   });
 });
 
-test('the session runs the whole tokenise review: proposals, answers, acceptance', async () => {
+test('the session runs the whole tokenise flow: the sentence, the name, acceptance', async () => {
   await withTempDir(async (dir) => {
     copyDir(path.join(FIXTURES, 'codebases', 'tokenise-mixed'), dir);
     fs.writeFileSync(
@@ -118,27 +118,123 @@ test('the session runs the whole tokenise review: proposals, answers, acceptance
       readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
     );
 
-    // The review comes most-used first: the brand blue, then the radius, then
-    // the white. Confirm the first, skip the second, rename the third, skip the
-    // rest — then accept the write.
-    // One answer per proposal — the fixture has thirteen — then the acceptance.
-    const answers = ['y', 'skip', 'color-page', ...Array.from({ length: 10 }, () => 'skip')];
-    const out = await session(dir, ['tokenise', ...answers, 'y', 'exit']);
+    // Two runs, because `tokenise` names one value per run: confirm the name it
+    // suggests for the blue, then rename the one it suggests for the white.
+    const out = await session(dir, [
+      'tokenise "our brand blue #2563EB"',
+      'y',
+      'y',
+      'tokenise "the page background #FFFFFF"',
+      'color-page',
+      'y',
+      'exit',
+    ]);
 
-    assert.ok(out.includes('read-only'), 'the session says the scan wrote nothing');
-    assert.ok(
-      out.includes('13 values worth naming'),
-      'one answer per proposal above — if the fixture changes, so does this line',
-    );
-    assert.ok(out.includes('Name #2563EB as `color-primary`?'), 'one proposal at a time');
-    assert.ok(out.includes('merging #2564EC ×2'), 'and it shows what it is merging');
-    assert.ok(out.includes('Write 2 tokens to DESIGN-SYSTEM.md?'));
+    assert.ok(out.includes('Read from "our brand blue #2563EB"'), 'it says what it read');
+    assert.ok(out.includes('Name #2563EB as `color-primary`?'), 'and confirms the name it chose');
+    assert.ok(out.includes('Write `color-primary` to DESIGN-SYSTEM.md?'));
 
     const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
     assert.ok(file.includes('| color-primary | #2563EB |'));
     assert.ok(file.includes('| color-page | #FFFFFF |'), 'the rename is what got written');
     assert.deepEqual(snapshotPaths(dir).includes('src/styles.css'), true, 'the codebase is still there');
     assert.equal(fs.readFileSync(path.join(dir, 'src', 'styles.css'), 'utf8').includes('#2563EB'), true);
+  });
+});
+
+test('the session runs the whole assess flow: the map, the review, acceptance', async () => {
+  await withTempDir(async (dir) => {
+    // A codebase small enough to count the questions: one stylesheet, two raw
+    // values, so the review is two names and one acceptance.
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'src', 'app.css'),
+      '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n',
+    );
+    fs.writeFileSync(
+      path.join(dir, 'DESIGN-SYSTEM.md'),
+      readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
+    );
+    const cssBefore = fs.readFileSync(path.join(dir, 'src', 'app.css'), 'utf8');
+
+    const out = await session(dir, ['assess', 'y', 'y', 'y', 'exit']);
+
+    assert.ok(out.includes('phyllum assess — read-only'), 'the promise leads the report');
+    assert.ok(out.includes('Step 4 — the map'), 'the table is part of the session, not a separate mode');
+    assert.ok(out.includes('used 1×'), 'and the rows carry the evidence');
+    assert.ok(out.includes('Name #16A34A as `color-primary`?'), 'the review is `tokenise`s, one value at a time');
+    assert.ok(out.includes('Write 2 tokens to DESIGN-SYSTEM.md?'), 'one acceptance gate for the batch');
+    assert.ok(out.includes('Wrote 2 tokens to DESIGN-SYSTEM.md'));
+
+    const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(file.includes('| color-primary | #16A34A |'));
+    assert.ok(file.includes('| space-md | 20px | spacing |'));
+    assert.equal(
+      fs.readFileSync(path.join(dir, 'src', 'app.css'), 'utf8'),
+      cssBefore,
+      'the codebase it just read is byte for byte what it was',
+    );
+  });
+});
+
+/** The same two-value codebase the assess flow above counts its questions on. */
+function tinyCodebase(dir) {
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'app.css'), '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n');
+  fs.writeFileSync(
+    path.join(dir, 'DESIGN-SYSTEM.md'),
+    readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
+  );
+}
+
+test('the session runs `assess tokens` as the token review and nothing else', async () => {
+  await withTempDir(async (dir) => {
+    tinyCodebase(dir);
+    const out = await session(dir, ['assess tokens', 'y', 'y', 'y', 'exit']);
+
+    assert.ok(out.includes('Name #16A34A as `color-primary`?'), 'the review is the same one');
+    assert.ok(out.includes('Wrote 2 tokens to DESIGN-SYSTEM.md'));
+    assert.ok(!out.includes('\nComponents\n'), 'and the component track was never opened');
+  });
+});
+
+test('the session runs `assess components` as the picker, and a skip ends it', async () => {
+  await withTempDir(async (dir) => {
+    copyDir(path.join(FIXTURES, 'codebases', 'repeated-jsx'), dir);
+    fs.writeFileSync(
+      path.join(dir, 'DESIGN-SYSTEM.md'),
+      readFixture(path.join(FIXTURES, 'design-system', 'empty.md')),
+    );
+    const before = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+
+    const out = await session(dir, ['assess components', 'skip', 'exit']);
+
+    assert.ok(out.includes('Record one of these as a component?'), 'the picker is the conversation');
+    assert.ok(out.includes('None recorded this run'), 'and a skip stops the loop rather than asking again');
+    assert.ok(!out.includes('Name #'), 'the token review was never opened');
+    assert.equal(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8'), before, 'nothing written');
+  });
+});
+
+test('the session runs `assess update` without asking the session anything', async () => {
+  await withTempDir(async (dir) => {
+    tinyCodebase(dir);
+    // One line in, one report out: no answers supplied, and none needed.
+    const out = await session(dir, ['assess update', 'exit']);
+
+    assert.ok(out.includes('`assess update` answered step 5 for you'));
+    assert.ok(out.includes('Wrote 2 tokens to DESIGN-SYSTEM.md'));
+    assert.ok(!out.includes('Name #16A34A as'), 'the per-item review was skipped, not answered by the terminal');
+    assert.ok(!out.includes('Write 2 tokens to DESIGN-SYSTEM.md?'), 'and so was the gate');
+
+    const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(file.includes('| color-primary | #16A34A |'), 'under the name the map proposed');
+    assert.ok(file.includes('| space-md | 20px | spacing |'));
+    assert.equal(
+      fs.readFileSync(path.join(dir, 'src', 'app.css'), 'utf8'),
+      '.panel {\n  color: #16A34A;\n  padding: 20px;\n}\n',
+      'and the codebase it read is byte for byte what it was',
+    );
   });
 });
 

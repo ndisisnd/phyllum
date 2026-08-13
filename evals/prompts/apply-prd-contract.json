@@ -1,0 +1,129 @@
+{
+  "eval": "apply-prd-contract",
+  "rubric": "evals/rubrics/apply-prd-contract.md",
+  "threshold": 1,
+  "status": "scored from v0.2.0 M6: the whole of `apply` step one is deterministic, so the whole of it is graded here — harness detection, the change inventory, the exclusions and their reasons, the phase grouping, and whether every criterion names a change somebody could actually verify.",
+  "milestone": "v0.2.0 M6",
+  "scored": ["harness", "criteria", "exclusions", "phases", "verifiable"],
+  "notScored": ["the prose of the Goal and Harness sections, which no runner can judge"],
+  "designSystem": "evals/fixtures/design-system/apply-target.md",
+  "cases": [
+    {
+      "id": "harness-claude-code",
+      "kind": "harness",
+      "fixture": "evals/fixtures/harnesses/claude-code",
+      "prompt": "Which agent harness will execute a Phyllum PRD in this project, and from what evidence?",
+      "expected": { "id": "claude-code", "layer": "config", "config": "CLAUDE.md" }
+    },
+    {
+      "id": "harness-agents-md",
+      "kind": "harness",
+      "fixture": "evals/fixtures/harnesses/agents-md",
+      "prompt": "Which agent harness will execute a Phyllum PRD in this project, and from what evidence?",
+      "expected": { "id": "agents-md", "layer": "config", "config": "AGENTS.md" }
+    },
+    {
+      "id": "harness-cursor",
+      "kind": "harness",
+      "fixture": "evals/fixtures/harnesses/cursor",
+      "prompt": "Which agent harness will execute a Phyllum PRD in this project, and from what evidence?",
+      "expected": { "id": "cursor", "layer": "config", "config": ".cursorrules" }
+    },
+    {
+      "id": "harness-memory-only",
+      "kind": "harness",
+      "fixture": "evals/fixtures/harnesses/memory",
+      "prompt": "Which agent harness will execute a Phyllum PRD in this project, and from what evidence?",
+      "expected": { "id": "claude-code", "layer": "memory", "config": ".claude/CLAUDE.md" }
+    },
+    {
+      "id": "harness-none",
+      "kind": "harness",
+      "fixture": "evals/fixtures/harnesses/none",
+      "prompt": "Which agent harness will execute a Phyllum PRD in this project, and from what evidence?",
+      "expected": { "id": null, "layer": "none", "config": null }
+    },
+    {
+      "id": "prd-react-css",
+      "kind": "prd",
+      "fixture": "evals/fixtures/codebases/react-css",
+      "prompt": "Plan applying this design system to this codebase: one acceptance criterion per change, and a reason for everything left out.",
+      "expected": {
+        "criteria": [
+          "src/styles.css|#2563EB|token color-primary",
+          "src/styles.css|#2564EC|token color-primary",
+          "src/styles.css|#FFFFFF|token color-surface",
+          "src/styles.css|11px|token rounded-md",
+          "src/styles.css|12px|token rounded-md",
+          "src/styles.css|12px|token highlight-small",
+          "src/Button.jsx|button.btn.btn--primary|component Button/Primary"
+        ],
+        "phases": [
+          "Colour tokens",
+          "Number tokens",
+          "Typography tokens",
+          "Adopt Button/Primary"
+        ],
+        "exclusions": {
+          "unnamed": ["16px"],
+          "wrongRole": ["12px"],
+          "todoComponents": ["Card/Basic"],
+          "adoptionRan": true
+        }
+      }
+    },
+    {
+      "id": "prd-plain-html",
+      "kind": "prd",
+      "fixture": "evals/fixtures/codebases/plain-html",
+      "prompt": "Plan applying this design system to this codebase: one acceptance criterion per change, and a reason for everything left out.",
+      "expected": {
+        "criteria": [
+          "styles.css|#2563EB|token color-primary",
+          "styles.css|#FFFFFF|token color-surface",
+          "styles.css|12px|token rounded-md",
+          "styles.css|12px|token highlight-small"
+        ],
+        "phases": ["Colour tokens", "Number tokens", "Typography tokens"],
+        "exclusions": {
+          "unnamed": ["16px"],
+          "wrongRole": ["12px"],
+          "todoComponents": ["Card/Basic"],
+          "adoptionRan": false
+        }
+      }
+    },
+    {
+      "id": "prd-vue-app",
+      "kind": "prd",
+      "fixture": "evals/fixtures/codebases/vue-app",
+      "prompt": "Plan applying this design system to this codebase: one acceptance criterion per change, and a reason for everything left out.",
+      "expected": {
+        "criteria": ["src/App.vue|#2563eb|token color-primary"],
+        "phases": ["Colour tokens"],
+        "exclusions": {
+          "unnamed": ["16px", "8px"],
+          "wrongRole": ["12px"],
+          "todoComponents": ["Card/Basic"],
+          "adoptionRan": false
+        }
+      }
+    },
+    {
+      "id": "prd-empty-project",
+      "kind": "prd",
+      "fixture": "evals/fixtures/codebases/empty-project",
+      "prompt": "Plan applying this design system to this codebase: one acceptance criterion per change, and a reason for everything left out.",
+      "expected": {
+        "criteria": [],
+        "phases": [],
+        "exclusions": {
+          "unnamed": [],
+          "wrongRole": [],
+          "todoComponents": ["Card/Basic"],
+          "adoptionRan": false
+        }
+      }
+    }
+  ]
+}

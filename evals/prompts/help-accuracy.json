@@ -1,61 +1,61 @@
 {
   "eval": "help-accuracy",
   "rubric": "evals/rubrics/help-accuracy.md",
-  "status": "pinned, not scored by the M2 runner — these two need a model judge, which lands with the M6 eval harness (see evals/run.md)",
-  "milestone": "M1",
-  "planSections": [
-    "§2.2",
-    "§3",
-    "§4",
-    "§5",
-    "§6",
-    "§6.5"
-  ],
+  "status": "pinned, not scored — judging free text against a plan section needs a model judge, and there is no way to compute it without one (see evals/run.md). The byte-level parts of `help` are covered by assertions instead.",
+  "milestone": "v0.2.0 M8",
+  "note": "Re-pinned in v0.2.0 M8. The case list had not moved since v0.1.0 M1, so the one eval that checks help text against the plan had no case for any of the six commands v0.2.0 added — `version`, `update`, `assess` and its three scope words, `apply` and `apply run`. Sections are v0.2.0 plan sections where the command is new in v0.2.0, and v0.1.0 plan sections where it is not.",
+  "planSections": ["v0.1.0 §2.2", "v0.1.0 §3", "v0.1.0 §5", "v0.1.0 §6", "v0.1.0 §6.5", "v0.2.0 §3", "v0.2.0 §4", "v0.2.0 §5", "v0.2.0 §6", "v0.2.0 §6.5"],
   "cases": [
+    { "id": "help-phyllum", "command": "phyllum", "planSection": "v0.1.0 §2.2" },
+    { "id": "help-menu", "command": "menu", "planSection": "v0.1.0 §2.2" },
+    { "id": "help-help", "command": "help", "planSection": "v0.1.0 §2.2" },
+    { "id": "help-create", "command": "create", "planSection": "v0.1.0 §3" },
+    { "id": "help-gui", "command": "gui", "planSection": "v0.1.0 §5" },
+    { "id": "help-kill", "command": "kill", "planSection": "v0.1.0 §5" },
+    { "id": "help-system", "command": "system", "planSection": "v0.1.0 §6" },
+    { "id": "help-init", "command": "init", "planSection": "v0.1.0 §6.5" },
+
     {
-      "id": "help-phyllum",
-      "command": "phyllum",
-      "planSection": "§2.2"
+      "id": "help-version",
+      "command": "version",
+      "planSection": "v0.2.0 §3",
+      "mustNotClaim": "that anything other than `phyllum version` checks the registry — the check is on-demand only, and no other command touches the network"
     },
     {
-      "id": "help-menu",
-      "command": "menu",
-      "planSection": "§2.2"
+      "id": "help-update",
+      "command": "update",
+      "planSection": "v0.2.0 §4",
+      "mustNotClaim": "support for package managers beyond npm and pnpm"
     },
     {
-      "id": "help-help",
-      "command": "help",
-      "planSection": "§2.2"
+      "id": "help-assess",
+      "command": "assess",
+      "planSection": "v0.2.0 §5",
+      "mustClaim": "that it reads the codebase, maps the raw styling, and suggests tokens and components — all three, because the suggestion half is what makes it a product rather than a report"
     },
     {
-      "id": "help-create",
-      "command": "create",
-      "planSection": "§3"
+      "id": "help-assess-scopes",
+      "command": "assess",
+      "planSection": "v0.2.0 §5",
+      "mustClaim": "the three scope words `tokens`, `components` and `update`, and that `assess update` writes DESIGN-SYSTEM.md only — never source code"
     },
     {
       "id": "help-tokenise",
       "command": "tokenise",
-      "planSection": "§4"
+      "planSection": "v0.2.0 §6",
+      "mustNotClaim": "that it scans the codebase — that moved to `assess` in v0.2.0, and this is the case that catches the old description surviving the rework"
     },
     {
-      "id": "help-gui",
-      "command": "gui",
-      "planSection": "§5"
+      "id": "help-apply",
+      "command": "apply",
+      "planSection": "v0.2.0 §6.5",
+      "mustClaim": "that it writes a reviewable plan and not a line of source code"
     },
     {
-      "id": "help-kill",
-      "command": "kill",
-      "planSection": "§5"
-    },
-    {
-      "id": "help-system",
-      "command": "system",
-      "planSection": "§6"
-    },
-    {
-      "id": "help-init",
-      "command": "init",
-      "planSection": "§6.5"
+      "id": "help-apply-run",
+      "command": "apply",
+      "planSection": "v0.2.0 §6.5",
+      "mustClaim": "that `apply run` is the only command that edits source files, that it works on its own branch, and that each phase lands as its own commit"
     }
   ],
   "promptTemplate": "Here is the plan section that defines the `{{command}}` command, and here is the output of `phyllum help {{command}}`. Grade the help text against the rubric: does it describe what the plan says this command does, with its real modes and arguments, and nothing it does not do?"

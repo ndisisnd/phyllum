@@ -1,0 +1,118 @@
+{
+  "eval": "apply-run-execution",
+  "rubric": "evals/rubrics/apply-run-execution.md",
+  "threshold": 1,
+  "status": "scored from v0.2.0 M7: `apply run`'s decisions are deterministic even though the work it delegates is not, so every decision is graded here — which criteria Node does itself, which need a model and why, what the substitution leaves behind, and whether verification can tell the three answers apart.",
+  "milestone": "v0.2.0 M7",
+  "scored": ["routing", "substitution", "verification"],
+  "notScored": [
+    "anything an agent writes, which is the part a deterministic runner cannot judge — the run's own verification pass is what holds that to account, and its behaviour is scored under `verification` below"
+  ],
+  "designSystem": "evals/fixtures/design-system/apply-target.md",
+  "cases": [
+    {
+      "id": "routing-react-css",
+      "kind": "routing",
+      "fixture": "evals/fixtures/codebases/react-css",
+      "prompt": "For each acceptance criterion in this plan, decide whether Phyllum can do it mechanically or whether it needs a model, and say why.",
+      "expected": {
+        "mechanical": [
+          "src/styles.css|#2563EB|token color-primary",
+          "src/styles.css|#FFFFFF|token color-surface",
+          "src/styles.css|12px|token rounded-md"
+        ],
+        "agent": {
+          "src/styles.css|#2564EC|token color-primary": "near-identical",
+          "src/styles.css|11px|token rounded-md": "near-identical",
+          "src/styles.css|12px|token highlight-small": "typography",
+          "src/Button.jsx|button.btn.btn--primary|component Button/Primary": "component"
+        }
+      }
+    },
+    {
+      "id": "routing-plain-html",
+      "kind": "routing",
+      "fixture": "evals/fixtures/codebases/plain-html",
+      "prompt": "For each acceptance criterion in this plan, decide whether Phyllum can do it mechanically or whether it needs a model, and say why.",
+      "expected": {
+        "mechanical": [
+          "styles.css|#2563EB|token color-primary",
+          "styles.css|#FFFFFF|token color-surface",
+          "styles.css|12px|token rounded-md"
+        ],
+        "agent": {
+          "styles.css|12px|token highlight-small": "typography"
+        }
+      }
+    },
+    {
+      "id": "substitution-role-respecting",
+      "kind": "substitution",
+      "prompt": "Replace this literal with its token, on the properties the criterion names and nowhere else.",
+      "source": ".btn {\n  padding: 12px 16px;\n  border-radius: 12px;\n  font-size: 12px;\n}\n",
+      "literal": "12px",
+      "properties": ["border-radius"],
+      "token": { "name": "rounded-md", "value": "12px" },
+      "expected": {
+        "replaced": 1,
+        "contains": ["border-radius: var(--rounded-md);", "padding: 12px 16px;", "font-size: 12px;", "--rounded-md: 12px;"],
+        "rawRemainsOnNamedProperties": false
+      }
+    },
+    {
+      "id": "substitution-case-insensitive-hex",
+      "kind": "substitution",
+      "prompt": "Replace this literal with its token, on the properties the criterion names and nowhere else.",
+      "source": ".a { background: #2563eb; border: 1px solid #2563EBCC; }\n",
+      "literal": "#2563EB",
+      "properties": ["background"],
+      "token": { "name": "color-primary", "value": "#2563EB" },
+      "expected": {
+        "replaced": 1,
+        "contains": ["background: var(--color-primary)", "#2563EBCC", "--color-primary: #2563EB;"],
+        "rawRemainsOnNamedProperties": false
+      }
+    },
+    {
+      "id": "substitution-nothing-to-do",
+      "kind": "substitution",
+      "prompt": "Replace this literal with its token, on the properties the criterion names and nowhere else.",
+      "source": ".a { background: #000000; }\n",
+      "literal": "#2563EB",
+      "properties": ["background"],
+      "token": { "name": "color-primary", "value": "#2563EB" },
+      "expected": {
+        "replaced": 0,
+        "contains": ["background: #000000;"],
+        "rawRemainsOnNamedProperties": false
+      }
+    },
+    {
+      "id": "verification-not-done",
+      "kind": "verification",
+      "prompt": "Read the file and say whether this criterion is satisfied.",
+      "file": "src/styles.css",
+      "source": ".a { background: #2563EB; }\n",
+      "criterion": { "literal": "#2563EB", "token": "color-primary", "properties": ["background"] },
+      "expected": { "satisfied": false }
+    },
+    {
+      "id": "verification-done",
+      "kind": "verification",
+      "prompt": "Read the file and say whether this criterion is satisfied.",
+      "file": "src/styles.css",
+      "source": ":root { --color-primary: #2563EB; }\n.a { background: var(--color-primary); }\n",
+      "criterion": { "literal": "#2563EB", "token": "color-primary", "properties": ["background"] },
+      "expected": { "satisfied": true }
+    },
+    {
+      "id": "verification-cannot-tell",
+      "kind": "verification",
+      "prompt": "Read the file and say whether this criterion is satisfied.",
+      "file": "src/Button.jsx",
+      "source": "export const A = () => <button style={{ background: '#2563EB' }} />;\n",
+      "criterion": { "literal": "#2563EB", "token": "color-primary", "properties": ["background"] },
+      "expected": { "satisfied": null }
+    }
+  ]
+}

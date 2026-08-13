@@ -102,7 +102,9 @@ node evals/record-model.js --model haiku         # pin the model
 
 This shells out to the `claude` CLI once per case, hands it the reference file
 that governs the eval — `skill/refs/create.md` for the `create` evals,
-`skill/refs/tokenise.md` for `tokenise-naming` — plus the case's fixture, and
+`skill/refs/tokenise.md` plus `skill/refs/assess.md` for the `tokenise-*` ones,
+since the naming scales and the scanning contract now live in one file each —
+plus the case's fixture, and
 commits the reply verbatim along with the model name and the date. It is a
 deliberate act, never part of a test run.
 
@@ -124,12 +126,14 @@ them, and re-run `npm run evals:record` so the baseline matches.
 
 ## The v1 regression baseline (M6)
 
-`evals/baseline.json` is stamped `"milestone": "M6"`, `"release": "v1"`. It is
-the bar every future change has to clear, and it has two halves:
+`evals/baseline.json` is stamped `"release": "v1"` — the bar every future change
+has to clear — and `"milestone"` records which change last re-recorded it
+(v0.2.0 M6, which added `apply-prd-contract`). The v1 scores themselves
+only ever go up. The bar has two halves:
 
 | | Bar |
 |---|---|
-| Assertions | `npm test`, run under the filesystem-diff harness, **100% — 315 tests, no failures** (the GUI tests skip only when there is no `python3` on PATH) |
+| Assertions | `npm test`, run under the filesystem-diff harness, **100% — no failures, and the count only grows** (the GUI tests skip only when there is no `python3` on PATH) |
 | Evals | every eval at or above **both** its threshold **and** the score recorded in `evals/baseline.json` |
 
 The second half is what makes "never quietly worse" mechanical rather than
@@ -150,7 +154,7 @@ Rules that go with the baseline (plan §8.5):
 Re-record with `npm run evals:record` only when the change legitimately moves a
 score, and commit the new baseline with that change.
 
-## What is covered today (M1 + M2 + M3 + M4 + M5 + M6)
+## What is covered today (v0.1.0 M1–M6, then v0.2.0 M1–M8)
 
 | File | Covers |
 |------|--------|
@@ -169,20 +173,30 @@ score, and commit the new baseline with that change.
 | `evals/assertions/create-cli.test.js` | The `create` command surface and the route to the intelligence |
 | `evals/assertions/create-image.test.js` | Image mode: file validation, the trace request, ingestion (values vs questions vs refusals), output as text, the write funnel staying shut, and the dashboard's image queue being drained |
 | `evals/assertions/create-pick.test.js` | Pick mode: the read-only markup scan, archetypes plus candidates, registered components dropping out, a pick seeding no values, and the follow-up loop it enters |
-| `evals/assertions/tokenise-scan.test.js` | The read-only scan, the three passes, clustering, the naming scales, the rerun diff |
+| `evals/assertions/assess-scan.test.js` | `assess`'s engine: the read-only scan (proved by diffing the whole directory around it), the three passes, the language-agnostic sweep over every text file, what is never evidence — documentation, lockfiles, gitignored paths, Phyllum's own record — React-only component detection, clustering, the naming scales, coverage vs proposals, the rerun diff |
+| `evals/assertions/assess-suggest.test.js` | `assess` step 4 and step 5: the mapping table over its four buckets, the token review reusing `tokenise`'s, the component pick reusing `create`'s, the "seen but not read" bucket asked about rather than guessed, and one scan feeding both tracks |
+| `evals/assertions/assess-cli.test.js` | The `assess` command surface: registered and reachable, the report saying what it read, no model and no network needed, the codebase byte-identical afterwards, and the four chained modes — `tokens` and `components` walking one track each, `components` looping one candidate at a time with a consent gate each, bare `assess` recording one component per run, and `assess update` accepting the proposed tokens into `DESIGN-SYSTEM.md` alone while declining every question that would be a guess |
+| `evals/assertions/apply-prd.test.js` | `apply`'s plan engine (v0.2.0 §6.5.1): harness detection and its precedence — config files beating the `.phyllum/` preference beating memory, and harnesses other than Claude Code — the host test suite detected rather than assumed, one criterion per literal per file, a token never repurposed across roles, a near-identical literal inheriting its cluster's token and saying the rendered value changes, a `TODO` component excluded by name, adoption honest about being React-only, phases grouped by kind with tokens before components, the render → parse round trip M7 depends on, and resume carrying ticks by what a criterion is about rather than by its id |
+| `evals/assertions/apply-cli.test.js` | The `apply` command surface: `.phyllum/PRD.md` the only file written — proved by diffing the whole project directory before and after — no ask, confirm, model or network needed, a second run converging byte for byte, `run` reserved and honestly unbuilt, `--fresh` as the one destructive act and what it says about it, an empty design system answered with the command that fills it, and nothing to apply writing no plan at all |
 | `evals/assertions/tokenise-write.test.js` | Nothing before acceptance, one file changes, tokens in the right section, Backlog reconciliation |
 | `evals/assertions/tokenise-cli.test.js` | The spec tables as contract, `tokenise`/`tokenize` on a real flow, `init`'s step-4 seeding |
 | `evals/assertions/gui.test.js` | The server lifecycle against a real process — localhost-only binding, PID + port record, a second `gui` reusing the first, `kill` on both the live and the stale path — plus the JSON API, the one parse contract, and the scope word as opening filter |
-| `evals/assertions/evals-baseline.test.js` | Every eval has a rubric, a prompt set and a baseline it has not slipped below; the baseline is the stamped v1 bar; an unscored eval says so |
+| `evals/assertions/evals-baseline.test.js` | Every eval has a rubric, a prompt set and a baseline it has not slipped below; the baseline is the stamped v0.2.0 bar; an unscored eval says so |
 | `evals/assertions/fs-harness.test.js` | The filesystem-diff harness is loaded, classifies the §1 enumeration correctly, fails a run that writes outside it or into the repo, and a whole session over a real codebase touches nothing else |
 | `evals/assertions/fault-injection.test.js` | The atomic-write sweep — every stage of the write path interrupted, including a process killed outright, and the stale temp file the next write clears |
+| `evals/assertions/fault-inputs.test.js` | The malformed-input sweep (v0.2.0 M8), the other half of the fault axis: a `DESIGN-SYSTEM.md` that exists and still cannot be read, fed to all six commands that read it; a `.phyllum/PRD.md` that is unreadable, a directory, stripped of its phases, or not a plan at all; every way of breaking the one file a user hand-writes, `.phyllum/config.json`, each ignored *out loud*; and the scan meeting NUL bytes, an oversized file, an unreadable file and a dangling symlink. The bar for every case is the same three-part one: no stack trace, a message naming the file and the fix, and nothing written |
 | `evals/assertions/detect.test.js` | Language and framework detection (§3.3): manifest first, files second, and the labelled React + CSS fallback for HTML, Vue, Svelte, unknown and empty projects |
+| `evals/assertions/version-cli.test.js` | `version` (v0.2.0 §3): the installed version is read from package.json and hard-coded nowhere; up-to-date, outdated and ahead verdicts; every way the request can fail still exits 0; the registry is asked by this command only, once, and nothing else — no command, menu, help page or greeting — ever checks or hints |
+| `evals/assertions/update-cli.test.js` | `update` (v0.2.0 §4): install detection over real sandbox layouts, the four update commands, the package manager spawned by resolved path with an argument array and never run in the tests, every refusal naming the exact command while running and writing nothing, and the skill re-sync that happens only where `init` installed a copy |
 
 ### Evals
 
 | Eval | Grades | Threshold |
 |------|--------|-----------|
 | `init-detection` | the framework, styling, artefacts and code-view fallback reported for six pinned codebases | 1.0 |
+| `apply-prd-contract` | `apply`'s plan over pinned fixtures: which harness will execute it and from which layer, the exact set of acceptance criteria, the exclusions told apart by *reason* (unnamed vs named-for-another-role vs `TODO` spec), the phase grouping, adoption honest about not running off React, and — the criterion that outranks the rest — every criterion naming a file and a literal that are really there | 1.0 |
+| `apply-run-execution` | `apply run`'s decisions either side of the agent: which criteria Node does itself and which need a model (with which of the four reasons for each), what the substitution leaves behind — role-respecting, case-insensitive, tokens declared where they are read — and whether verification can tell satisfied from not-satisfied from **cannot tell**, which is the answer that stops a phase instead of trusting an agent's word | 1.0 |
+| `update-install-detection` | how Phyllum was installed, and the exact update command, over ten pinned install layouts — npm and pnpm, global and project, one-off caches and a source checkout | 1.0 |
 | `create-prose-extraction` | name, archetype and properties pulled out of a description | ≥ 0.95 |
 | `create-anti-fabrication` | no value in a draft that the input did not supply | 1.0 |
 | `create-token-first` | an existing token leads the suggestions for its slot | 1.0 |
@@ -190,11 +204,43 @@ score, and commit the new baseline with that change.
 | `create-values-free` | unconventional values recorded verbatim, never corrected | 1.0 |
 | `create-image-trace` | a traced image lands within tolerance (colour ΔE < 5, lengths ±1px), unsure readings become questions, and nothing unmeasurable is invented | ≥ 0.95 |
 | `create-pick-candidates` | a repeated unregistered pattern appears in the picker; a registered one and a one-off do not | 1.0 |
-| `tokenise-clustering` | one brand blue written two ways is one token; genuinely different values stay apart | 1.0 |
-| `tokenise-naming` | proposed names are on the documented scales, and on the right rung | 0.9 |
+| `assess-clustering` | one brand blue written two ways is one token; genuinely different values stay apart; and both hold in a codebase with no stylesheet at all, because the values pass is language-agnostic | 1.0 |
+| `assess-naming` | proposed names are on the documented scales, and on the right rung | 0.9 |
+| `tokenise-prose-extraction` | one sentence in, one token out: the name when the sentence gives one, which pass and which value, whether a length's role was stated or assumed, what typography implies, and a sentence with no value coming back as a question rather than a guess | 1.0 |
 
-`tokenise-naming` is the one threshold below 1.0, deliberately: naming is
-judgement, each case accepts more than one right answer, and the rubric says why.
+### The two evals renamed in v0.2.0 M8
+
+`tokenise-clustering` and `tokenise-naming` are `assess-clustering` and
+`assess-naming` now. Nothing about what they grade changed — both of them scan a
+fixture *codebase*, and reading the codebase has been `assess`'s job since M3,
+while `tokenise` has been prose-only since M2. The ids were simply describing the
+wrong command. An id is part of the recorded baseline, so renaming one is only
+honest in a release that re-records the whole file, which is why it waited for M8.
+
+The consequence worth naming: before the rename, `assess` — the centrepiece of
+v0.2.0, three milestones of it — appeared to have no evals, and `tokenise`
+appeared to have two that no longer described it. Both halves of that were
+misfiled labels rather than missing coverage. `tokenise-prose-extraction`, added
+in the same pass, is the coverage that was genuinely absent.
+
+### Thresholds below 1.0, and why none of them rose in M8
+
+Three thresholds sit below 1.0, and all three belong to **model-dependent** evals:
+`create-prose-extraction` (0.95), `create-image-trace` (0.95) and `assess-naming`
+(0.90). Every one of them scores a clean 1.000 on the deterministic responder
+today, so raising them would pass — and would be a mistake.
+
+The threshold is shared between the two responders, and the assertion suite grades
+the *recorded* model runs against it too. The headroom is not slack in Phyllum's
+extractor; it is the allowance for a real model's answer varying between
+recordings, which is the thing these evals exist to measure. `assess-naming`'s
+0.90 is the clearest case: naming is judgement, each case accepts several right
+answers, and the rubric says so. Raising it to 1.0 would gate the release on one
+model run choosing one accepted answer out of several.
+
+So M8 raised no threshold. The bar rose anyway, in the way that costs nothing:
+`tokenise-prose-extraction` joins at 1.0, and twelve of the fourteen evals now
+sit at 1.0.
 
 M1 pinned two rubrics that no runner could score. M6 splits them honestly:
 
@@ -204,8 +250,14 @@ M1 pinned two rubrics that no runner could score. M6 splits them honestly:
   so the runner grades it at threshold 1.0. The prose half of step 1 (what those
   artefacts *mean* for this project) still needs a model judge and stays with
   the rubric, unscored.
-- **`help-accuracy` stays pinned and unscored.** Judging whether a help text is
-  still accurate to the §2.2 table is free-text judgement end to end, and there
+- **`help-accuracy` stays pinned and unscored, and was re-pinned in M8.** Its
+  case list had not moved since v0.1.0 M1, so the one eval that checks help text
+  against the plan carried no case for any of the six commands v0.2.0 added.
+  It now pins `version`, `update`, `assess` with its three scope words, `apply`
+  and `apply run` — including the two claims most likely to rot: that `tokenise`
+  must *not* be described as scanning the codebase, and that `apply run` is the
+  only command that edits source files. Judging whether a help text is
+  still accurate to a plan section is free-text judgement end to end, and there
   is no way to score it without a model judge. It is left with a number nobody
   computed rather than given a fabricated one; the byte-level parts of `help`
   are covered by assertions instead. `evals/assertions/evals-baseline.test.js`

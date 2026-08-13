@@ -8,6 +8,7 @@
  * invocation prints the greeting and exits, so Phyllum never hangs on a prompt.
  */
 
+import readline from 'node:readline';
 import process from 'node:process';
 
 import { executeArgv } from '../lib/execute.js';
@@ -23,9 +24,31 @@ async function main() {
     return runSession({ cwd: process.cwd() });
   }
 
-  const result = await executeArgv(argv, { cwd: process.cwd(), yes: assumeYes });
+  const result = await executeArgv(argv, {
+    cwd: process.cwd(),
+    yes: assumeYes,
+    // `apply run` emits a status report every five minutes. It goes to stderr so
+    // the report on stdout stays a clean, pipeable document.
+    onReport: (line) => process.stderr.write(`${line}\n`),
+    // A safety gate is only ever answered by a person. Without a terminal there
+    // is nobody to ask, so there is no `confirm` and the gate refuses — `--yes`
+    // deliberately does not stand in for one.
+    confirm: attachedToTerminal ? askTerminal : undefined,
+  });
   process.stdout.write(result.out);
   return result.code ?? 0;
+}
+
+/** One yes/no question on the terminal. A closed input is a "no". */
+function askTerminal(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+  return new Promise((resolve) => {
+    rl.question(`${question} [y/N] `, (answer) => {
+      rl.close();
+      const trimmed = String(answer ?? '').trim().toLowerCase();
+      resolve(trimmed === 'y' || trimmed === 'yes');
+    });
+  });
 }
 
 main().then(

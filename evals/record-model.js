@@ -51,7 +51,11 @@ const familyOf = (evalId) => {
 const CONTRACTS = {
   create: () => readText('skill/refs/create.md'),
   image: () => readText('skill/refs/create.md'),
-  tokenise: () => readText('skill/refs/tokenise.md'),
+  // The naming scales live in refs/tokenise.md and the scanning contract moved to
+  // refs/assess.md in v0.2.0 M3, so an `assess-*` naming eval needs both to be
+  // judged against the whole contract: assess finds the cluster, and the scales
+  // that name it are still documented on the tokenise side.
+  tokenise: () => `${readText('skill/refs/tokenise.md')}\n\n${readText('skill/refs/assess.md')}`,
 };
 
 const OPENING = {

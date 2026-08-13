@@ -12,13 +12,27 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  APPLY_BRANCH_PREFIX,
   PermissionError,
+  SourceWriteError,
   appendGitignoreLine,
+  closeSourceGrant,
   isAllowedPath,
   mkdirGuarded,
+  openSourceGrant,
   writeDesignSystem,
   writeGuarded,
+  writeSourceGuarded,
 } from '../../lib/write.js';
+import { ALLOWED_BINARIES, runCommand } from '../../lib/run-command.js';
+import {
+  ALLOWED_SUBCOMMANDS,
+  BRANCH_PREFIX,
+  GitUsageError,
+  branchNameFor,
+  git,
+  isApplyBranch,
+} from '../../lib/git.js';
 import { parse, validateStructure } from '../../lib/design-system.js';
 import { PACKAGE_ROOT, POPULATED_FIXTURE, readFixture, snapshotPaths, withTempDir } from './helpers.js';
 
@@ -175,16 +189,269 @@ test('no child process is used to write around the funnel', () => {
   assert.deepEqual(offenders, [], `child-process writes:\n${offenders.join('\n')}`);
 });
 
-test('the one process Phyllum does spawn is the GUI server, with arguments, not a shell', () => {
+test('the GUI server is spawned with arguments, not a shell', () => {
   const gui = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'gui-command.js'), 'utf8');
   assert.match(gui, /spawn\(\s*\n?\s*python/, 'the server is spawned by path, with an argument array');
   assert.ok(!/shell/.test(gui.replace(/\/\*[\s\S]*?\*\//g, '')), 'and never through a shell');
+});
 
+/**
+ * Three processes, and only three.
+ *
+ * `gui` starts the dashboard server; `update` (v0.2.0 §4) runs the user's package
+ * manager, because updating an install is not something a program can do by
+ * writing files; and `run-command.js` (v0.2.0 §6.5) is the run funnel `apply run`
+ * uses — git for the branch and the commits, the host project's own test suite,
+ * and the `claude` CLI when Phyllum orchestrates a phase itself.
+ *
+ * The allowlist is widened deliberately, by exactly one entry, and the funnel it
+ * adds is narrower than a general spawn: an allowlisted binary, resolved on PATH,
+ * with an argument array and a timeout. `lib/git.js`, `lib/host-tests.js` and
+ * `lib/agent-cli.js` all go through it rather than reaching for a process
+ * themselves, which is why they are absent from this list.
+ */
+const SPAWNERS = ['lib/gui-command.js', 'lib/run-command.js', 'lib/update-command.js'];
+
+test('exactly three modules may start a process, and no others', () => {
   const spawners = [];
   for (const [file, source] of cliSources({ includeFunnel: true })) {
     if (/from\s+['"]node:child_process['"]/.test(source)) spawners.push(file);
   }
-  assert.deepEqual(spawners, ['lib/gui-command.js'], 'only the GUI command starts a process');
+  assert.deepEqual(spawners, SPAWNERS, 'only the GUI server, the run funnel and the package-manager update start a process');
+});
+
+/**
+ * The run funnel's own four rules, checked structurally (v0.2.0 §6.5).
+ *
+ * A test command comes out of somebody else's `package.json`, so "run whatever it
+ * says" would be a remote-execution hole in a design-system tool. The funnel
+ * refuses anything outside a named allowlist, resolves it on PATH first, passes
+ * arguments as an array, and always sets a timeout.
+ */
+test('the run funnel starts only allowlisted binaries, by resolved path', () => {
+  const source = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'run-command.js'), 'utf8');
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  assert.match(code, /spawnSync\(bin,\s*argv,/, 'the binary and its arguments stay separate');
+  assert.ok(!/shell/.test(code), 'and never through a shell');
+  assert.ok(!/spawnSync\(\s*[`'"]/.test(code), 'never a literal command string');
+  assert.match(code, /findOnPath\(name, env\)/, 'the binary is resolved on PATH before it is run');
+  assert.match(code, /if \(!ALLOWED_BINARIES\.includes\(name\)\) throw new DisallowedBinaryError/, 'the allowlist is a hard gate');
+  assert.match(code, /timeout: timeoutMs/, 'every child process has a timeout');
+
+  // The allowlist itself: git, the model route, and the test runners named in
+  // harness-detect.js. Nothing that writes files on its own behalf.
+  assert.deepEqual(ALLOWED_BINARIES, ['git', 'claude', 'npm', 'pnpm', 'yarn', 'bun', 'pytest', 'cargo', 'go', 'bundle']);
+  assert.throws(() => runCommand('curl', ['http://example.com']), /refused to run "curl"/);
+});
+
+/**
+ * Git can destroy work, so Phyllum's git module cannot.
+ *
+ * The plan's failure rule is stop-and-report, keep the branch (§6.5.3): nothing
+ * is ever rolled back. That is only a promise if the code physically cannot roll
+ * anything back, so the subcommand allowlist excludes every destructive verb and
+ * the module is checked for not naming them at all.
+ */
+test('the git module cannot discard work, whatever it is asked to do', () => {
+  const source = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'git.js'), 'utf8');
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  // As a git argument, not as a word: `out.push(...)` is not `git push`.
+  for (const destructive of ['reset', 'revert', 'clean', 'stash', 'rebase', 'push', 'restore']) {
+    assert.ok(
+      !new RegExp(`['"]${destructive}['"]`).test(code),
+      `lib/git.js must not pass \`${destructive}\` to git`,
+    );
+  }
+  for (const forced of ['--force', '--hard', '-f ']) {
+    assert.ok(!code.includes(forced), `lib/git.js must not name ${forced}`);
+  }
+  for (const verb of ['reset', 'revert', 'clean', 'stash', 'rebase', 'push', 'restore']) {
+    assert.ok(!ALLOWED_SUBCOMMANDS.includes(verb), `\`git ${verb}\` must not be in the allowlist`);
+    assert.throws(() => git('/nonexistent', [verb]), GitUsageError);
+  }
+  // The work branch's name is a prefix, and the funnel keys on the same one.
+  assert.equal(BRANCH_PREFIX, APPLY_BRANCH_PREFIX);
+  assert.ok(isApplyBranch(branchNameFor('2026-08-13')));
+  assert.ok(!isApplyBranch('main'));
+});
+
+/**
+ * The deliberate scope change of v0.2.0, pinned (§6.5, §9).
+ *
+ * v0.1.0's promise was that Phyllum never writes source. v0.2.0 keeps every word
+ * of it except one exception, and this is that exception stated as tightly as it
+ * can be: a **grant**, minted only by an `apply run` phase, that names one work
+ * branch and one file list. Four refusals are asserted here rather than described:
+ * no grant, the wrong branch, a file outside the phase, and a grant that has been
+ * closed. Everything else in the permission model is unchanged.
+ */
+test('a source write needs a grant, an apply branch, and a file the phase named', async () => {
+  await withTempDir(async (dir) => {
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    // The fs-diff harness enforces the v0.1.0 enumeration on every write Phyllum
+    // makes. A source write is the one exception v0.2.0 adds, so the test opens a
+    // window naming exactly the file this phase is entitled to — outside a window
+    // the harness still fails the run, which is what keeps the widening visible.
+    globalThis.__phyllumFsHarness?.openApplyWindow(['src/styles.css']);
+
+    const branch = branchNameFor('2026-08-13');
+    let head = branch;
+    const grant = openSourceGrant({ branch, phase: 1, files: ['src/styles.css'], head: () => head });
+
+    // The happy path: the named file, on the named branch, under the grant.
+    assert.equal(writeSourceGuarded(dir, 'src/styles.css', '.a{}', grant), 'src/styles.css');
+    assert.equal(fs.readFileSync(path.join(dir, 'src', 'styles.css'), 'utf8'), '.a{}');
+
+    // 1. No grant at all — there is no path-only spelling of this call.
+    for (const bogus of [undefined, null, {}, { branch, phase: 1, files: new Set(['src/styles.css']) }]) {
+      assert.throws(() => writeSourceGuarded(dir, 'src/styles.css', 'x', bogus), SourceWriteError);
+    }
+
+    // 2. A file the phase's criteria do not name.
+    assert.throws(() => writeSourceGuarded(dir, 'src/other.css', 'x', grant), /may only write the files/);
+    assert.throws(() => writeSourceGuarded(dir, '../escape.css', 'x', grant), SourceWriteError);
+    assert.throws(() => writeSourceGuarded(dir, '.phyllum/PRD.md', 'x', grant), SourceWriteError);
+
+    // 3. Off the work branch — checked at write time, not just at grant time.
+    head = 'main';
+    assert.throws(() => writeSourceGuarded(dir, 'src/styles.css', 'x', grant), /never happen off the work branch/);
+    head = branch;
+
+    // 4. After the phase ends.
+    closeSourceGrant(grant);
+    assert.throws(() => writeSourceGuarded(dir, 'src/styles.css', 'x', grant), /grant is closed/);
+
+    // And a grant cannot be opened for the user's own branch in the first place.
+    for (const wrong of ['main', 'feature/x', 'phyllum-apply-2026-08-13', '']) {
+      assert.throws(() => openSourceGrant({ branch: wrong, phase: 1, files: [], head: () => wrong }), SourceWriteError);
+    }
+    // Nor without a way to re-check where HEAD actually is.
+    assert.throws(() => openSourceGrant({ branch: branchNameFor('2026-08-13'), phase: 1, files: [] }), SourceWriteError);
+
+    assert.deepEqual(snapshotPaths(dir), ['src/styles.css']);
+    globalThis.__phyllumFsHarness?.closeApplyWindow();
+  });
+});
+
+/**
+ * Nothing else in the codebase can reach the source funnel.
+ *
+ * The grant is the gate, and `apply run` is the only thing that may open one. If
+ * a second module could, the promise would become a convention — so this is a
+ * grep, and it fails the suite the moment anything else names the funnel.
+ */
+test('only the apply run module may open a source-write grant', () => {
+  const allowed = new Set(['lib/apply-run.js']);
+  const offenders = [];
+  for (const [file, source] of cliSources()) {
+    if (allowed.has(file)) continue;
+    for (const name of ['openSourceGrant', 'writeSourceGuarded', 'closeSourceGrant']) {
+      if (source.includes(name)) offenders.push(`${file} names ${name}`);
+    }
+  }
+  assert.deepEqual(offenders, [], offenders.join('\n'));
+
+  // And the run module writes source only through the funnel, never directly.
+  const run = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'apply-run.js'), 'utf8');
+  for (const raw of ['writeFileSync', 'appendFileSync', 'renameSync', 'rmSync', 'createWriteStream', 'mkdirSync']) {
+    assert.ok(!run.includes(raw), `apply-run.js must not call ${raw} — the funnel is the only way in`);
+  }
+  const calls = [...new Set(run.match(/write[A-Z][A-Za-z]*\(/g) ?? [])].sort();
+  assert.deepEqual(calls, ['writePrd(', 'writeSourceGuarded('], 'the plan and the phase\'s own files, nothing else');
+});
+
+test('the package manager is spawned by resolved path, with an argument array', () => {
+  const update = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'update-command.js'), 'utf8');
+  const code = update.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  // The command and its arguments stay separate — no interpolated command line
+  // can be handed to a process, with or without a shell.
+  assert.match(code, /spawn\(bin,\s*args,/, 'spawn takes the binary and an argument array');
+  assert.ok(!/shell/.test(code), 'and never through a shell');
+  assert.ok(!/spawn\(\s*[`'"]/.test(code), 'never a literal command string');
+
+  // The binary is looked up on PATH before it is run, so a missing manager is a
+  // message rather than an exception.
+  assert.match(code, /findOnPath\(/, 'the manager is resolved on PATH first');
+
+  // Only the two supported managers are ever run, and only with the arguments
+  // install-method.js decided on.
+  const method = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'install-method.js'), 'utf8');
+  assert.match(method, /SUPPORTED_MANAGERS = \['npm', 'pnpm'\]/, 'v0.2.0 drives npm and pnpm only');
+});
+
+/**
+ * `assess` is the first command whose whole job is to read somebody else's code
+ * (v0.2.0 §5.1), so the trust it has to earn is stated structurally: not one
+ * module on its path may reach the write funnel, whatever it is handed. The
+ * constant naming DESIGN-SYSTEM.md is fine to import — writing to it is not.
+ */
+test('nothing on the assess path can reach the write funnel', () => {
+  const offenders = [];
+  for (const rel of ['lib/assess.js', 'lib/assess-command.js', 'lib/scan-text.js']) {
+    const source = fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
+    for (const writer of ['writeGuarded', 'mkdirGuarded', 'writeDesignSystem', 'appendGitignoreLine', 'writeState']) {
+      if (source.includes(writer)) offenders.push(`${rel} names ${writer}`);
+    }
+  }
+  assert.deepEqual(offenders, [], offenders.join('\n'));
+});
+
+/**
+ * `apply` plans a change to source code (v0.2.0 §6.5.1), which makes it the
+ * command with the most to prove. It proves it by the shape of the code: the
+ * derivation module cannot write at all, and the command module's only write is
+ * the plan itself — one funnel call, one path, and that path is inside the
+ * `.phyllum/**` exception the permission model already had. No new write target
+ * was opened to ship the first write-to-code command.
+ */
+test('the apply path can plan a codebase change without being able to make one', () => {
+  const derivation = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'prd.js'), 'utf8');
+  for (const writer of [
+    'writeGuarded',
+    'mkdirGuarded',
+    'writeDesignSystem',
+    'writePrd',
+    'appendGitignoreLine',
+    'writeState',
+  ]) {
+    assert.ok(!derivation.includes(writer), `lib/prd.js must not name ${writer} — it derives, it does not write`);
+  }
+
+  const command = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'apply-command.js'), 'utf8');
+  for (const raw of ['writeFileSync', 'appendFileSync', 'renameSync', 'rmSync', 'createWriteStream', 'mkdirSync']) {
+    assert.ok(!command.includes(raw), `apply-command.js must not call ${raw} — the funnel is the only way in`);
+  }
+  // Exactly one write, and it is the plan.
+  const calls = command.match(/write[A-Z][A-Za-z]*\(/g) ?? [];
+  assert.deepEqual([...new Set(calls)], ['writePrd('], 'the plan is the only thing `apply` writes');
+  assert.ok(!command.includes('writeDesignSystem'), '`apply` does not touch the design system either');
+
+  // And the plan's path is the existing exception, not a new one.
+  assert.ok(isAllowedPath('.phyllum/PRD.md'));
+  assert.ok(!isAllowedPath('PRD.md', { init: true }), 'a PRD in the project root is never writable');
+});
+
+/**
+ * An accepted suggestion does write — that is the point of step 5 — so the
+ * structural claim moves rather than disappearing: the write lives in one module,
+ * behind the acceptance gate, and it goes through the funnel like every other
+ * write in Phyllum. No raw filesystem call, and no path but DESIGN-SYSTEM.md.
+ */
+test('the suggestion tracks write only through the funnel, and only after acceptance', () => {
+  const source = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'assess-suggest.js'), 'utf8');
+
+  for (const raw of ['writeFileSync', 'appendFileSync', 'renameSync', 'rmSync', 'createWriteStream']) {
+    assert.ok(!source.includes(raw), `assess-suggest.js must not call ${raw} — the funnel is the only way in`);
+  }
+  assert.match(source, /writeDesignSystem\(root, render\(model\)\)/, 'the one write is the design system file');
+  assert.match(
+    source,
+    /typeof ctx\.confirm !== 'function'/,
+    'and it is unreachable without an acceptance gate to answer it',
+  );
 });
 
 test("the Python server's write confinement is structural, not conventional", () => {

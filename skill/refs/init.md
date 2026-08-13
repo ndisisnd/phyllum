@@ -41,11 +41,15 @@ touching `.gitignore`.
 
 ## Step 4 — seed the system (offered, not forced)
 
-Ask whether to run a first `tokenise` pass now — the codebase's existing styles
-yield immediate tokens, which makes every later `create` suggestion smarter —
-and whether to create a first component via the Mode C picker.
+Ask whether to run a first read-only pass over the codebase now — the styles
+already there yield immediate tokens, which makes every later `create` suggestion
+smarter — and whether to create a first component via the Mode C picker.
 
-*The passes themselves land in M2 (`create`) and M3 (`tokenise`).*
+The pass previews; it never names anything on the user's behalf. Point at
+`phyllum assess` for the full reading of the codebase, and at
+`phyllum tokenise "…"` for naming one value from a sentence.
+
+*Reading the codebase is `assess`'s job as of v0.2.0; `tokenise` reads prose.*
 
 ## Step 5 — orient
 

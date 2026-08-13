@@ -67,7 +67,7 @@ test('the greeting writes nothing', async () => {
 });
 
 test('before init, the state-dependent commands point at init and create nothing', async () => {
-  for (const command of ['system', 'create', 'build', 'tokenise', 'tokenize', 'gui', 'dashboard']) {
+  for (const command of ['system', 'create', 'build', 'assess', 'tokenise', 'tokenize', 'gui', 'dashboard']) {
     await withTempDir(async (dir) => {
       const { out, code } = await run(command, dir);
       assert.equal(code, 0, `${command} should exit cleanly before init`);

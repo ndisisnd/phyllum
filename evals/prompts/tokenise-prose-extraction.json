@@ -1,0 +1,92 @@
+{
+  "eval": "tokenise-prose-extraction",
+  "rubric": "evals/rubrics/tokenise-prose-extraction.md",
+  "milestone": "v0.2.0 M8",
+  "planSections": ["§6", "§7"],
+  "threshold": 1,
+  "status": "runnable — `npm run evals`",
+  "note": "Added in v0.2.0 M8, on M2's recommendation. `tokenise` became prose-only in M2 and its two graded evals both scanned a codebase, so after those were renamed to `assess-*` the command had no eval of its own. This is it: the sentence in, the token out. Deterministic end to end — `parseProse` and `suggestName` are pure functions over the sentence and the recorded model — so no responder and no recordings are involved.",
+  "cases": [
+    {
+      "id": "colour-named",
+      "prose": "our brand blue is #2563EB, call it color-brand",
+      "expected": {
+        "name": "color-brand",
+        "nameFromProse": true,
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#2563EB" }]
+      }
+    },
+    {
+      "id": "colour-unnamed",
+      "prose": "the accent colour is #7C3AED",
+      "expected": {
+        "name": null,
+        "nameFromProse": false,
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#7C3AED" }],
+        "suggested": "^color-[a-z0-9-]+$"
+      }
+    },
+    {
+      "id": "length-with-stated-role",
+      "prose": "card padding is 12px",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "numbers", "value": "12px", "role": "spacing", "roleFromProse": true }]
+      }
+    },
+    {
+      "id": "length-with-assumed-role",
+      "prose": "we use 12px there",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "numbers", "value": "12px", "roleFromProse": false }]
+      }
+    },
+    {
+      "id": "typography-implies-the-rest",
+      "prose": "body text is 15px",
+      "expected": {
+        "complete": true,
+        "candidates": [
+          {
+            "pass": "typography",
+            "value": "15px",
+            "size": "15px",
+            "weight": "400",
+            "lineHeight": "normal",
+            "implied": ["font-weight 400", "line-height normal"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "typography-stated-in-full",
+      "prose": "headings are 32px bold with line-height 1.2",
+      "expected": {
+        "complete": true,
+        "candidates": [
+          { "pass": "typography", "value": "32px", "size": "32px", "weight": "700", "lineHeight": "1.2", "implied": [] }
+        ]
+      }
+    },
+    {
+      "id": "no-value-is-a-follow-up",
+      "prose": "our brand blue",
+      "expected": {
+        "complete": false,
+        "candidates": []
+      }
+    },
+    {
+      "id": "two-values-is-a-question",
+      "prose": "the border is #E5E7EB and the radius is 8px",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#E5E7EB" }, { "pass": "numbers", "value": "8px" }],
+        "asks": true
+      }
+    }
+  ]
+}

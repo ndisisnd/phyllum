@@ -1,9 +1,9 @@
 {
-  "recordedAt": "2026-08-12",
-  "phyllumVersion": "0.1.0",
-  "milestone": "M6",
-  "release": "v1",
-  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v1 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why.",
+  "recordedAt": "2026-08-13",
+  "phyllumVersion": "0.2.0",
+  "milestone": "v0.2.0 M8",
+  "release": "v0.2.0",
+  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v0.2.0 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why. Every score the previous release recorded is still met or beaten, and no threshold has ever been lowered.",
   "assertions": {
     "command": "npm test",
     "harness": "evals/harness/fs-harness.js",
@@ -16,6 +16,27 @@
       "threshold": 1,
       "points": 24,
       "max": 24
+    },
+    "apply-prd-contract": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 33,
+      "max": 33
+    },
+    "apply-run-execution": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 21,
+      "max": 21
+    },
+    "update-install-detection": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 40,
+      "max": 40
     },
     "create-prose-extraction": {
       "responder": "deterministic",
@@ -66,19 +87,26 @@
       "points": 11,
       "max": 11
     },
-    "tokenise-clustering": {
+    "assess-clustering": {
       "responder": "deterministic",
       "score": 1,
       "threshold": 1,
-      "points": 10,
-      "max": 10
+      "points": 19,
+      "max": 19
     },
-    "tokenise-naming": {
+    "assess-naming": {
       "responder": "deterministic",
       "score": 1,
       "threshold": 0.9,
       "points": 12,
       "max": 12
+    },
+    "tokenise-prose-extraction": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 49,
+      "max": 49
     }
   },
   "recordedRuns": {

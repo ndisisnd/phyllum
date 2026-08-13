@@ -44,7 +44,9 @@ Three ideas govern every command:
 - **Conversational, not form-driven.** When Phyllum is missing something, it asks a
   follow-up with a suggestion attached — never a blank required field.
 - **One write target.** `DESIGN-SYSTEM.md` is the only file Phyllum touches, aside from
-  its own gitignored session state and, on `init`, the skill install.
+  its own gitignored `.phyllum/` — session state, settings, and `apply`'s plan — and, on
+  `init`, the skill install. One command is allowed past that line, `apply run`, and only
+  from a plan you have read, on a branch of its own, one phase at a time.
 
 Two rules outrank being helpful. Phyllum never invents a value — a slot nobody filled is
 a question or a `TODO`, never a plausible guess. And it never corrects a value — four
@@ -56,19 +58,34 @@ The commands:
 | Command | What it does |
 |---------|--------------|
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats |
-| `tokenise` | Extract and name tokens from the styles already in the codebase |
+| `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
+| `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
+| `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
 | `system` | Print the design system to the terminal |
-| `gui` | Start a localhost dashboard for browsing tokens and components |
+| `gui` | Start the local server and open the dashboard for browsing tokens and components |
+| `kill` | Stop the dashboard server `gui` started |
 | `init` | Guided setup — scaffold the file, install the skill |
+| `version` | Print the installed version and check npm for a newer one |
+| `update` | Update this install to the latest published version |
 | `menu` / `help` | List the commands, or explain one in depth |
 
 ## Install
 
-Phyllum needs **Node 20 or newer** and has no dependencies to install. The intelligent
-commands (`create`, `tokenise`) also want [Claude Code](https://www.claude.com/product/claude-code)
-— they run natively inside a Claude Code session, or shell out to the `claude` CLI from a
-plain terminal. The mechanical commands (`menu`, `help`, `system`, `gui`, `init`) work
-without it. The `gui` dashboard uses your system `python3`.
+Phyllum needs **Node 20 or newer** and has no dependencies to install.
+
+Some commands are wholly mechanical and work on their own: `menu`, `help`, `system`,
+`gui`, `kill`, `version`, `update`, and `apply` — which only ever writes a plan.
+
+Some want [Claude Code](https://www.claude.com/product/claude-code), and run natively
+inside a Claude Code session or shell out to the `claude` CLI from a plain terminal.
+`create` and `tokenise` need it for the whole of what they do. Three commands are split:
+`assess` scans, maps and proposes names mechanically but needs it to review the
+suggestions with you; `init` needs it to read your project and seed the file; and
+`apply run` needs it for the criteria a substitution cannot settle. Every one of them
+**degrades rather than failing** — it tells you what it could not do and stops, and
+`apply run` still completes the criteria Node can do by itself.
+
+The `gui` dashboard uses your system `python3`.
 
 Install it globally:
 
@@ -89,15 +106,19 @@ overview. `init` scaffolds `DESIGN-SYSTEM.md` and installs the skill into
 ## How it works
 
 Everything Phyllum learns — from prose, from an image, or from the code — flows through
-`create` and `tokenise` into one file.
+three commands into one file. Which command reads what is the whole division of labour:
+`assess` reads your codebase, `tokenise` reads the sentence you typed, `create` reads
+your intent.
 
 ```mermaid
 flowchart TD
   prose["Prose you type"] --> create
   image["An image you point at"] --> create
-  code["Styles already in the codebase"] --> tokenise
+  sentence["A sentence about one value"] --> tokenise
+  code["Styles already in the codebase"] --> assess
   create["<b>create</b><br/>craft a component"] --> file
-  tokenise["<b>tokenise</b><br/>extract and name tokens"] --> file
+  tokenise["<b>tokenise</b><br/>name one token"] --> file
+  assess["<b>assess</b><br/>inventory the raw styling"] --> file
   file["<b>DESIGN-SYSTEM.md</b><br/>the one file Phyllum writes"]
 ```
 
@@ -108,9 +129,58 @@ measurements into values and everything else into questions, and refuses to clai
 still image can't show. **Pick**: bare `create` offers the archetypes plus the components
 your codebase keeps repeating, and a pick seeds a name and an archetype — never values.
 
-`tokenise` reads the styles already in your code, runs three passes, clusters raw values
-before naming them, and shows you a frequency-ranked review before anything is written. Run
-it again later and it shows a diff rather than re-adding what's already there.
+`assess` reads your codebase and tells you how much raw, un-systematised styling is in
+there. Colours, lengths and typography are read out of text files in *any* language — a
+theme file in JSON or Go counts as much as a `.css` file does — while component detection
+reads React markup. The sweep is bounded on purpose: build output and dependency
+directories, anything your `.gitignore` matches, files past a size cap, and files that
+are not really text are skipped, and the report says how many files it read. Near-identical values (`#2563EB` and `#2564EC`,
+`11px` and `12px`) cluster into one decision rather than two, usage is counted, and the
+result is ranked by how hard your code leans on each value. The scan is strictly
+read-only: nothing in your codebase is written, renamed or created. Run it again later
+and anything your design system already names is reported as covered rather than
+proposed again, so a rerun shows only what has drifted.
+
+Three chained modes narrow the same scan. `assess tokens` walks the token suggestions
+only; `assess components` walks the component suggestions only, one candidate at a time
+with its own yes-or-no each; `assess update` skips the per-item review altogether and
+accepts every proposed token under the name it showed you. `assess update` still refuses
+to guess: a value it could see but not read stays unnamed, a component is never recorded
+without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
+
+`tokenise` names one value from one sentence: `phyllum tokenise "our brand blue #2563EB"`.
+If the sentence names the token, that name is used; if not, Phyllum suggests one from the
+naming scales and confirms it with you. It does not read your code — that's `assess`.
+
+`apply` is the other direction: it takes the design system you have built and plans how to
+get it into your code. Raw values become the tokens that already name them; ad-hoc patterns
+become the components you recorded. **It plans it, and runs none of it.** `phyllum apply`
+writes one file — `.phyllum/PRD.md` — where every single change has its own acceptance
+criterion naming the file, the literal, what it becomes, and how to check it. Changes are
+grouped into phases, and one phase is one future commit with its own verification: its
+criteria, plus your project's own test suite when Phyllum can detect one. If your project
+has an agent harness — a `CLAUDE.md`, an `AGENTS.md`, a Cursor or Windsurf config — the plan
+is shaped so that harness can execute it natively; with none found, it is a plain plan
+anybody can read. Everything Phyllum won't touch is listed with a reason: a literal no token
+names, a length named for a different role, a component whose spec still says `TODO`. Re-run
+`apply` any time and it resumes — your ticks, your completed phases and your notes survive,
+while the change list is re-derived from scratch.
+
+`phyllum apply run` executes that plan — the one command that writes to your source files.
+It re-checks the harness first: if your project has one, Phyllum hands the plan over with
+precise instructions rather than driving somebody else's agent harness itself. With none
+found, Phyllum orchestrates the run — a Fable orchestrator driving Opus 4.8 agents by
+default, and whatever `.phyllum/config.json` says instead. Either way the same guarantees
+hold. Work happens on a `phyllum/apply-<date>` branch created from wherever you were
+standing, so **the branch you are on is never written to**. Each phase lands as its own
+commit containing only the files that phase's criteria name. Exact literals on the
+properties a criterion names are replaced mechanically in Node, and the report says which
+criteria went that way and which went to an agent — with no model reachable, mechanical
+phases still land and the rest stop and say which model they needed. A phase commits only
+when its criteria verify by reading the file, its diff stays inside those files, and your
+own test suite is green. A failing phase stops the run, keeps the completed commits, and
+records where it stopped in the plan; the next `apply run` resumes from there. Nothing is
+ever rolled back. You get a status report every five minutes while it works.
 
 Writes are atomic — Phyllum writes a temp file and renames it, so a crashed run can't
 corrupt `DESIGN-SYSTEM.md`.
@@ -119,10 +189,15 @@ corrupt `DESIGN-SYSTEM.md`.
 
 Two different things:
 
-- **Update Phyllum itself** — `npm install -g phyllum@latest`, then re-run `phyllum init`
-  in your project to refresh the installed skill under `.claude/skills/phyllum/`. The skill
-  files are Phyllum-owned, so they're safe to rewrite.
-- **Update what Phyllum produced** — re-run `tokenise` or `create` any time. Because every
+- **Update Phyllum itself** — `phyllum version` tells you whether you are current, showing
+  both your version and the latest published one. `phyllum update` then does the work: it
+  detects how you installed Phyllum (npm or pnpm, globally or as a project dependency), runs
+  the right command, and re-syncs the skill under `.claude/skills/phyllum/` so the CLI and
+  the skill are never two versions. If it can't act safely — a one-off `npx` run has nothing
+  to update, a source checkout belongs to git — it says so and prints the exact command to
+  run instead. `version` is the only command that ever touches the network, and only when
+  you ask: nothing checks for updates in the background.
+- **Update what Phyllum produced** — re-run `assess`, `tokenise` or `create` any time. Because every
   command converges, a rerun refreshes `DESIGN-SYSTEM.md` without duplicating what's
   already there; `init` on an existing file adds back only missing sections and never drops
   your content.
@@ -143,7 +218,29 @@ Nothing you wrote is dropped.
 **Do I have to use Claude Code?**
 For `create` and `tokenise`, yes — that's where the measuring and naming happen. If
 `claude` isn't installed and you're not in a Claude Code session, those commands fail with
-a message naming your two options. The mechanical commands keep working regardless.
+a message naming your two options. The mechanical commands keep working regardless, and
+that includes `assess`: reading your codebase and aggregating what it finds is arithmetic,
+so the scan runs in a plain terminal with nothing else installed.
+
+**Does `assess` change my code?**
+No. It reads. The modules that do the scanning contain no write call at all, and the test
+suite diffs the entire directory around every scan and fails if one byte moved.
+
+**Does `apply` change my code?**
+`phyllum apply` does not. It writes a plan to `.phyllum/PRD.md` and nothing else — the test
+suite diffs the whole project directory around every run and fails on a single other file.
+`phyllum apply run` is the one command allowed to write source, and only from that plan:
+only on a `phyllum/apply-<date>` branch of its own, only the files the running phase's
+criteria name, one commit per phase, stopping and reporting rather than pressing on when a
+phase fails. Nothing it does is ever rolled back automatically — a stopped run keeps its
+branch and its commits, and tells you where it stopped.
+
+**What stops `apply run` from editing a file it was not asked to?**
+The permission model, not good intentions. A phase opens a *grant* naming its branch and its
+own file list, and every write re-checks both — the wrong branch, a file outside the phase,
+or a closed grant is refused, and nothing else in Phyllum can open a grant at all. The
+assertion suite asserts each of those refusals, and an edit that lands outside the phase's
+criteria stops the phase instead of being committed.
 
 **Why is there a Python server for the GUI?**
 `gui` serves a local dashboard over `python3` bound to localhost only, with a

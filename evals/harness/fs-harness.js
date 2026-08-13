@@ -129,6 +129,41 @@ function isEnumerationParent(abs) {
   return tail2 === '.claude/skills' || parts.at(-1) === '.claude';
 }
 
+/**
+ * The `apply run` window (v0.2.0 §6.5).
+ *
+ * `apply run` writes source files, so the enumeration above is not the whole
+ * truth any more — but the widening must stay visible rather than becoming a
+ * blanket allowance. A test that exercises a run opens a window naming exactly
+ * the paths that run is entitled to write, and closes it afterwards. Outside a
+ * window, a source write still fails the whole suite exactly as before.
+ */
+let applyWindow = null;
+
+export function openApplyWindow(paths) {
+  applyWindow = new Set(paths.map((rel) => String(rel).split(path.sep).join('/')));
+  return applyWindow;
+}
+
+export function closeApplyWindow() {
+  applyWindow = null;
+}
+
+/** Is this path one an open `apply run` window named? */
+function insideApplyWindow(abs) {
+  if (applyWindow === null || applyWindow.size === 0) return false;
+  const bare = TEMP_SUFFIX.test(abs) ? abs.replace(TEMP_SUFFIX, '') : abs;
+  const parts = bare.split(path.sep).filter(Boolean);
+  for (let start = 0; start < parts.length; start += 1) {
+    const rel = parts.slice(start).join('/');
+    if (applyWindow.has(rel)) return true;
+    // The directory on the way to a named file: the funnel creates it before it
+    // writes, and a window naming `src/styles.css` implies `src`.
+    for (const named of applyWindow) if (named.startsWith(`${rel}/`)) return true;
+  }
+  return false;
+}
+
 function checkPhyllumWrite(api, abs) {
   if (insideRepo(abs)) {
     record('repo write', `${api} wrote inside the repository: ${path.relative(PACKAGE_ROOT, abs)}`);
@@ -140,6 +175,7 @@ function checkPhyllumWrite(api, abs) {
   }
   if (enumerationLabel(abs)) return;
   if (isEnumerationParent(abs)) return;
+  if (insideApplyWindow(abs)) return;
   // A directory that *is* a sandbox root (the parent of DESIGN-SYSTEM.md) is
   // created by the funnel with `recursive: true`; it is the sandbox itself.
   if (path.basename(abs).startsWith('phyllum-test-')) return;
@@ -365,4 +401,6 @@ globalThis.__phyllumFsHarness = {
   enumerationLabel,
   snapshotRepo,
   repoDiff,
+  openApplyWindow,
+  closeApplyWindow,
 };

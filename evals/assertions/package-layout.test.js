@@ -23,9 +23,13 @@ test('every path in the plan §7.2 layout exists', () => {
     'bin/phyllum.js',
     'skill/SKILL.md',
     'skill/refs/create.md',
+    'skill/refs/assess.md',
+    'skill/refs/apply.md',
     'skill/refs/tokenise.md',
     'skill/refs/gui.md',
     'skill/refs/system.md',
+    'skill/refs/version.md',
+    'skill/refs/update.md',
     'skill/refs/init.md',
     'server/serve.py',
     'gui/index.html',
@@ -49,7 +53,7 @@ test('package.json declares the bin, ESM, and no runtime dependencies', () => {
 test('the skill ships a reference file for every subskill with one', () => {
   const files = skillFiles();
   assert.ok(files.includes('SKILL.md'));
-  for (const name of ['create', 'tokenise', 'gui', 'system', 'init']) {
+  for (const name of ['create', 'assess', 'apply', 'tokenise', 'gui', 'system', 'version', 'update', 'init']) {
     assert.ok(files.includes(`refs/${name}.md`), `missing refs/${name}.md`);
   }
 });
@@ -166,9 +170,15 @@ test('the eval runner and its recorder ship with the package', () => {
 });
 
 test('every eval fixture codebase referenced by a prompt exists', () => {
-  const data = JSON.parse(read('evals/prompts/init-detection.json'));
-  for (const testCase of data.cases) {
-    assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, testCase.fixture)), `missing ${testCase.fixture}`);
+  for (const spec of ['init-detection', 'assess-clustering', 'assess-naming']) {
+    const data = JSON.parse(read(`evals/prompts/${spec}.json`));
+    for (const testCase of data.cases) {
+      if (!testCase.fixture) continue;
+      assert.ok(
+        fs.existsSync(path.join(PACKAGE_ROOT, testCase.fixture)),
+        `${spec} references a missing fixture: ${testCase.fixture}`,
+      );
+    }
   }
 });
 
@@ -199,6 +209,74 @@ test('the M5 eval assets exist, and the ground truth is the images themselves', 
     assert.ok(
       fs.existsSync(path.join(PACKAGE_ROOT, testCase.designSystem)),
       `missing ${testCase.designSystem}`,
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The public docs against the real command surface (v0.2.0 M8)
+// ---------------------------------------------------------------------------
+
+/**
+ * `menu`, `help` and the session banner all render from `lib/registry.js`, so they
+ * cannot drift from the command surface — that is why they need no test here.
+ * The README and `llms.txt` are hand-written prose, so they can and did: v0.2.0
+ * added six commands and the M8 sweep found `kill` missing from the README table
+ * entirely, and `assess`'s one-liner describing half of what it does.
+ *
+ * Pinning "every command is mentioned" is not a substitute for reading the prose,
+ * but it is the part a person forgets and a check never does.
+ */
+test('every dispatchable command is named in the README command table', () => {
+  const readme = read('README.md');
+  const table = readme
+    .split('\n')
+    .filter((line) => /^\|\s*`/.test(line))
+    .join('\n');
+  assert.ok(table.length > 0, 'the README has a command table');
+  for (const command of DISPATCHABLE) {
+    assert.match(
+      table,
+      new RegExp(`\`${command.name}\``),
+      `README's command table does not mention \`${command.name}\``,
+    );
+  }
+});
+
+test('the README does not describe tokenise as reading the codebase', () => {
+  // The v0.2.0 division is that assess reads code and tokenise reads prose. This
+  // is the sentence most likely to survive the rework unnoticed, in the surface
+  // most people read first.
+  // Line by line, not sentence by sentence: the command table is one block of
+  // text mentioning every command, so a whole-block read cannot tell which
+  // command a phrase belongs to. A line that names `assess` too is a legitimate
+  // contrast ("assess reads code, tokenise reads prose") and is left alone.
+  for (const line of read('README.md').split('\n')) {
+    if (!/`tokenise`/.test(line) || /`assess`/.test(line)) continue;
+    assert.ok(
+      !/\bcodebase\b|\bscans?\b/.test(line),
+      `README describes tokenise as scanning the codebase: ${line.trim()}`,
+    );
+  }
+});
+
+test('llms.txt does not claim the package is unpublished', () => {
+  // `version` and `update` both exist because Phyllum is published. A doc saying
+  // otherwise contradicts two whole commands.
+  const llms = read('llms.txt');
+  assert.ok(!/no published remote/i.test(llms), 'llms.txt still says the repo has no remote');
+  assert.match(llms, /npm/, 'and it says where the package lives');
+});
+
+test('the shipped docs claim a bounded scan, because the scan is bounded', () => {
+  // `assess` skips build output, gitignored paths, oversized files and non-text
+  // files. A doc promising "every text file" promises something else.
+  for (const rel of ['README.md', 'llms.txt', 'skill/SKILL.md']) {
+    const text = read(rel);
+    if (!/text file/.test(text)) continue;
+    assert.ok(
+      /skipped|bounded|size cap|gitignore/i.test(text),
+      `${rel} claims text files are read without saying what is skipped`,
     );
   }
 });
