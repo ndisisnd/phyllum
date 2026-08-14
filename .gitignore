@@ -2,7 +2,5 @@ basal-v*.md
 .basal/
 .phyllum/
 .serena/
-.claude/settings.local.json
-.claude/.headroom_wrap_marker.json
+.claude/
 node_modules/
-.claude/kermit/state.json
