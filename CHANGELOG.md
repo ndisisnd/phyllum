@@ -4,6 +4,14 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-14
 
+### [4] — Move the welcome out of a postinstall script and into the CLI greeting
+
+- `scripts/postinstall.js`: Removed — a banner-only `postinstall` tripped supply-chain tooling (`@lavamoat/allow-scripts`) and never ran under `--ignore-scripts`/pnpm defaults anyway
+- `package.json`: Changed — dropped the `postinstall` script and its entry in the published `files` list
+- `lib/execute.js`: Changed — the bare-`phyllum` greeting now leads with the tagline, offers both `init` and `assess` start paths, and links the repo; guaranteed to run and trips no install-script guards
+- `lib/menu.js`: Changed — `renderMenu` takes an optional `header` flag so the greeting embeds the command list without a duplicate title
+- `evals/baseline.json`: Changed — bumped `phyllumVersion` to `0.2.2` to match the release bump the baseline test pins against
+
 ### [3] — A welcome banner after global install
 
 - `scripts/postinstall.js`: Added — an npm `postinstall` banner that greets the user after `npm install -g phyllum`, points them at `phyllum init` and `phyllum assess`, and links the repo; it stays silent when npm's log level is `silent`/`error` (CI and quiet installs)
