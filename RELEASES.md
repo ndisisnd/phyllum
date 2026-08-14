@@ -2,6 +2,13 @@
 
 What's new for you, release by release.
 
+## v0.2.2 — 2026-08-14
+
+> Install Phyllum globally and it now greets you, pointing you straight at the two ways to begin — start a design system from scratch, or hand it your existing codebase.
+
+### ✨ New
+- After `npm install -g phyllum`, you now see a short welcome that points you at `phyllum init` to start a fresh design system and `phyllum assess` to read your existing codebase into components, with a link to the project on GitHub. Automated and quiet installs stay silent, so it never clutters your CI logs.
+
 ## v0.2.1 — 2026-08-14
 
 > `assess` stops inventorying and starts judging. Every finding now carries a severity, near-identical components and styles are scored as clones, naming drift and prop mismatches are called out, and the whole run ends in one drift score and one verdict. A hardening sweep rides along: `assess` can no longer overwrite your design-system file by accident, and bad input can't crash an assessment.
