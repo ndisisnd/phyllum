@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-14
 
+### [3] — A welcome banner after global install
+
+- `scripts/postinstall.js`: Added — an npm `postinstall` banner that greets the user after `npm install -g phyllum`, points them at `phyllum init` and `phyllum assess`, and links the repo; it stays silent when npm's log level is `silent`/`error` (CI and quiet installs)
+- `package.json`: Added — wired the `postinstall` script and shipped `scripts/postinstall.js` in the published `files` list
+
 ### [2] — 0.2.1: `assess` judges instead of inventorying, and the hardening sweep that closed the release
 
 - `lib/write.js`: Fixed — `assess --json DESIGN-SYSTEM.md` overwrote the design system with the assessment of it and exited 0; the JSON rule is now the only rule that applies to a JSON write

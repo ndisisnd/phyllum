@@ -26,9 +26,11 @@
     "skill/",
     "server/",
     "gui/",
-    "templates/"
+    "templates/",
+    "scripts/postinstall.js"
   ],
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "test": "node --test --import=./evals/harness/fs-harness.js \"evals/assertions/**/*.test.js\"",
     "test:bare": "node --test \"evals/assertions/**/*.test.js\"",
     "evals": "node evals/run-evals.js",
