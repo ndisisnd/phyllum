@@ -2,6 +2,16 @@
 
 What's new for you, release by release.
 
+## v0.2.3 — 2026-08-14
+
+> Run `phyllum` in a fresh project and it now greets you with both ways to begin and a link to learn more. The install-time banner that some security setups warned about is gone — its welcome lives in the CLI now, where it always shows.
+
+### 📈 Improved
+- Running `phyllum` in a project with no design system yet now shows both ways to start — build one from scratch with `phyllum init`, or turn your existing code into components with `phyllum assess` — along with a link to the project.
+
+### 🐛 Fixed
+- Installing Phyllum no longer prints a warning in projects that screen install scripts, and the welcome now shows reliably instead of being silently skipped by strict or automated installs.
+
 ## v0.2.2 — 2026-08-14
 
 > Install Phyllum globally and it now greets you, pointing you straight at the two ways to begin — start a design system from scratch, or hand it your existing codebase.
