@@ -1,64 +1,49 @@
 # `update`
 
-Move this install to the latest published version, in one command instead of an
-`npm install` incantation the user has to remember.
+`update` is an **alias of `apply`** (v0.3.0 §6). There is no second command here
+and no second behaviour: the word resolves to `apply`'s registry entry, reaches
+`apply`'s one dispatch branch, and produces `apply`'s output byte for byte.
 
-`update` is mechanics — no model is involved. It is the one command that runs a
-package manager, and the second (with `gui`) that starts a process at all.
+Read `refs/apply.md` for the contract. This file exists to record the rename and
+to say what `update` no longer means.
 
-## Step 1 — how was Phyllum installed?
+## What the word means now
 
-The right update command depends entirely on the answer, so the answer is worked
-out from evidence rather than assumed:
+"Update" now means **update your codebase from the design system** — the
+direction people reach for when they type it. So:
 
-| Install | Recognised by | Update command |
-|---------|---------------|----------------|
-| npm, global | the package sits in a `node_modules` no project manifest depends on | `npm install --global phyllum@latest` |
-| pnpm, global | the same, with pnpm in the path or the user agent | `pnpm add --global phyllum@latest` |
-| npm, project dependency | the owning `package.json` lists `phyllum`; `package-lock.json` present | `npm install --save-dev phyllum@latest` (or `--save`) |
-| pnpm, project dependency | the same, with `pnpm-lock.yaml` present | `pnpm add --save-dev phyllum@latest` |
+| Typed | Runs | Writes |
+|-------|------|--------|
+| `phyllum update` | `phyllum apply` | `.phyllum/PRD.md`, and nothing else |
+| `phyllum update --fresh` | `phyllum apply --fresh` | the same file, regenerated |
+| `phyllum update run` | `phyllum apply run` | source, on a `phyllum/apply-<date>` branch, one commit per phase |
 
-Signals are read in this order: `npm_config_user_agent` (npm and pnpm both set
-it), then the install path, then the project's lockfile. A dev dependency is
-updated with the dev flag and a plain dependency without it, so the manifest ends
-up as the user had it.
+`update run` chains to `apply run` the way `system`'s scope words chained to
+`display`: the alias is resolved before any argument is read, so the scope word
+lands in `apply`'s own grammar and nowhere else.
 
-## Step 2 — refuse well, or act
+Everything `apply` guarantees holds unchanged under the alias — the plan is the
+consent gate, planning executes nothing, and re-running resumes rather than
+duplicating.
 
-v0.2.0 drives **npm and pnpm only**. Everything else is a refusal that names the
-exact command to run instead — never a guess, and never a dead end:
+## What it no longer means
 
-| Situation | What `update` does |
-|-----------|--------------------|
-| one-off `npx` / `dlx` run | Explains there is nothing to update — the cache is thrown away and the next run fetches the latest anyway — and gives the two commands that install Phyllum permanently. |
-| source checkout | Says a package manager cannot update a checkout, prints the path, and leaves it to git. |
-| yarn, bun, or an unrecognised manager | Names the manager, prints its own `install phyllum@latest` line, changes nothing. |
-| npm or pnpm missing from PATH | Prints the command to run when it is back. |
-| the install command fails | Shows the tail of the error, states the version is unchanged, exits non-zero. |
+Up to v0.2.3, `phyllum update` moved the *install* to the latest published
+version. That command still exists, unchanged in every respect but its name:
+it is **`phyllum upgrade`**, and its contract is `refs/upgrade.md`.
 
-A refusal exits non-zero: the job was not done. Nothing is installed, written or
-removed on any refusal path.
+## Leading with `apply`
 
-## Step 3 — re-sync the skill
+Help, `menu` and the docs name `apply` first and list `update` as its alias, the
+same way `display` leads and `system` follows. One command, two words, one page.
 
-After a successful update, the skill copy `init` installed into
-`.claude/skills/phyllum/` is rewritten from the freshly installed package, so the
-CLI and the skill can never be two different versions.
+## The silent switch
 
-- The files are read from disk *after* the install, which is why they are the new
-  ones: the package manager replaces the package in place.
-- If there is no skill copy in the project, nothing is created — `update` says so
-  and points at `phyllum init`. Phyllum does not add files nobody asked for.
-- The re-sync goes through the same write funnel as `init`, so it can only ever
-  touch `.claude/skills/phyllum/**`.
+The change lands with **no redirect notice and no acknowledgement gate**. The
+risk allows it: `apply` only ever writes a plan, so the worst a muscle-memory
+`phyllum update` can do is leave a `.phyllum/PRD.md` nobody asked for — no
+install is touched, no code is touched, nothing is run.
 
-## What `update` does not do
-
-- **No registry call of its own.** `latest` is resolved by the package manager.
-  Phyllum's own registry check lives on `phyllum version`, on demand, nowhere
-  else.
-- **No shell.** The package manager is spawned by resolved path with an argument
-  array.
-- **No confirmation prompt.** Typing `phyllum update` is the consent.
-- **No design system needed.** Like `version`, it is about the install, so it
-  works before `init`.
+Discovery of `upgrade` is the docs' job — `help`, `menu`, the README's "How to
+update" section, `llms.txt` and the release note — never a warning printed on a
+command that did exactly what it was asked to do.

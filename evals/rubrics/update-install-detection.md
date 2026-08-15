@@ -1,8 +1,12 @@
-# Eval — `update`, "how was Phyllum installed?" (plan v0.2.0 §4, §7)
+# Eval — `upgrade`, "how was Phyllum installed?" (plan v0.2.0 §4, §7)
 
 **Status: scored from v0.2.0 M1.**
 
-`update` is only as good as its answer to one question: how did this copy of
+The eval id stays `update-install-detection`, and deliberately: v0.3.0 §6 renamed
+the command to `upgrade` without changing one thing this eval measures, and a
+renamed id would break the comparison with every baseline recorded before it.
+
+`upgrade` is only as good as its answer to one question: how did this copy of
 Phyllum get here? Get it wrong and the command either does nothing useful or —
 much worse — installs a second copy somewhere the user did not ask for. So the
 detection is graded as a fact, over pinned directory layouts, with no model
@@ -69,4 +73,4 @@ The *wording* of a refusal — whether "there is nothing here to update" reads a
 helpful rather than obstructive — is prose, and prose needs a model judge. The
 assertion suite checks the load-bearing part mechanically instead: every refusal
 path names the exact command, runs nothing, and writes nothing
-(`evals/assertions/update-cli.test.js`).
+(`evals/assertions/upgrade-cli.test.js`).

@@ -12,7 +12,7 @@ phyllum 0.1.0 — a newer version has been published.
   installed         0.1.0
   latest published  0.2.0
 
-Run `phyllum update` to move to 0.2.0.
+Run `phyllum upgrade` to move to 0.2.0.
 ```
 
 Two facts, then one sentence about what they mean together:
@@ -20,7 +20,7 @@ Two facts, then one sentence about what they mean together:
 | Status | When | What it says |
 |--------|------|--------------|
 | up to date | installed = latest published | "Nothing to do." |
-| a newer version has been published | installed < latest published | both versions, and `phyllum update` |
+| a newer version has been published | installed < latest published | both versions, and `phyllum upgrade` |
 | ahead of what is published | installed > latest published | an unreleased build; nothing to update to |
 | installed version only | the registry could not be reached | the installed version, and why the check failed |
 

@@ -31,6 +31,7 @@ test('every path in the plan §7.2 layout exists', () => {
     'skill/refs/system.md',
     'skill/refs/version.md',
     'skill/refs/update.md',
+    'skill/refs/upgrade.md',
     'skill/refs/init.md',
     'server/serve.py',
     'gui/index.html',
@@ -54,7 +55,7 @@ test('package.json declares the bin, ESM, and no runtime dependencies', () => {
 test('the skill ships a reference file for every subskill with one', () => {
   const files = skillFiles();
   assert.ok(files.includes('SKILL.md'));
-  for (const name of ['create', 'assess', 'apply', 'tokenise', 'gui', 'system', 'version', 'update', 'init']) {
+  for (const name of ['create', 'assess', 'apply', 'tokenise', 'gui', 'system', 'version', 'update', 'upgrade', 'init']) {
     assert.ok(files.includes(`refs/${name}.md`), `missing refs/${name}.md`);
   }
 });

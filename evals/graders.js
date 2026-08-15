@@ -1529,7 +1529,8 @@ function initDetection() {
 }
 
 // ---------------------------------------------------------------------------
-// update — install detection (plan v0.2.0 §4, §7)
+// upgrade — install detection (plan v0.2.0 §4, §7; the eval id keeps the old
+// `update` word so recorded baselines stay comparable across the v0.3.0 rename)
 // ---------------------------------------------------------------------------
 
 /**
@@ -1562,7 +1563,7 @@ function withLayout(testCase, body) {
 }
 
 /**
- * How was Phyllum installed, and what is the right update command? Four claims
+ * How was Phyllum installed, and what is the right upgrade command? Four claims
  * per pinned layout: the kind of install, the package manager, whether v0.2.0
  * drives it, and the command line argument for argument.
  */

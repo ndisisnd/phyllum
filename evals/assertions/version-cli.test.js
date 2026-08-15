@@ -98,17 +98,17 @@ test('an install that matches the registry is reported as up to date', async () 
   assert.ok(result.out.includes('up to date'));
   assert.ok(result.out.includes(`installed         ${installed}`));
   assert.ok(result.out.includes(`latest published  ${installed}`));
-  assert.ok(!result.out.includes('phyllum update'), 'nothing to suggest when there is nothing to do');
+  assert.ok(!result.out.includes('phyllum upgrade'), 'nothing to suggest when there is nothing to do');
 });
 
-test('an outdated install shows both versions and points at update', async () => {
+test('an outdated install shows both versions and points at upgrade', async () => {
   const installed = manifestVersion();
   const result = await runVersion({ fetch: stubFetch('99.0.0') });
   assert.equal(result.status, 'outdated');
   assert.equal(result.code, 0, 'being behind is news, not a failure');
   assert.ok(result.out.includes(`installed         ${installed}`), 'the installed version is shown');
   assert.ok(result.out.includes('latest published  99.0.0'), 'and the published one');
-  assert.ok(result.out.includes('`phyllum update`'), 'and what to do about it');
+  assert.ok(result.out.includes('`phyllum upgrade`'), 'and what to do about it');
 });
 
 test('an install ahead of the registry says so instead of suggesting an update', async () => {
@@ -116,7 +116,7 @@ test('an install ahead of the registry says so instead of suggesting an update',
   assert.equal(result.status, 'ahead');
   assert.equal(result.code, 0);
   assert.ok(result.out.includes('ahead of what is published'));
-  assert.ok(!result.out.includes('`phyllum update`'));
+  assert.ok(!result.out.includes('`phyllum upgrade`'));
 });
 
 test('statusFor compares versions rather than strings', () => {
@@ -289,11 +289,11 @@ test('only the version command imports the registry client', () => {
     }
   };
   walk(path.join(PACKAGE_ROOT, 'lib'), 'lib');
-  // `install-method.js` and `update-command.js` take the package *name* from the
+  // `install-method.js` and `upgrade-command.js` take the package *name* from the
   // client; only `version-command.js` may make a request with it.
   assert.deepEqual(importers.sort(), [
     'lib/install-method.js',
-    'lib/update-command.js',
+    'lib/upgrade-command.js',
     'lib/version-command.js',
   ]);
 

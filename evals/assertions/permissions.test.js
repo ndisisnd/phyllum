@@ -198,7 +198,7 @@ test('the GUI server is spawned with arguments, not a shell', () => {
 /**
  * Three processes, and only three.
  *
- * `gui` starts the dashboard server; `update` (v0.2.0 §4) runs the user's package
+ * `gui` starts the dashboard server; `upgrade` (v0.2.0 §4, renamed v0.3.0 §6) runs the user's package
  * manager, because updating an install is not something a program can do by
  * writing files; and `run-command.js` (v0.2.0 §6.5) is the run funnel `apply run`
  * uses — git for the branch and the commits, the host project's own test suite,
@@ -210,14 +210,14 @@ test('the GUI server is spawned with arguments, not a shell', () => {
  * `lib/agent-cli.js` all go through it rather than reaching for a process
  * themselves, which is why they are absent from this list.
  */
-const SPAWNERS = ['lib/gui-command.js', 'lib/run-command.js', 'lib/update-command.js'];
+const SPAWNERS = ['lib/gui-command.js', 'lib/run-command.js', 'lib/upgrade-command.js'];
 
 test('exactly three modules may start a process, and no others', () => {
   const spawners = [];
   for (const [file, source] of cliSources({ includeFunnel: true })) {
     if (/from\s+['"]node:child_process['"]/.test(source)) spawners.push(file);
   }
-  assert.deepEqual(spawners, SPAWNERS, 'only the GUI server, the run funnel and the package-manager update start a process');
+  assert.deepEqual(spawners, SPAWNERS, 'only the GUI server, the run funnel and the package-manager upgrade start a process');
 });
 
 /**
@@ -363,8 +363,8 @@ test('only the apply run module may open a source-write grant', () => {
 });
 
 test('the package manager is spawned by resolved path, with an argument array', () => {
-  const update = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'update-command.js'), 'utf8');
-  const code = update.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const upgrade = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'upgrade-command.js'), 'utf8');
+  const code = upgrade.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
   // The command and its arguments stay separate — no interpolated command line
   // can be handed to a process, with or without a shell.

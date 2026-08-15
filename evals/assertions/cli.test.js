@@ -114,6 +114,9 @@ test('every alias pair behaves identically', async () => {
   );
   assert.deepEqual(pairs, [
     ['create', 'build'],
+    // v0.3.0 §6: `update` changed hands. It used to move the install; it now
+    // means "update my codebase from the design system", which is `apply`.
+    ['apply', 'update'],
     ['tokenise', 'tokenize'],
     ['gui', 'dashboard'],
     // v0.2.1 §6.5.3: `display` is the primary read verb and `system` is its

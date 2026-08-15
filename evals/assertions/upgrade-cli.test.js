@@ -1,7 +1,12 @@
 /**
- * Assertions for `update` (plan v0.2.0 §4, §7).
+ * Assertions for `upgrade` (plan v0.2.0 §4, §7; renamed in v0.3.0 §6).
  *
- * `update` is the one command that runs someone else's program, so the checks
+ * This is the v0.2.0 `update` suite, re-pointed at the new word and otherwise
+ * intact — which is the point. The rename moved a name, not a behaviour, and the
+ * proof of that is that every check written against the old command still passes
+ * against the new one, unedited.
+ *
+ * `upgrade` is the one command that runs someone else's program, so the checks
  * here are about restraint as much as about function:
  *
  *   Detection is driven by real directory layouts built in a sandbox — a global
@@ -31,7 +36,7 @@ import {
   managerFromUserAgent,
   updateCommandFor,
 } from '../../lib/install-method.js';
-import { runUpdate } from '../../lib/update-command.js';
+import { runUpgrade } from '../../lib/upgrade-command.js';
 import { skillFiles } from '../../lib/template.js';
 import { SKILL_INSTALL_DIR } from '../../lib/write.js';
 import { PACKAGE_ROOT, diffSnapshots, snapshotContents, snapshotPaths, withTempDir } from './helpers.js';
@@ -234,16 +239,16 @@ test('the install command Phyllum suggests is right for each manager', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Running the update
+// Running the upgrade
 // ---------------------------------------------------------------------------
 
-test('a global update runs one command, by resolved path, with an argument array', async () => {
+test('a global upgrade runs one command, by resolved path, with an argument array', async () => {
   await withTempDir(async (dir) => {
     const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
     const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
     const runner = recordingRunner();
 
-    const result = await runUpdate({ cwd: dir, env: NO_ENV, install, run: runner, binPath: '/opt/bin/npm' });
+    const result = await runUpgrade({ cwd: dir, env: NO_ENV, install, run: runner, binPath: '/opt/bin/npm' });
 
     assert.equal(result.code, 0);
     assert.equal(runner.runs.length, 1);
@@ -254,7 +259,7 @@ test('a global update runs one command, by resolved path, with an argument array
   });
 });
 
-test('a project update runs in the project, not in the current directory', async () => {
+test('a project upgrade runs in the project, not in the current directory', async () => {
   await withTempDir(async (dir) => {
     const { packageRoot, projectRoot } = layout(dir, {
       relPath: 'app/node_modules/phyllum',
@@ -263,7 +268,7 @@ test('a project update runs in the project, not in the current directory', async
     });
     const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
     const runner = recordingRunner();
-    await runUpdate({ cwd: dir, env: NO_ENV, install, run: runner, binPath: '/opt/bin/pnpm' });
+    await runUpgrade({ cwd: dir, env: NO_ENV, install, run: runner, binPath: '/opt/bin/pnpm' });
     assert.equal(runner.runs[0].cwd, projectRoot);
   });
 });
@@ -274,7 +279,7 @@ test('a failed install reports the error, changes nothing, and exits non-zero', 
     const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
     const before = snapshotContents(dir);
 
-    const result = await runUpdate({
+    const result = await runUpgrade({
       cwd: dir,
       env: NO_ENV,
       install,
@@ -298,7 +303,7 @@ test('a manager Phyllum drives but cannot find is a command, not a crash', async
 
     // PATH is empty in NO_ENV, so the lookup finds nothing.
     assert.equal(findOnPath('npm', NO_ENV), null);
-    const result = await runUpdate({ cwd: dir, env: NO_ENV, install, run: runner });
+    const result = await runUpgrade({ cwd: dir, env: NO_ENV, install, run: runner });
 
     assert.equal(result.code, 1);
     assert.equal(runner.runs.length, 0, 'nothing was run');
@@ -340,7 +345,7 @@ test('every refusal names the exact command, runs nothing, and writes nothing', 
       const runner = recordingRunner();
       const before = snapshotContents(dir);
 
-      const result = await runUpdate({ cwd: dir, env: NO_ENV, install, run: runner });
+      const result = await runUpgrade({ cwd: dir, env: NO_ENV, install, run: runner });
 
       assert.equal(result.code, 1, `${testCase.id}: a refusal is not a success`);
       assert.equal(runner.runs.length, 0, `${testCase.id}: nothing may be run`);
@@ -361,7 +366,7 @@ test('every refusal names the exact command, runs nothing, and writes nothing', 
 // The skill re-sync
 // ---------------------------------------------------------------------------
 
-test('a successful update re-syncs the skill copy init installed', async () => {
+test('a successful upgrade re-syncs the skill copy init installed', async () => {
   await withTempDir(async (dir) => {
     const skillDir = path.join(dir, ...SKILL_INSTALL_DIR.split('/'));
     fs.mkdirSync(skillDir, { recursive: true });
@@ -371,7 +376,7 @@ test('a successful update re-syncs the skill copy init installed', async () => {
     const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
     const before = snapshotContents(dir);
 
-    const result = await runUpdate({
+    const result = await runUpgrade({
       cwd: dir,
       env: NO_ENV,
       install,
@@ -392,19 +397,19 @@ test('a successful update re-syncs the skill copy init installed', async () => {
     // Only the skill copy changed: no design system was invented, nothing else touched.
     const diff = diffSnapshots(before, snapshotContents(dir));
     for (const rel of [...diff.added, ...diff.changed]) {
-      assert.ok(rel.startsWith(SKILL_INSTALL_DIR), `update touched ${rel}`);
+      assert.ok(rel.startsWith(SKILL_INSTALL_DIR), `upgrade touched ${rel}`);
     }
     assert.deepEqual(diff.removed, []);
   });
 });
 
-test('with no skill copy installed, update creates none and says so', async () => {
+test('with no skill copy installed, upgrade creates none and says so', async () => {
   await withTempDir(async (dir) => {
     const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
     const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
     const before = snapshotContents(dir);
 
-    const result = await runUpdate({
+    const result = await runUpgrade({
       cwd: dir,
       env: NO_ENV,
       install,
@@ -423,7 +428,7 @@ test('with no skill copy installed, update creates none and says so', async () =
 // The command surface
 // ---------------------------------------------------------------------------
 
-test('update works before init, and needs no design system', async () => {
+test('upgrade works before init, and needs no design system', async () => {
   await withTempDir(async (dir) => {
     const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
     const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
@@ -435,7 +440,7 @@ test('update works before init, and needs no design system', async () => {
     fs.mkdirSync(binDir, { recursive: true });
     fs.writeFileSync(path.join(binDir, 'npm'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
 
-    const { out, code } = await run('update', {
+    const { out, code } = await run('upgrade', {
       cwd: dir,
       env: { PATH: binDir },
       install,
@@ -444,12 +449,12 @@ test('update works before init, and needs no design system', async () => {
     });
 
     assert.equal(code, 0);
-    assert.ok(!out.includes('no DESIGN-SYSTEM.md here yet'), 'update is about the install, not the project');
+    assert.ok(!out.includes('no DESIGN-SYSTEM.md here yet'), 'upgrade is about the install, not the project');
     assert.ok(!fs.existsSync(path.join(dir, 'DESIGN-SYSTEM.md')));
   });
 });
 
-test('update never checks the registry itself', async () => {
+test('upgrade never checks the registry itself', async () => {
   await withTempDir(async (dir) => {
     const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
     const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
@@ -461,7 +466,7 @@ test('update never checks the registry itself', async () => {
       return { ok: true, status: 200, json: async () => ({ version: '9.9.9' }) };
     };
     try {
-      await runUpdate({ cwd: dir, env: NO_ENV, install, binPath: '/opt/bin/npm', run: recordingRunner() });
+      await runUpgrade({ cwd: dir, env: NO_ENV, install, binPath: '/opt/bin/npm', run: recordingRunner() });
       assert.deepEqual(calls, [], 'the package manager resolves `latest`, not Phyllum');
     } finally {
       globalThis.fetch = original;

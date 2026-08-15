@@ -31,7 +31,7 @@ directory around every command and fails on anything not in this list:
 | `DESIGN-SYSTEM.md` | any command, after the user accepts a change |
 | `DESIGN-SYSTEM.md.bak` | the same write, one step earlier — the pre-edit copy the funnel always takes (v0.2.1 §6.5.2) |
 | `.phyllum/**` | session state, `apply`'s plan at `.phyllum/PRD.md`, and `assess --json`'s default output; gitignored |
-| `.claude/skills/phyllum/**` | `init` — the skill install; and `update`, which re-syncs that same copy |
+| `.claude/skills/phyllum/**` | `init` — the skill install; and `upgrade`, which re-syncs that same copy |
 | Phyllum's two `.gitignore` lines | `init` only, with the user's confirmation |
 | a JSON path you name | `assess --json <path>` only, and only a `.json` file inside the project |
 
@@ -55,13 +55,13 @@ above holds unchanged for every other command.
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
-| `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
+| `apply` | `update` | Plan applying the design system to the codebase; `apply run` executes the plan; `update` / `update run` are the same command |
 | `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values become a queue, asked one at a time |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
 | `display` | `system` | Print the design system to the terminal |
 | `version` | — | Print the installed version and check npm for a newer one |
-| `update` | — | Update this install to the latest published version |
+| `upgrade` | — | Upgrade this install to the latest published version |
 | `init` | — | Guided setup: scaffold the file, install this skill |
 
 Aliases are exact equivalents — same subskill, same behaviour.
@@ -90,7 +90,8 @@ reads the design system *and* the codebase, and writes only its own plan.
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `display` | `refs/system.md` — listing format; `system` is the same command under its older name |
 | `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |
-| `update` | `refs/update.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
+| `upgrade` | `refs/upgrade.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
+| `update` | `refs/update.md` — one page: `update` is `apply`'s alias, and `refs/apply.md` is the contract |
 | `init` | `refs/init.md` — the walkthrough, step by step |
 
 One reference file belongs to no command: `refs/nomenclature.md` is a shared
@@ -130,7 +131,7 @@ three-backtick block. Fence length is significant to the parser.
 
 ## Execution model
 
-- **Mechanics** (`menu`, `help`, `display`, `gui`, `kill`, `version`, `update`,
+- **Mechanics** (`menu`, `help`, `display`, `gui`, `kill`, `version`, `upgrade`,
   `apply`, `assess`'s scan, mapping table and proposed names, and `init`'s
   scaffold and install steps) run entirely in Node, with no model involved.
 - **Intelligence** (`create`, `tokenise`, `assess`'s suggestion review, and
@@ -195,10 +196,24 @@ plus `custom: true`) so that every contract lookup for it comes back empty by
 design — `assess`'s component matching, extrapolation and `apply`'s adoption all
 read the marker and skip rather than grading it against rules it never claimed.
 
-v0.2.0 M1 ships `version` and `update`, the self-maintenance pair. `version`
+v0.3.0 M6 hands the word "update" to `apply` and gives the self-maintenance job
+its own verb, `upgrade`. `phyllum update` is now an exact alias of `phyllum
+apply` — same registry entry, same handler, same plan at `.phyllum/PRD.md`, same
+guarantee that planning runs nothing — and `update run` chains to `apply run` the
+way `system`'s scope words chain to `display`. Everything the old `update` did to
+the *install* — detect npm or pnpm, global or project; refuse gracefully with the
+exact command to type; re-sync the skill copy — moved to `phyllum upgrade`
+without one behavioural change, and `refs/upgrade.md` carries that contract while
+`refs/update.md` is now a one-page pointer at `apply`. The switch is **silent**:
+no redirect notice and no acknowledgement gate, because `apply` only ever writes
+a plan, so a muscle-memory `update` costs a reader a `.phyllum/PRD.md` and
+nothing else. Help and `menu` lead with `apply` and list `update` as its alias;
+finding `upgrade` is the docs' job, not a warning's.
+
+v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest
 published version is — the only network call in the product, made only when the
-user asks for it, with no passive update hints anywhere else. `update` detects
+user asks for it, with no passive update hints anywhere else. `upgrade` detects
 how Phyllum was installed (npm or pnpm, global or project dependency), runs that
 manager's own update, and re-syncs the installed skill copy so the CLI and the
 skill are never two versions; a one-off `npx` run, a source checkout or any other

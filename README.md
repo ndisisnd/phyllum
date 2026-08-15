@@ -37,8 +37,8 @@
 > tokens and components are found by running coverage backwards. The run ends in
 > one drift score and one verdict. `assess --json` writes the whole assessment to
 > a file for CI, `display` reads the system back (`system` stays as an alias), and
-> every edit to `DESIGN-SYSTEM.md` now leaves a `.bak` one undo behind. Update
-> with `phyllum update`
+> every edit to `DESIGN-SYSTEM.md` now leaves a `.bak` one undo behind. Upgrade
+> with `phyllum upgrade`
 <!-- /mkpub:release -->
 
 ---
@@ -74,14 +74,14 @@ The commands:
 |---------|--------------|
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
-| `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
+| `apply` | Plan applying the design system to the codebase; `apply run` executes the plan (`update` is the same command, kept as an alias) |
 | `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values are queued and asked about one at a time |
 | `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
 | `kill` | Stop the dashboard server `gui` started |
 | `init` | Guided setup — scaffold the file, install the skill |
 | `version` | Print the installed version and check npm for a newer one |
-| `update` | Update this install to the latest published version |
+| `upgrade` | Upgrade this install to the latest published version |
 | `menu` / `help` | List the commands, or explain one in depth |
 
 ## Install
@@ -89,7 +89,7 @@ The commands:
 Phyllum needs **Node 20 or newer** and has no dependencies to install.
 
 Some commands are wholly mechanical and work on their own: `menu`, `help`, `display`,
-`gui`, `kill`, `version`, `update`, `create primitives` — shipped constants and
+`gui`, `kill`, `version`, `upgrade`, `create primitives` — shipped constants and
 arithmetic, no model in the path — and `apply`, which only ever writes a plan.
 
 Some want [Claude Code](https://www.claude.com/product/claude-code), and run natively
@@ -228,20 +228,25 @@ corrupt `DESIGN-SYSTEM.md`.
 
 ## How to update
 
-Two different things:
+Three different things, and from 0.3.0 each has its own word:
 
-- **Update Phyllum itself** — `phyllum version` tells you whether you are current, showing
-  both your version and the latest published one. `phyllum update` then does the work: it
-  detects how you installed Phyllum (npm or pnpm, globally or as a project dependency), runs
-  the right command, and re-syncs the skill under `.claude/skills/phyllum/` so the CLI and
-  the skill are never two versions. If it can't act safely — a one-off `npx` run has nothing
-  to update, a source checkout belongs to git — it says so and prints the exact command to
-  run instead. `version` is the only command that ever touches the network, and only when
-  you ask: nothing checks for updates in the background.
+- **Update Phyllum itself — `phyllum upgrade`** — `phyllum version` tells you whether you
+  are current, showing both your version and the latest published one. `phyllum upgrade`
+  then does the work: it detects how you installed Phyllum (npm or pnpm, globally or as a
+  project dependency), runs the right command, and re-syncs the skill under
+  `.claude/skills/phyllum/` so the CLI and the skill are never two versions. If it can't
+  act safely — a one-off `npx` run has nothing to update, a source checkout belongs to git
+  — it says so and prints the exact command to run instead. `version` is the only command
+  that ever touches the network, and only when you ask: nothing checks for updates in the
+  background. Up to 0.2.3 this command was called `phyllum update`; only the word changed.
 - **Update what Phyllum produced** — re-run `assess`, `tokenise` or `create` any time. Because every
   command converges, a rerun refreshes `DESIGN-SYSTEM.md` without duplicating what's
   already there; `init` on an existing file adds back only missing sections and never drops
   your content.
+- **Update your codebase from the design system — `phyllum update`** — this is what the word
+  means from 0.3.0 on: `update` is an alias of `apply`, so it writes the plan to
+  `.phyllum/PRD.md` and runs nothing, and `update run` is `apply run`. It used to move the
+  install; that job is `phyllum upgrade` now, and nothing about it changed but the word.
 
 ## FAQ
 
