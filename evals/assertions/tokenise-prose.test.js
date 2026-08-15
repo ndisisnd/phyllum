@@ -20,15 +20,28 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { parse } from '../../lib/design-system.js';
-import { runTokenise, resolveRole, resolveCandidate } from '../../lib/tokenise-command.js';
+import { slotWords } from '../../lib/nomenclature.js';
+import { readState } from '../../lib/state.js';
+import {
+  nameSourceApplies,
+  nameSourceFallback,
+  roleSignalFor,
+  roleSignalWords,
+} from '../../lib/tokenise-spec.js';
+import { runTokenise, resolveRole, unfinishedQueue } from '../../lib/tokenise-command.js';
 import {
   IMPLIED_LINE_HEIGHT,
   IMPLIED_WEIGHT,
+  collapseDuplicates,
   existingTokenFor,
   ladderPlacement,
   nameInProse,
+  namesInProse,
+  nomenclatureName,
   parseProse,
   roleInProse,
+  signalsInProse,
+  splitSegments,
   suggestName,
 } from '../../lib/tokenise-prose.js';
 import { FIXTURES, copyDir, readFixture, withTempDir } from './helpers.js';
@@ -293,36 +306,320 @@ test('the role answer is read the way the question offers it', () => {
   assert.equal(resolveRole(''), 'spacing', 'an empty answer takes the offered default');
 });
 
-test('a sentence naming two values records one and says so', async () => {
+// ---------------------------------------------------------------------------
+// The batch intake — several values, one sentence (v0.3.0 plan §3)
+// ---------------------------------------------------------------------------
+
+test('N values in the sentence are N entries in the queue, in the order it says them', () => {
+  const parsed = parseProse('#2563EB #10B981 #F59E0B');
+  assert.equal(parsed.candidates.length, 3);
+  assert.deepEqual(
+    parsed.candidates.map((candidate) => candidate.value),
+    ['#2563EB', '#10B981', '#F59E0B'],
+    'sentence order is queue order',
+  );
+  assert.ok(parsed.candidates.every((candidate) => candidate.pass === 'colours'));
+});
+
+test('order is preserved across passes, not colours-then-the-rest', () => {
+  const parsed = parseProse('card 4px corner and #F9FAFB surface');
+  assert.deepEqual(
+    parsed.candidates.map((candidate) => [candidate.pass, candidate.value]),
+    [
+      ['numbers', '4px'],
+      ['colours', '#F9FAFB'],
+    ],
+    'the length was said first, so it is asked about first',
+  );
+});
+
+test('one sentence can carry several complete typography readings', () => {
+  const parsed = parseProse('heading 24px bold 1.2, body 16px regular 1.5');
+  assert.equal(parsed.candidates.length, 2);
+  const [heading, body] = parsed.candidates;
+  assert.deepEqual(
+    [heading.size, heading.weight, heading.lineHeight],
+    ['24px', '700', '1.2'],
+  );
+  assert.deepEqual([body.size, body.weight, body.lineHeight], ['16px', '400', '1.5']);
+  assert.deepEqual(heading.implied, [], 'a reading stated in full implies nothing');
+});
+
+test('the CSS defaults fill each reading’s own gaps, visibly and separately', () => {
+  const parsed = parseProse('heading 24px bold; caption 11px');
+  const [heading, caption] = parsed.candidates;
+  assert.deepEqual(heading.implied, ['line-height normal'], 'the heading only lacks a line-height');
+  assert.equal(caption.weight, IMPLIED_WEIGHT);
+  assert.equal(caption.lineHeight, IMPLIED_LINE_HEIGHT);
+  assert.deepEqual(caption.implied, ['font-weight 400', 'line-height normal']);
+});
+
+test('a reading starts at a role word or an explicit separator, and nowhere else', () => {
+  const cuts = (prose) => splitSegments(prose).map((segment) => prose.slice(segment.start, segment.end).trim());
+  assert.deepEqual(cuts('heading 24px body 16px'), ['heading 24px', 'body 16px'], 'a role word cuts');
+  assert.deepEqual(cuts('24px, 16px'), ['24px,', '16px'], 'a comma cuts');
+  assert.deepEqual(cuts('24px; 16px'), ['24px;', '16px'], 'a semicolon cuts');
+  assert.deepEqual(cuts('24px and 16px'), ['24px and', '16px'], '"and" cuts');
+  assert.deepEqual(cuts('16px/1.5'), ['16px/1.5'], 'and a slash never does — it is one reading');
+});
+
+test('a stranded weight word binds to the reading on its left', () => {
+  const [reading] = parseProse('heading 24px, semibold').candidates;
+  assert.equal(reading.weight, '600', 'the semibold heading, not a semibold nothing');
+  assert.deepEqual(reading.implied, ['line-height normal'], 'and the weight is no longer implied');
+});
+
+test('a fragment with no reading on its left binds right instead', () => {
+  const [reading] = parseProse('bold heading 24px').candidates;
+  assert.equal(reading.weight, '700');
+});
+
+test('a fragment never overwrites a slot the reading already states', () => {
+  const [heading] = parseProse('heading 24px bold, semibold').candidates;
+  assert.equal(heading.weight, '700', 'the first statement of a slot stands');
+});
+
+test('a name binds to the value nearest it, so two names name two values', () => {
+  const parsed = parseProse('#2563EB called brand-blue and #10B981 called success-green');
+  assert.deepEqual(
+    parsed.candidates.map((candidate) => [candidate.value, candidate.name]),
+    [
+      ['#2563EB', 'brand-blue'],
+      ['#10B981', 'success-green'],
+    ],
+  );
+  assert.ok(parsed.candidates.every((candidate) => candidate.nameFromProse));
+});
+
+test('a name written ahead of every value binds to the first one on its right', () => {
+  const [colour] = parseProse('brand-blue #2563EB').candidates;
+  assert.equal(colour.name, 'brand-blue');
+});
+
+test('three values and one name leaves the other two to the naming scales', () => {
+  const parsed = parseProse('#2563EB #10B981 called success-green #F59E0B');
+  assert.deepEqual(
+    parsed.candidates.map((candidate) => candidate.name),
+    [null, 'success-green', null],
+  );
+});
+
+test('namesInProse finds every name, in the order the sentence carries them', () => {
+  assert.deepEqual(
+    namesInProse('#2563EB called brand-blue and #10B981 called success-green').map((item) => item.name),
+    ['brand-blue', 'success-green'],
+  );
+  assert.deepEqual(namesInProse('our brand blue #2563EB'), [], 'no name is not a wrong name');
+});
+
+test('duplicates inside one sentence collapse to one proposal', () => {
+  const parsed = parseProse('#2563EB and #2563eb again');
+  assert.equal(parsed.candidates.length, 1, 'the same colour, spelled two ways, is one value');
+  assert.equal(parsed.candidates[0].value, '#2563EB', 'and the first mention keeps its place');
+});
+
+test('a duplicate’s name fills a survivor that has none', () => {
+  const parsed = parseProse('#2563EB and #2563EB called brand-blue');
+  assert.equal(parsed.candidates.length, 1);
+  assert.equal(parsed.candidates[0].name, 'brand-blue', 'the user did say it');
+});
+
+test('a length is only a duplicate of a length in the same role', () => {
+  const candidates = [
+    { pass: 'numbers', value: '12px', role: 'radius' },
+    { pass: 'numbers', value: '12px', role: 'spacing' },
+    { pass: 'numbers', value: '12px', role: 'radius' },
+  ];
+  assert.equal(collapseDuplicates(candidates).length, 2, 'same number, different facts');
+});
+
+test('the queue runs one question at a time, and each entry writes its own token', async () => {
   await withProject(async (dir) => {
     const asked = [];
-    const { out } = await runTokenise(args('card 4px corner and #F9FAFB surface'), {
+    const { out } = await runTokenise(args('#2563EB #10B981 #F59E0B'), {
       cwd: dir,
       env: {},
       ask: async (question) => {
         asked.push(question);
-        return asked.length === 1 ? '2' : 'y';
+        return 'y';
       },
       confirm: async () => true,
     });
 
-    assert.match(asked[0], /names 2 values/, 'it asks which one rather than guessing');
-    assert.ok(out.includes('needs its own run'), 'and says what was left behind');
-    const model = parse(read(dir));
-    assert.equal(model.tokens.numbers.length, 1, 'exactly one token was written');
-    assert.deepEqual(model.tokens.colours, []);
+    assert.equal(asked.length, 3, 'one question per value, never a wall of them');
+    for (const question of asked) assert.match(question, /^\(\d of 3\) Name /);
+    assert.ok(out.includes('Read 3 values'), 'and the queue is stated before it is walked');
+
+    const colours = parse(read(dir)).tokens.colours;
+    assert.deepEqual(colours.map((row) => row[1]), ['#2563EB', '#10B981', '#F59E0B']);
+    assert.deepEqual(
+      colours.map((row) => row[0]),
+      ['color-primary', 'color-secondary', 'color-accent'],
+      'the ranked scale counts the acceptances this run made',
+    );
   });
 });
 
-test('resolveCandidate reads a number, a value, or falls back to the first', () => {
-  const candidates = [
-    { pass: 'colours', value: '#F9FAFB' },
-    { pass: 'numbers', value: '4px' },
-  ];
-  assert.equal(resolveCandidate('2', candidates), candidates[1]);
-  assert.equal(resolveCandidate('4px', candidates), candidates[1]);
-  assert.equal(resolveCandidate('', candidates), candidates[0]);
-  assert.equal(resolveCandidate('nothing like this', candidates), candidates[0]);
+test('skipping one entry writes nothing for it and the queue carries on', async () => {
+  await withProject(async (dir) => {
+    let asked = 0;
+    await runTokenise(args('#2563EB #10B981 #F59E0B'), {
+      cwd: dir,
+      env: {},
+      ask: async () => {
+        asked += 1;
+        return asked === 2 ? 'skip' : 'y';
+      },
+      confirm: async () => true,
+    });
+
+    assert.equal(asked, 3, 'the skip ended one entry, not the run');
+    assert.deepEqual(
+      parse(read(dir)).tokens.colours.map((row) => row[1]),
+      ['#2563EB', '#F59E0B'],
+      'the skipped value left no row behind',
+    );
+  });
+});
+
+test('a value named earlier in the same run is not named twice', async () => {
+  await withProject(async (dir) => {
+    const { out } = await runTokenise(args('#2563EB and 12px radius and #2563EB'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'y',
+      confirm: async () => true,
+    });
+    assert.equal(parse(read(dir)).tokens.colours.length, 1);
+    assert.ok(!out.includes('is already `color-primary`'), 'it collapsed rather than being refused');
+  });
+});
+
+test('the whole queue is kept in the session file, settled entries and pending ones alike', async () => {
+  await withProject(async (dir) => {
+    let asked = 0;
+    await runTokenise(args('#2563EB #10B981'), {
+      cwd: dir,
+      env: {},
+      ask: async () => {
+        asked += 1;
+        return asked === 1 ? 'y' : 'skip';
+      },
+      confirm: async () => true,
+    });
+
+    const { queue } = readState(dir).tokenise;
+    assert.deepEqual(
+      queue.map((entry) => [entry.value, entry.status]),
+      [
+        ['#2563EB', 'written'],
+        ['#10B981', 'skipped'],
+      ],
+    );
+  });
+});
+
+test('a queue cut short is offered back, and picks up where it stood', async () => {
+  await withProject(async (dir) => {
+    // No `confirm`, so the run stops at the acceptance gate of the first entry.
+    await runTokenise(args('#2563EB #10B981'), { cwd: dir, env: {}, ask: async () => 'y' });
+    const unfinished = unfinishedQueue(dir);
+    assert.equal(unfinished.pending.length, 2, 'nothing was settled, so nothing was dropped');
+
+    const asked = [];
+    const { out } = await runTokenise([], {
+      cwd: dir,
+      env: {},
+      ask: async (question) => {
+        asked.push(question);
+        return 'y';
+      },
+      confirm: async () => true,
+    });
+
+    assert.match(asked[0], /Pick the queue up where it stood\?/);
+    assert.ok(out.includes('Resuming'));
+    assert.deepEqual(
+      parse(read(dir)).tokens.colours.map((row) => row[1]),
+      ['#2563EB', '#10B981'],
+    );
+    assert.equal(unfinishedQueue(dir), null, 'and a finished queue is not offered again');
+  });
+});
+
+test('one backup for the run, not one per accepted token', async () => {
+  await withProject(async (dir) => {
+    const before = read(dir);
+    await runTokenise(args('#2563EB #10B981 #F59E0B'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'y',
+      confirm: async () => true,
+    });
+    assert.equal(
+      fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md.bak'), 'utf8'),
+      before,
+      'the undo is the file as it stood before the sentence, not before its last value',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Naming suggestions from the nomenclature library (v0.3.0 plan §4.2, §4.3)
+// ---------------------------------------------------------------------------
+
+test('a sentence that signals a role is named by the library, not by the scale', () => {
+  const model = emptyModel();
+  const suggestion = suggestName(parseProse('our main interactive blue #2563EB').candidates[0], model);
+  assert.equal(suggestion.name, 'interaction-primary');
+  assert.equal(suggestion.source, 'nomenclature');
+});
+
+test('a sentence that signals nothing the library knows falls back to the scale', () => {
+  const model = emptyModel();
+  const suggestion = suggestName(parseProse('our brand blue #2563EB').candidates[0], model);
+  assert.equal(suggestion.name, 'color-primary');
+  assert.equal(suggestion.source, 'scale');
+});
+
+test('a family with no rank is ranked by what that family already names', () => {
+  const model = emptyModel();
+  assert.equal(nomenclatureName('our danger red', model), 'danger-primary');
+  model.tokens.colours.push(['danger-primary', '#DC2626']);
+  assert.equal(nomenclatureName('our danger red', model), 'danger-secondary');
+  model.tokens.colours.push(['danger-secondary', '#EF4444'], ['danger-tertiary', '#F87171']);
+  assert.equal(nomenclatureName('our danger red', model), null, 'and a fourth rank is never invented');
+});
+
+test('a rank without a family names nothing — family is the anchor', () => {
+  assert.equal(nomenclatureName('our main blue', emptyModel()), null);
+});
+
+test('exception and state words are added when the sentence says them, never otherwise', () => {
+  const model = emptyModel();
+  assert.equal(nomenclatureName('the interactive primary on hover', model), 'interaction-primary-hover');
+  assert.equal(nomenclatureName('the interactive primary', model), 'interaction-primary');
+  assert.deepEqual(signalsInProse('our main interactive blue'), {
+    rank: 'primary',
+    family: 'interaction',
+  });
+});
+
+test('every spelling in the signal table resolves to a word the library ships', () => {
+  for (const word of roleSignalWords()) {
+    const signal = roleSignalFor(word);
+    assert.ok(
+      slotWords(signal.slot).includes(signal.word),
+      `${word} proposes \`${signal.word}\`, which is not a ${signal.slot} the library knows`,
+    );
+  }
+});
+
+test('the library is consulted for colours only, per the name-source table', () => {
+  assert.ok(nameSourceApplies('nomenclature', 'colours'));
+  assert.ok(!nameSourceApplies('nomenclature', 'numbers'));
+  assert.ok(!nameSourceApplies('nomenclature', 'typography'));
+  assert.equal(nameSourceFallback('nomenclature'), 'scale', 'the old scale is the fallback, not the default');
 });
 
 test('the notes cell records the sentence, and cannot break the table it lands in', async () => {

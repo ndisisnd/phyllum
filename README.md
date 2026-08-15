@@ -75,7 +75,7 @@ The commands:
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats |
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
 | `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
-| `tokenise` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
+| `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values are queued and asked about one at a time |
 | `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
 | `kill` | Stop the dashboard server `gui` started |
@@ -129,10 +129,10 @@ your intent.
 flowchart TD
   prose["Prose you type"] --> create
   image["An image you point at"] --> create
-  sentence["A sentence about one value"] --> tokenise
+  sentence["A sentence about one or more values"] --> tokenise
   code["Styles already in the codebase"] --> assess
   create["<b>create</b><br/>craft a component"] --> file
-  tokenise["<b>tokenise</b><br/>name one token"] --> file
+  tokenise["<b>tokenise</b><br/>name the values you describe"] --> file
   assess["<b>assess</b><br/>inventory the raw styling"] --> file
   file["<b>DESIGN-SYSTEM.md</b><br/>the one file Phyllum writes"]
 ```
@@ -178,9 +178,13 @@ And every command that edits `DESIGN-SYSTEM.md` copies it to
 disk. A backup that cannot be written stops the edit rather than proceeding
 without it.
 
-`tokenise` names one value from one sentence: `phyllum tokenise "our brand blue #2563EB"`.
-If the sentence names the token, that name is used; if not, Phyllum suggests one from the
-naming scales and confirms it with you. It does not read your code — that's `assess`.
+`tokenise` names the values in a sentence: `phyllum tokenise "our brand blue #2563EB"`.
+A sentence carrying several — `phyllum tokenise "#2563EB #10B981 #F59E0B"` — becomes a
+queue, walked one question at a time in the order you said them, and a value you skip
+costs only itself. If the sentence names a token, that name is used; if not, Phyllum
+suggests one — from the nomenclature vocabulary when your words say what a colour is for,
+from the naming scales otherwise — and confirms it with you. It does not read your code —
+that's `assess`.
 
 `apply` is the other direction: it takes the design system you have built and plans how to
 get it into your code. Raw values become the tokens that already name them; ad-hoc patterns

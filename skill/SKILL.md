@@ -56,7 +56,7 @@ above holds unchanged for every other command.
 | `create` | `build` | Craft a new component from prose, an image, or a pick |
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
-| `tokenise` | `tokenize` | Name one token from a sentence, e.g. "our brand blue #2563EB" |
+| `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values become a queue, asked one at a time |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
 | `display` | `system` | Print the design system to the terminal |
@@ -86,7 +86,7 @@ reads the design system *and* the codebase, and writes only its own plan.
 | `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
 | `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering, the mapping table, the token and component suggestion tracks |
 | `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
-| `tokenise` | `refs/tokenise.md` — how a sentence is read, the three passes, the naming scales, the follow-up loop when a value or a name is missing, acceptance |
+| `tokenise` | `refs/tokenise.md` — how a sentence is read, the batch queue and its splitting grammar, the three passes, the naming sources (the nomenclature library first, the scales as fallback), the follow-up loop when a value or a name is missing, acceptance |
 | `gui` | `refs/gui.md` — server contract, view specs |
 | `display` | `refs/system.md` — listing format; `system` is the same command under its older name |
 | `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |

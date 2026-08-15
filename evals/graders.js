@@ -44,8 +44,15 @@ import {
 import { emptyModel, parse } from '../lib/design-system.js';
 import { codeViewFor, detectProject } from '../lib/detect.js';
 import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
-import { proposeTokens, scanCodebase } from '../lib/tokenise.js';
-import { parseProse, suggestName } from '../lib/tokenise-prose.js';
+import { applyAcceptance, proposeTokens, scanCodebase } from '../lib/tokenise.js';
+import { accepted, decide, questionFor } from '../lib/tokenise-command.js';
+import {
+  existingTokenFor,
+  parseProse,
+  proposalFrom,
+  suggestName,
+  takenNames,
+} from '../lib/tokenise-prose.js';
 import {
   actionFor,
   actionRules,
@@ -1276,12 +1283,47 @@ function proseTokenise() {
 
   for (const testCase of spec.cases) {
     const parsed = parseProse(testCase.prose);
+
+    // The queue, walked. A `loop` case grades what the conversation does rather
+    // than what the reader read: the same chain `runQueue` runs per entry —
+    // suggest, propose, ask, decide, accept, write — with the answers pinned
+    // and the I/O left out, so a batch of three is graded as three questions
+    // and three decisions rather than as one parse.
+    if (testCase.loop) {
+      const walked = walkQueue(parsed.candidates, testCase.loop.answers);
+      claim(
+        walked.questions.length === testCase.loop.questions,
+        `${testCase.id}: asked ${walked.questions.length} question(s), expected ${testCase.loop.questions} — one per value, one at a time`,
+      );
+      claim(
+        walked.questions.every((question, index) => question.includes(walked.values[index])),
+        `${testCase.id}: a question was asked about a value out of turn`,
+      );
+      claim(
+        walked.written.join(' + ') === testCase.loop.written.join(' + '),
+        `${testCase.id}: wrote ${walked.written.join(', ') || '(nothing)'}, expected ${testCase.loop.written.join(', ')}`,
+      );
+      continue;
+    }
+
     const expected = testCase.expected;
 
     claim(
       parsed.complete === expected.complete,
       `${testCase.id}: complete = ${parsed.complete}, expected ${expected.complete}`,
     );
+
+    if (expected.queue) {
+      const queue = parsed.candidates.map((candidate) =>
+        candidate.pass === 'typography'
+          ? `${candidate.size} / ${candidate.weight} / ${candidate.lineHeight}`
+          : candidate.value,
+      );
+      claim(
+        queue.join(' + ') === expected.queue.join(' + '),
+        `${testCase.id}: the queue is ${queue.join(', ')}, expected ${expected.queue.join(', ')}`,
+      );
+    }
 
     if ('name' in expected) {
       claim(parsed.name === expected.name, `${testCase.id}: name = ${parsed.name} ≠ ${expected.name}`);
@@ -1320,18 +1362,58 @@ function proseTokenise() {
         typeof suggestion?.name === 'string' && new RegExp(expected.suggested).test(suggestion.name),
         `${testCase.id}: suggested "${suggestion?.name ?? '(none)'}" is not on the ${expected.suggested} scale`,
       );
-    }
-
-    // Two values in one sentence is a question, never a pick.
-    if (expected.asks) {
-      claim(
-        parsed.candidates.length > 1,
-        `${testCase.id}: a sentence with two values must offer both, not choose one`,
-      );
+      // And it must come from the source the contract says it should. A right
+      // name from the wrong source is a coincidence, and coincidences stop
+      // holding as soon as the vocabulary grows (v0.3.0 §4.3).
+      if (expected.suggestedSource) {
+        claim(
+          suggestion?.source === expected.suggestedSource,
+          `${testCase.id}: the name came from the ${suggestion?.source ?? 'unknown'} source, expected ${expected.suggestedSource}`,
+        );
+      }
     }
   }
 
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
+/**
+ * The proposal queue, walked without a terminal (v0.3.0 plan §3).
+ *
+ * `runQueue` in `lib/tokenise-command.js` is this chain plus the printing, the
+ * questions and the file write; the pieces themselves — `suggestName`,
+ * `proposalFrom`, `questionFor`, `decide`, `accepted`, `applyAcceptance` — are
+ * the real ones, in the real order, against a real model that grows as the run
+ * accepts. That is what makes the two claims here worth grading: one question
+ * per entry and no more, and a skipped entry costing only itself while every
+ * later entry still ranks against what was accepted before it.
+ */
+function walkQueue(queue, answers) {
+  const model = emptyModel();
+  const questions = [];
+  const written = [];
+  const values = [];
+
+  for (const [index, candidate] of queue.entries()) {
+    values.push(candidate.pass === 'typography' ? candidate.size : candidate.value);
+    if (existingTokenFor(candidate, model)) continue;
+
+    const suggestion = candidate.nameFromProse ? null : suggestName(candidate, model);
+    const proposal = proposalFrom(candidate, {
+      name: candidate.name ?? suggestion.name,
+      model,
+      prose: '(the sentence)',
+      suggested: suggestion?.name ?? null,
+    });
+    questions.push(questionFor(proposal));
+
+    const decision = decide(proposal, answers[index] ?? 'skip', { names: [...takenNames(model)] });
+    const keep = accepted([decision]);
+    if (keep.length === 0) continue;
+    for (const item of applyAcceptance(model, keep).written) written.push(item.name);
+  }
+
+  return { questions, written, values };
 }
 
 // ---------------------------------------------------------------------------

@@ -336,7 +336,14 @@ test('the backup is taken by the funnel, so no writer can skip it', () => {
   // gave the backup its own fault stages, so the call is no longer bare.
   const takenIn = source.split(/backupDesignSystem\(/).length - 1;
   assert.equal(takenIn, 2, 'one definition, one call — and the call is inside writeGuarded');
-  assert.match(source, /if \(rel === DESIGN_SYSTEM_FILE\) backupDesignSystem\(/, 'in writeGuarded');
+  // The `backup` flag is not an escape hatch from the funnel — it is how a
+  // caller that writes this file several times in one run (tokenise's queue)
+  // says "one backup for the run", and the backup is still taken here.
+  assert.match(
+    source,
+    /if \(rel === DESIGN_SYSTEM_FILE && backup\) backupDesignSystem\(/,
+    'in writeGuarded',
+  );
   for (const file of ['create.js', 'tokenise.js', 'assess-command.js', 'init.js']) {
     const text = fs.readFileSync(path.join(process.cwd(), 'lib', file), 'utf8');
     assert.ok(!text.includes('.bak'), `${file} does not take a backup of its own`);

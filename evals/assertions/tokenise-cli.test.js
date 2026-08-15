@@ -16,18 +16,27 @@ import test from 'node:test';
 import { execute } from '../../lib/execute.js';
 import { tokenizeLine } from '../../lib/parse-args.js';
 import { resolveCommand } from '../../lib/registry.js';
+import { slotNames, slotWords } from '../../lib/nomenclature.js';
 import {
   actionForAnswer,
+  bindingDirection,
   colourNames,
   hintFor,
   ladders,
+  nameSources,
   passes,
   proseHints,
   proseWeights,
+  queueRule,
+  readingSeparators,
+  readingSplits,
   reloadSpec,
+  roleSignalFor,
+  roleSignalWords,
   roles,
   sectionFor,
   sources,
+  splitterOpens,
   weightForWord,
 } from '../../lib/tokenise-spec.js';
 import {
@@ -135,6 +144,61 @@ test('the weight words are a table too, and cover the CSS scale', () => {
   assert.equal(weightForWord('blue'), null, 'a colour word is not a weight');
 });
 
+test('the batch intake is a table, not a loop nobody can read', () => {
+  // Every rule the queue follows is a row. The point is that changing one is an
+  // edit to the contract rather than to a condition buried in the command.
+  assert.equal(queueRule('order'), 'sentence', 'sentence order is queue order');
+  assert.equal(queueRule('duplicates'), 'collapse');
+  assert.equal(queueRule('questions'), 'one', 'one question at a time, never a wall');
+  assert.equal(queueRule('skip'), 'entry', 'a skip costs its own entry and nothing else');
+  assert.equal(queueRule('resume'), '.phyllum/session.json');
+});
+
+test('the splitting grammar is stated, including what does not split', () => {
+  const splits = readingSplits();
+  assert.ok(splits.some((row) => row.splitter === 'role-word' && row.writtenAs === null));
+  assert.deepEqual(readingSeparators(), [',', ';', 'and'], 'the whole delimiter set, and no more');
+  assert.equal(splitterOpens('slash'), false, 'a slash is one reading — `16px/1.5`');
+
+  // A separator that is not on the table does not split, which is the half of a
+  // delimiter set that is easy to leave unsaid.
+  for (const character of ['.', ':', '-', '/']) {
+    assert.ok(!readingSeparators().includes(character), `${character} is not a separator`);
+  }
+});
+
+test('the binding table decides which way a stranded fragment reaches', () => {
+  assert.equal(bindingDirection('reading'), 'left', 'a weight word belongs to the reading behind it');
+  assert.equal(bindingDirection('name'), 'left');
+  assert.equal(bindingDirection('stranded'), 'right', 'unless there is nothing behind it');
+  assert.equal(bindingDirection('restatement'), null, 'the first statement of a slot stands');
+});
+
+test('the name-source table records that the library supersedes the old scale', () => {
+  const [first, second] = nameSources();
+  assert.equal(first.source, 'nomenclature', 'the library is consulted first');
+  assert.equal(first.fallsBackTo, 'scale', 'and the scale is what it falls back to');
+  assert.equal(second.source, 'scale');
+  assert.equal(second.fallsBackTo, null, 'the fallback falls back to nothing — it always answers');
+});
+
+test('every role signal names a slot and a word the nomenclature library ships', () => {
+  const words = roleSignalWords();
+  assert.ok(words.length > 0);
+  for (const word of words) {
+    const signal = roleSignalFor(word);
+    assert.ok(slotNames().includes(signal.slot), `${word} signals ${signal.slot}, which is not a slot`);
+    assert.ok(
+      slotWords(signal.slot).includes(signal.word),
+      `${word} proposes \`${signal.word}\`, which the ${signal.slot} slot does not know`,
+    );
+  }
+  // A signal word that is already a weight word would mean two things at once.
+  for (const word of words) {
+    assert.equal(weightForWord(word), null, `\`${word}\` is a weight word as well as a signal`);
+  }
+});
+
 test('the review answers come from the review table', () => {
   assert.equal(actionForAnswer('yes').action, 'confirm');
   assert.equal(actionForAnswer('NO').action, 'skip');
@@ -209,7 +273,7 @@ test('bare tokenise explains the sentence form and hands scanning to assess', as
   await withProject(async (dir) => {
     const before = snapshotContents(dir);
     const { out } = await run('tokenise', dir);
-    assert.ok(out.includes('names one value at a time, from a sentence'));
+    assert.ok(out.includes('names the values in a sentence, one question at a time'));
     assert.ok(out.includes('`assess` does that'), 'it names the command that reads code');
     assert.ok(out.includes('Nothing has been written'));
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, []);

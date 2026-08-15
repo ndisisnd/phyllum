@@ -1,11 +1,11 @@
 {
   "eval": "tokenise-prose-extraction",
   "rubric": "evals/rubrics/tokenise-prose-extraction.md",
-  "milestone": "v0.2.0 M8",
-  "planSections": ["§6", "§7"],
+  "milestone": "v0.3.0 M2",
+  "planSections": ["§6", "§7", "v0.3.0 §3", "v0.3.0 §4.2"],
   "threshold": 1,
   "status": "runnable — `npm run evals`",
-  "note": "Added in v0.2.0 M8, on M2's recommendation. `tokenise` became prose-only in M2 and its two graded evals both scanned a codebase, so after those were renamed to `assess-*` the command had no eval of its own. This is it: the sentence in, the token out. Deterministic end to end — `parseProse` and `suggestName` are pure functions over the sentence and the recorded model — so no responder and no recordings are involved.",
+  "note": "Added in v0.2.0 M8, on M2's recommendation. `tokenise` became prose-only in M2 and its two graded evals both scanned a codebase, so after those were renamed to `assess-*` the command had no eval of its own. This is it: the sentence in, the token out. Deterministic end to end — `parseProse` and `suggestName` are pure functions over the sentence and the recorded model — so no responder and no recordings are involved. Extended in v0.3.0 M2 with the batch intake (several values, one sentence) and the nomenclature library as the naming source, and one pinned expectation changed with the contract: `colour-unnamed` used to expect the `color-*` scale, and the library now supersedes it wherever the sentence signals a role (v0.3.0 §4.3).",
   "cases": [
     {
       "id": "colour-named",
@@ -25,7 +25,50 @@
         "nameFromProse": false,
         "complete": true,
         "candidates": [{ "pass": "colours", "value": "#7C3AED" }],
-        "suggested": "^color-[a-z0-9-]+$"
+        "suggested": "^accent-primary$",
+        "suggestedSource": "nomenclature"
+      }
+    },
+    {
+      "id": "colour-unnamed-and-unsignalled",
+      "prose": "we also use #7C3AED",
+      "expected": {
+        "name": null,
+        "nameFromProse": false,
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#7C3AED" }],
+        "suggested": "^color-[a-z0-9-]+$",
+        "suggestedSource": "scale"
+      }
+    },
+    {
+      "id": "role-signal-prefers-the-library",
+      "prose": "our main interactive blue #2563EB",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#2563EB" }],
+        "suggested": "^interaction-primary$",
+        "suggestedSource": "nomenclature"
+      }
+    },
+    {
+      "id": "state-word-is-added-only-when-said",
+      "prose": "the interactive primary on hover is #1E40AF",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#1E40AF" }],
+        "suggested": "^interaction-primary-hover$",
+        "suggestedSource": "nomenclature"
+      }
+    },
+    {
+      "id": "rank-without-a-family-falls-back",
+      "prose": "our main blue #2563EB",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#2563EB" }],
+        "suggested": "^color-primary$",
+        "suggestedSource": "scale"
       }
     },
     {
@@ -80,12 +123,115 @@
       }
     },
     {
-      "id": "two-values-is-a-question",
+      "id": "two-values-is-two-entries",
       "prose": "the border is #E5E7EB and the radius is 8px",
       "expected": {
         "complete": true,
         "candidates": [{ "pass": "colours", "value": "#E5E7EB" }, { "pass": "numbers", "value": "8px" }],
-        "asks": true
+        "queue": ["#E5E7EB", "8px"]
+      }
+    },
+    {
+      "id": "three-colours-three-entries",
+      "prose": "#2563EB #10B981 #F59E0B",
+      "expected": {
+        "complete": true,
+        "candidates": [
+          { "pass": "colours", "value": "#2563EB" },
+          { "pass": "colours", "value": "#10B981" },
+          { "pass": "colours", "value": "#F59E0B" }
+        ],
+        "queue": ["#2563EB", "#10B981", "#F59E0B"]
+      }
+    },
+    {
+      "id": "order-is-sentence-order-across-passes",
+      "prose": "card 4px corner and #F9FAFB surface",
+      "expected": {
+        "complete": true,
+        "candidates": [
+          { "pass": "numbers", "value": "4px", "role": "radius" },
+          { "pass": "colours", "value": "#F9FAFB" }
+        ],
+        "queue": ["4px", "#F9FAFB"]
+      }
+    },
+    {
+      "id": "two-typography-readings",
+      "prose": "heading 24px bold 1.2, body 16px regular 1.5",
+      "expected": {
+        "complete": true,
+        "candidates": [
+          { "pass": "typography", "size": "24px", "weight": "700", "lineHeight": "1.2", "implied": [] },
+          { "pass": "typography", "size": "16px", "weight": "400", "lineHeight": "1.5", "implied": [] }
+        ],
+        "queue": ["24px / 700 / 1.2", "16px / 400 / 1.5"]
+      }
+    },
+    {
+      "id": "each-reading-fills-its-own-gaps",
+      "prose": "heading 24px bold; caption 11px",
+      "expected": {
+        "complete": true,
+        "candidates": [
+          { "pass": "typography", "size": "24px", "weight": "700", "lineHeight": "normal", "implied": ["line-height normal"] },
+          { "pass": "typography", "size": "11px", "weight": "400", "lineHeight": "normal", "implied": ["font-weight 400", "line-height normal"] }
+        ]
+      }
+    },
+    {
+      "id": "a-stranded-weight-binds-left",
+      "prose": "heading 24px, semibold",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "typography", "size": "24px", "weight": "600" }]
+      }
+    },
+    {
+      "id": "a-name-binds-to-the-value-nearest-it",
+      "prose": "#2563EB called brand-blue and #10B981 called success-green",
+      "expected": {
+        "complete": true,
+        "candidates": [
+          { "pass": "colours", "value": "#2563EB", "name": "brand-blue" },
+          { "pass": "colours", "value": "#10B981", "name": "success-green" }
+        ]
+      }
+    },
+    {
+      "id": "duplicates-collapse-inside-one-sentence",
+      "prose": "#2563EB and #2563eb again",
+      "expected": {
+        "complete": true,
+        "candidates": [{ "pass": "colours", "value": "#2563EB" }],
+        "queue": ["#2563EB"]
+      }
+    },
+    {
+      "id": "queue-asks-one-question-at-a-time",
+      "prose": "#2563EB #10B981 #F59E0B",
+      "loop": {
+        "answers": ["y", "y", "y"],
+        "questions": 3,
+        "written": ["color-primary", "color-secondary", "color-accent"]
+      }
+    },
+    {
+      "id": "queue-survives-a-mid-queue-skip",
+      "prose": "#2563EB #10B981 #F59E0B",
+      "loop": {
+        "answers": ["y", "skip", "y"],
+        "questions": 3,
+        "written": ["color-primary", "color-secondary"]
+      }
+    },
+    {
+      "id": "queue-skip-of-the-first-entry-costs-only-itself",
+      "prose": "#2563EB and 12px radius",
+      "loop": {
+        "answers": ["skip", "y"],
+        "questions": 2,
+        "written": ["rounded-md"]
       }
     }
   ]

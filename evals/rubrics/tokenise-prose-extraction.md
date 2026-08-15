@@ -22,7 +22,7 @@ recording — `parseProse` and `suggestName` are pure functions over the sentenc
 and the recorded model. That is why the threshold is 1.0: a wrong answer here is
 a wrong answer, not a judgement call.
 
-Four things per case, where the case states them:
+Six things per case, where the case states them:
 
 1. **The name, when the sentence gives one.** A backticked word, or the word
    after a naming word. `nameFromProse` must distinguish "the user named this"
@@ -39,6 +39,39 @@ Four things per case, where the case states them:
    `implied` list is how the command tells the user what it filled in, so an
    empty `implied` on a fully-stated sentence matters as much as a full one on a
    bare sentence.
+5. **The queue** (v0.3.0). N values in the sentence are N entries, in the order
+   the sentence says them and with duplicates collapsed. `expected.queue` pins
+   the whole list, because order is what decides which colour ranks first and
+   which question is asked first.
+6. **Where the name came from** (v0.3.0). `suggestedSource` is graded beside
+   `suggested`, because a right name from the wrong source is a coincidence: the
+   nomenclature library answers when the sentence signals a role, the old
+   `color-*` scale answers when it does not, and the two happening to agree
+   today is no guarantee they agree once the vocabulary grows.
+
+## The queue-loop cases
+
+Three cases carry a `loop` rather than an `expected`, and they grade the
+conversation instead of the reading: the answers are pinned, and the claims are
+that the queue asked exactly one question per entry, asked them about the right
+values in the right order, and wrote exactly the tokens the answers accepted.
+
+They walk the same chain `runQueue` walks — `suggestName`, `proposalFrom`,
+`questionFor`, `decide`, `accepted`, `applyAcceptance` — against a model that
+grows as the run accepts, with the printing and the file write left out. That is
+what makes the mid-queue skip case worth pinning: a skip must cost its own entry
+and nothing else, and every later entry must still rank against what was
+actually written before it.
+
+## A pinned expectation that changed, and why
+
+`colour-unnamed` ("the accent colour is #7C3AED") expected a `color-*` name
+until v0.3.0. The nomenclature library now **supersedes** that scale wherever
+the sentence signals a role (plan §4.3), and "accent" is a family word the
+library ships — so the expectation is `accent-primary` from the `nomenclature`
+source. The old scale is still graded, by `colour-unnamed-and-unsignalled`,
+which says nothing the vocabulary knows and must therefore still land on
+`color-*`. The bar did not move: both halves are pinned where one used to be.
 
 ## The failure this exists to catch
 
