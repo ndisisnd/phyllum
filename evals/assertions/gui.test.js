@@ -28,7 +28,9 @@ import { tokenizeLine } from '../../lib/parse-args.js';
 import { findPython, guiRecord, processAlive, runGui, runKill } from '../../lib/gui-command.js';
 import { readState } from '../../lib/state.js';
 import { systemJson } from '../../lib/system-json.js';
-import { parse } from '../../lib/design-system.js';
+import { parse, render } from '../../lib/design-system.js';
+import { addPrimitives, neutralRampRows } from '../../lib/primitives.js';
+import { comparatorCell, numberCell, tableAfter } from '../../lib/md-tables.js';
 import {
   PACKAGE_ROOT,
   POPULATED_FIXTURE,
@@ -453,6 +455,194 @@ test('a request with a foreign Host header is refused', { skip }, async () => {
       assert.equal(status, 403);
     });
   });
+});
+
+// ---------------------------------------------------------------------------
+// The page itself — swatches, ramps, and no network (v0.3.0 §6.5, §8)
+// ---------------------------------------------------------------------------
+
+const GUI_PAGE = path.join(PACKAGE_ROOT, 'gui', 'index.html');
+const GUI_REF = path.join(PACKAGE_ROOT, 'skill', 'refs', 'gui.md');
+const readPage = () => fs.readFileSync(GUI_PAGE, 'utf8');
+
+/**
+ * The page's own swatch rules, lifted out and run.
+ *
+ * The region between the `phyllum:swatch-contract` markers is written pure on
+ * purpose — no DOM, no fetch — so the suite can execute exactly the code the
+ * browser executes rather than a restatement of it. That is what stops the ref
+ * table, the page and these assertions from drifting apart.
+ */
+function swatchContract() {
+  const text = readPage();
+  const start = text.indexOf('// --- phyllum:swatch-contract');
+  const end = text.indexOf('// --- end phyllum:swatch-contract');
+  assert.ok(start !== -1 && end > start, 'the page marks its swatch-contract region');
+  const region = text.slice(start, end);
+  assert.ok(!/\b(document|window)\b/.test(region), 'the contract region touches no DOM');
+  const factory = new Function(
+    `${region}\nreturn { SWATCH, isColourValue, luminance, isNearWhite, inkFor, swatchHtml, rampGroups, rampHtml };`,
+  );
+  return factory();
+}
+
+const articles = (html) => html.match(/<article class="swatch[^"]*"[^>]*>/g) ?? [];
+
+test('every colour token in a fixture renders as a swatch carrying its own value', () => {
+  const contract = swatchContract();
+  const system = systemJson(readFixture(POPULATED_FIXTURE));
+  assert.ok(system.tokens.colours.length > 0, 'the fixture has colours to show');
+
+  const html = system.tokens.colours.map((row) => contract.swatchHtml(row.token, row.value)).join('');
+  const found = articles(html);
+  assert.equal(found.length, system.tokens.colours.length, 'one swatch element per colour token');
+
+  for (const row of system.tokens.colours) {
+    const swatch = found.find((tag) => tag.includes(`data-token="${row.token}"`));
+    assert.ok(swatch, `${row.token} has no swatch element`);
+    assert.ok(swatch.includes(`data-value="${row.value}"`), `${row.token}'s swatch carries its value`);
+    assert.ok(html.includes(`background:${row.value}`), `${row.token}'s swatch is filled with the colour itself`);
+    assert.ok(html.includes(`>${row.token}<`), `${row.token}'s name sits on the swatch`);
+    assert.ok(html.includes(`>${row.value}<`), `${row.token}'s value sits on the swatch`);
+  }
+});
+
+test('near-white colours take the bordered variant, and only they do', () => {
+  const contract = swatchContract();
+  const { nearWhiteLuminance } = contract.SWATCH;
+
+  // The fixture's own pair: white would vanish against the page, blue would not.
+  assert.ok(contract.isNearWhite('#FFFFFF'), 'white is near-white');
+  assert.equal(contract.isNearWhite('#2563EB'), false, 'a mid blue is not');
+  assert.ok(
+    contract.swatchHtml('color-surface', '#FFFFFF').includes('swatch--bordered'),
+    'the near-white swatch is bordered',
+  );
+  assert.equal(
+    contract.swatchHtml('color-primary', '#2563EB').includes('swatch--bordered'),
+    false,
+    'a swatch that shows up on its own is not bordered',
+  );
+
+  // The rule is the threshold, not a list of colours: every grey either side of
+  // it lands on the right answer.
+  for (let level = 0; level <= 255; level += 5) {
+    const hex = `#${level.toString(16).padStart(2, '0').repeat(3)}`;
+    assert.equal(
+      contract.isNearWhite(hex),
+      contract.luminance(hex) >= nearWhiteLuminance,
+      `${hex} is bordered iff its luminance clears the threshold`,
+    );
+  }
+
+  // A value that is not a colour still shows up, bordered rather than filled.
+  const odd = contract.swatchHtml('color-brand', 'var(--brand)');
+  assert.ok(odd.includes('swatch--bordered') && odd.includes('background:transparent'), odd);
+  assert.equal(articles(odd).length, 1, 'and it is still one swatch element');
+});
+
+test('the swatch thresholds are the ones skill/refs/gui.md records', () => {
+  const contract = swatchContract();
+  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:swatches -->', 'refs/gui.md');
+  const rule = (name) => rows.find((row) => row[0] === name);
+
+  const nearWhite = comparatorCell(rule('near-white')[1]);
+  assert.equal(nearWhite.operator, '>=');
+  assert.equal(nearWhite.bound, contract.SWATCH.nearWhiteLuminance);
+
+  const darkInk = comparatorCell(rule('dark ink')[1]);
+  assert.equal(darkInk.operator, '>=');
+  assert.equal(darkInk.bound, contract.SWATCH.darkInkLuminance);
+  assert.equal(contract.inkFor('#FFFFFF'), contract.SWATCH.darkInk);
+  assert.equal(contract.inkFor('#000000'), contract.SWATCH.lightInk);
+
+  assert.equal(numberCell(rule('ramp steps')[1]), contract.SWATCH.rampSteps);
+});
+
+test('primitives render as nine-step ramp strips, one per base name', () => {
+  const contract = swatchContract();
+  const model = parse(readFixture(POPULATED_FIXTURE));
+  addPrimitives(model, neutralRampRows());
+  const system = systemJson(render(model));
+  assert.equal(system.tokens.primitives.length, contract.SWATCH.rampSteps, 'the fixture gained one ramp');
+
+  const groups = contract.rampGroups(system.tokens.primitives);
+  assert.equal(groups.length, 1, 'nine steps of one base are one strip, not nine rows');
+  assert.equal(groups[0].steps.length, contract.SWATCH.rampSteps);
+  assert.deepEqual(
+    groups[0].steps.map((step) => step.step),
+    ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
+    'in file order, the step number read off the glued name',
+  );
+
+  assert.equal(groups[0].label, 'neutral', 'the strip is titled by the base, without its separator');
+
+  const strip = contract.rampHtml(groups[0]);
+  assert.ok(strip.includes(`data-steps="${contract.SWATCH.rampSteps}"`), strip.slice(0, 120));
+  assert.equal(articles(strip).length, contract.SWATCH.rampSteps, 'every step is itself a swatch element');
+  assert.ok(strip.includes('swatch--bordered'), 'the near-white end of the ramp is bordered');
+
+  // Two bases stay two strips.
+  const two = contract.rampGroups([
+    { token: 'neutral100', value: '#FFFFFF' },
+    { token: 'brand-blue100', value: '#EFF6FF' },
+    { token: 'neutral900', value: '#161616' },
+  ]);
+  assert.deepEqual(two.map((group) => group.base), ['neutral', 'brand-blue']);
+  assert.deepEqual(two.map((group) => group.steps.length), [2, 1]);
+});
+
+test('the page fetches nothing from the network — no webfont, no CDN, no external URL', () => {
+  const text = readPage();
+  assert.equal(text.match(/https?:\/\//g), null, 'no absolute URL appears anywhere in the page');
+  assert.equal(text.match(/\/\/[a-z0-9-]+\.[a-z]{2,}/gi), null, 'nor a protocol-relative one');
+  assert.ok(!/@import/.test(text), 'no CSS import');
+  assert.ok(!/@font-face/.test(text), 'no webfont is declared, let alone downloaded');
+  assert.ok(!/<link\b/i.test(text), 'no <link> to a second asset');
+  assert.ok(!/<script[^>]+\bsrc=/i.test(text), 'the script is inline — one file, no second request');
+  assert.ok(!/@carbon\/|carbon-components|unpkg|jsdelivr/i.test(text), 'and no Carbon package pulled in');
+
+  // Everything it does request is its own server, by relative path.
+  const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
+  assert.ok(requests.length > 0, 'the page does talk to its server');
+  for (const route of requests) {
+    assert.match(route, /^\/(state|system|prompt|upload)$/, `${route} must be a same-origin route`);
+  }
+});
+
+test('the type stack names IBM Plex first and falls back to system sans', () => {
+  const text = readPage();
+  const sans = text.match(/--sans:\s*([^;]+);/);
+  assert.ok(sans, 'the page defines one sans stack');
+  const families = sans[1].split(',').map((family) => family.trim().replace(/^'|'$/g, ''));
+  assert.equal(families[0], 'IBM Plex Sans', 'Plex is named first, used where it is installed locally');
+  assert.ok(families.includes('system-ui'), 'and a system sans carries everyone else');
+  assert.ok(families.at(-1).includes('sans-serif'), 'ending in the generic family');
+
+  const mono = text.match(/--mono:\s*([^;]+);/);
+  assert.ok(mono[1].startsWith("'IBM Plex Mono'"), mono[1]);
+  assert.ok(mono[1].includes('monospace'));
+});
+
+test('numbers show as measured bars and typography as live specimens', () => {
+  const text = readPage();
+  assert.ok(text.includes('function numbersSection'), 'numbers have their own renderer');
+  assert.ok(text.includes('bar__fill'), 'and a measured fill');
+  assert.ok(text.includes('function typographySection'), 'typography has its own renderer');
+  assert.ok(text.includes('specimen__line'), 'and a specimen line set in the token itself');
+  // A specimen only ever inlines a shape it recognises — the values come from a
+  // user-edited file, so they are gated, not trusted.
+  for (const guard of ['safeSize', 'safeWeight', 'safeLeading']) {
+    assert.ok(text.includes(guard), `${guard} guards what reaches a style attribute`);
+  }
+});
+
+test('the restyle left the server surface alone', () => {
+  const server = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
+  const routes = [...server.matchAll(/path == "([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(new Set(routes), new Set(['/state', '/system', '/prompt', '/upload']));
+  assert.ok(server.includes('def serve_static'), 'plus the static page, served from gui/');
+  assert.equal(server.match(/def do_(GET|HEAD|POST)/g).length, 3, 'and no new HTTP verb');
 });
 
 // ---------------------------------------------------------------------------

@@ -1,13 +1,24 @@
 <!doctype html>
 <!--
-  The Phyllum dashboard (plan §5).
+  The Phyllum dashboard (plan §5, restyled in v0.3.0 §6.5).
 
-  One page, no build step, no framework, no CDN — vanilla HTML, CSS and JS,
-  served by ../server/serve.py. Three views:
+  One page, no build step, no framework, no CDN, no webfont — vanilla HTML, CSS
+  and JS, served by ../server/serve.py. Everything the page needs is in this
+  file; the only requests it ever makes are same-origin calls to its own server.
+
+  Three views:
 
     Library    every component and token, read live from DESIGN-SYSTEM.md
     Workbench  the current create session, plus a box to prompt from here
     Tokens     a component's token usage, and which values are still raw
+
+  The look is Carbon-like, not Carbon: flat tiles, sharp corners, a disciplined
+  type ramp, generous whitespace, a left rail. Hand-written — taking a Carbon
+  package, or any other dependency, is out of scope by rule, not by omission.
+
+  Values are shown, not merely printed: colours are swatches, primitive ramps
+  are nine-step strips, typography tokens are live specimens, numbers are
+  measured bars.
 
   The page is a viewer and a prompt relay. It polls GET /state, reads GET
   /system, and posts what the user types to POST /prompt — where the Claude
@@ -19,156 +30,478 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Phyllum — dashboard</title>
     <style>
+      /* --- palette ------------------------------------------------------
+         A Carbon-shaped white theme, and its g100 counterpart for dark. No
+         webfont: IBM Plex is named first so it is used where it is already
+         installed, and a system sans carries everyone else. */
       :root {
-        --bg: #f6f7f9;
-        --panel: #ffffff;
-        --ink: #16181d;
-        --muted: #62676f;
-        --line: #e2e5ea;
-        --accent: #2563eb;
-        --raw: #b45309;
-        --radius: 10px;
-        color-scheme: light dark;
+        --shell: #161616;
+        --shell-ink: #f4f4f4;
+        --bg: #f4f4f4;
+        --layer: #ffffff;
+        --layer-accent: #e8e8e8;
+        --ink: #161616;
+        --muted: #525252;
+        --line: #e0e0e0;
+        --line-strong: #8d8d8d;
+        --accent: #0f62fe;
+        --raw: #8e6a00;
+
+        --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+        /* type ramp — five steps, and no sizes outside them */
+        --type-01: 0.75rem;
+        --type-02: 0.875rem;
+        --type-03: 1rem;
+        --type-04: 1.25rem;
+        --type-05: 1.75rem;
+
+        --rail: 15rem;
+        --gap: 2rem;
       }
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #101216;
-          --panel: #171a20;
-          --ink: #e9ecf1;
-          --muted: #9aa1ac;
-          --line: #262b33;
-          --accent: #7aa2f7;
-          --raw: #e0a458;
+          --shell: #000000;
+          --shell-ink: #f4f4f4;
+          --bg: #161616;
+          --layer: #262626;
+          --layer-accent: #333333;
+          --ink: #f4f4f4;
+          --muted: #a8a8a8;
+          --line: #393939;
+          --line-strong: #6f6f6f;
+          --accent: #4589ff;
+          --raw: #f1c21b;
         }
       }
+
       * { box-sizing: border-box; }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--ink);
-        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, sans-serif;
+        font-family: var(--sans);
+        font-size: var(--type-03);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
       }
+
+      /* --- shell --------------------------------------------------------- */
       header {
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem 1.25rem;
-        align-items: baseline;
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid var(--line);
-        background: var(--panel);
+        align-items: center;
+        gap: 1rem;
+        height: 3rem;
+        padding: 0 1rem;
+        background: var(--shell);
+        color: var(--shell-ink);
+        border-bottom: 1px solid var(--shell);
         position: sticky;
         top: 0;
-        z-index: 2;
+        z-index: 3;
       }
-      h1 { font-size: 1.05rem; margin: 0; letter-spacing: 0.01em; }
-      h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
-      .status { color: var(--muted); font-size: 0.82rem; margin-left: auto; }
-      nav { display: flex; gap: 0.4rem; }
-      button {
-        font: inherit;
-        color: inherit;
+      h1 {
+        font-size: var(--type-02);
+        font-weight: 400;
+        letter-spacing: 0.02em;
+        margin: 0;
+      }
+      h1 strong { font-weight: 600; }
+      .status {
+        margin-left: auto;
+        font-size: var(--type-01);
+        letter-spacing: 0.02em;
+        color: #c6c6c6;
+      }
+
+      .shell { display: flex; align-items: stretch; min-height: calc(100vh - 3rem); }
+
+      nav#views {
+        width: var(--rail);
+        flex: 0 0 var(--rail);
+        background: var(--layer);
+        border-right: 1px solid var(--line);
+        padding: 1rem 0;
+        position: sticky;
+        top: 3rem;
+        align-self: flex-start;
+        height: calc(100vh - 3rem);
+      }
+      nav#views .rail-label {
+        display: block;
+        padding: 0.5rem 1rem;
+        font-size: var(--type-01);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      nav#views button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 0.6rem 1rem;
+        border: 0;
+        border-left: 3px solid transparent;
         background: transparent;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 0.25rem 0.85rem;
+        color: inherit;
+        font: inherit;
+        font-size: var(--type-02);
         cursor: pointer;
       }
-      button[aria-selected='true'] { border-color: var(--accent); color: var(--accent); }
-      main { padding: 1.5rem; display: grid; gap: 1.25rem; max-width: 1100px; }
-      section.view[hidden] { display: none; }
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        padding: 1rem 1.15rem;
+      nav#views button:hover { background: var(--layer-accent); }
+      nav#views button[aria-selected='true'] {
+        border-left-color: var(--accent);
+        background: var(--layer-accent);
+        font-weight: 600;
       }
-      .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-      table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
-      th, td { text-align: left; padding: 0.3rem 0.5rem 0.3rem 0; border-bottom: 1px solid var(--line); }
-      th { color: var(--muted); font-weight: 600; }
-      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
-      pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
-      ul { margin: 0; padding-left: 1.1rem; }
-      li { margin: 0.15rem 0; }
+
+      main {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: var(--gap);
+        display: grid;
+        gap: var(--gap);
+        align-content: start;
+        max-width: 76rem;
+      }
+      section.view[hidden] { display: none; }
+      section.view { display: grid; gap: var(--gap); align-content: start; }
+
+      /* --- tiles --------------------------------------------------------- */
+      .panel {
+        background: var(--layer);
+        border: 1px solid var(--line);
+        padding: 1.5rem;
+      }
+      h2 {
+        font-size: var(--type-04);
+        font-weight: 400;
+        letter-spacing: 0;
+        margin: 0 0 1rem;
+      }
+      h3 {
+        font-size: var(--type-02);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        margin: 1.5rem 0 0.75rem;
+      }
+      h3:first-child { margin-top: 0; }
+      .lede h2 { font-size: var(--type-05); }
+      .count { color: var(--muted); font-weight: 400; font-size: var(--type-02); }
+      .grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
       .muted { color: var(--muted); }
-      .list button { display: block; width: 100%; text-align: left; border-radius: 8px; margin-bottom: 0.3rem; }
-      .swatch { display: inline-block; width: 0.85em; height: 0.85em; border-radius: 3px; border: 1px solid var(--line); vertical-align: -1px; margin-right: 0.4em; }
-      .chip { border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.8rem; border: 1px solid var(--line); }
+      p { margin: 0 0 1rem; }
+      p:last-child { margin-bottom: 0; }
+      code, pre { font-family: var(--mono); font-size: var(--type-02); }
+      pre {
+        margin: 0 0 1rem;
+        padding: 1rem;
+        background: var(--bg);
+        border-left: 3px solid var(--line);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      ul { margin: 0; padding-left: 1.1rem; }
+      li { margin: 0.25rem 0; }
+      button.tile-action {
+        font: inherit;
+        font-size: var(--type-02);
+        color: inherit;
+        background: transparent;
+        border: 1px solid var(--line-strong);
+        border-radius: 0;
+        padding: 0.4rem 1rem;
+        cursor: pointer;
+      }
+      button.tile-action:hover { background: var(--layer-accent); }
+      button.tile-action[aria-selected='true'] { border-color: var(--accent); color: var(--accent); }
+      .list button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-left: 3px solid transparent;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        font-size: var(--type-02);
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+      }
+      .list button:hover { background: var(--bg); border-left-color: var(--line-strong); }
+      .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+      /* --- swatches (v0.3.0 §6.5) ---------------------------------------- */
+      .swatches { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+      .swatch { display: block; }
+      .swatch__fill {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        min-height: 7rem;
+        padding: 0.75rem;
+        border: 1px solid transparent;
+      }
+      .swatch--bordered > .swatch__fill { border-color: var(--line-strong); }
+      .swatch__name {
+        font-size: var(--type-02);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        word-break: break-word;
+      }
+      .swatch__value { font-family: var(--mono); font-size: var(--type-01); opacity: 0.85; }
+
+      .ramp { margin-bottom: 1.5rem; }
+      .ramp:last-child { margin-bottom: 0; }
+      .ramp__base { margin: 0 0 0.5rem; font-size: var(--type-02); font-weight: 600; letter-spacing: 0.02em; }
+      .ramp__strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; overflow-x: auto; }
+      .ramp__strip .swatch__fill { min-height: 5.5rem; padding: 0.5rem 0.4rem; }
+      .ramp__strip .swatch__name { font-size: var(--type-01); }
+      .ramp__strip .swatch__value { font-size: 0.6875rem; }
+
+      /* --- number bars and type specimens -------------------------------- */
+      .bars { display: grid; gap: 0.75rem; }
+      .bar__head { display: flex; gap: 0.75rem; align-items: baseline; font-size: var(--type-02); }
+      .bar__name { font-weight: 600; }
+      .bar__value { font-family: var(--mono); color: var(--muted); }
+      .bar__note { margin-left: auto; color: var(--muted); font-size: var(--type-01); }
+      .bar__track { height: 0.5rem; background: var(--bg); border: 1px solid var(--line); }
+      .bar__fill { height: 100%; background: var(--accent); }
+
+      .specimens { display: grid; gap: 1.25rem; }
+      .specimen__meta { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
+      .specimen__meta code { font-size: var(--type-01); }
+      .specimen__line { margin-top: 0.25rem; word-break: break-word; }
+
+      /* --- chips, form, drop --------------------------------------------- */
+      .chip {
+        display: inline-block;
+        padding: 0.15rem 0.6rem;
+        margin: 0 0.35rem 0.35rem 0;
+        font-size: var(--type-01);
+        border: 1px solid var(--line-strong);
+      }
       .chip.token { color: var(--accent); border-color: var(--accent); }
       .chip.raw { color: var(--raw); border-color: var(--raw); }
-      form.prompt { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
-      form.prompt input { flex: 1; font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: inherit; }
-      .drop { border: 1px dashed var(--line); border-radius: var(--radius); padding: 0.9rem; text-align: center; color: var(--muted); margin-top: 0.75rem; }
+      form.prompt { display: flex; gap: 0.5rem; margin-top: 1rem; }
+      form.prompt input {
+        flex: 1;
+        font: inherit;
+        font-size: var(--type-02);
+        padding: 0.5rem 0.75rem;
+        border: 0;
+        border-bottom: 1px solid var(--line-strong);
+        background: var(--bg);
+        color: inherit;
+      }
+      form.prompt input:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .drop {
+        border: 1px dashed var(--line-strong);
+        padding: 1.25rem;
+        text-align: center;
+        color: var(--muted);
+        font-size: var(--type-02);
+        margin-top: 1rem;
+      }
       .drop.over { border-color: var(--accent); color: var(--accent); }
+
+      @media (max-width: 40rem) {
+        .shell { display: block; }
+        nav#views { width: auto; height: auto; position: static; border-right: 0; border-bottom: 1px solid var(--line); }
+        main { padding: 1rem; }
+      }
     </style>
   </head>
   <body>
     <header>
-      <h1>Phyllum</h1>
+      <h1>Phyllum <strong>Dashboard</strong></h1>
+      <span class="status" id="status">connecting…</span>
+    </header>
+
+    <div class="shell">
       <nav id="views">
+        <span class="rail-label">Dashboard</span>
         <button data-view="library" aria-selected="true">Library</button>
         <button data-view="workbench" aria-selected="false">Workbench</button>
         <button data-view="tokens" aria-selected="false">Token view</button>
       </nav>
-      <span class="status" id="status">connecting…</span>
-    </header>
 
-    <main>
-      <section class="view" id="view-library">
-        <div class="panel">
-          <h2>Library</h2>
-          <nav id="filters">
-            <button data-scope="all" aria-selected="true">all</button>
-            <button data-scope="tokens" aria-selected="false">tokens</button>
-            <button data-scope="components" aria-selected="false">components</button>
-          </nav>
-        </div>
-        <div class="grid" style="margin-top: 1rem">
+      <main>
+        <section class="view" id="view-library">
+          <div class="panel lede">
+            <h2>Library</h2>
+            <p class="muted">Every token and component in <code>DESIGN-SYSTEM.md</code>, read live.</p>
+            <div class="filters" id="filters">
+              <button class="tile-action" data-scope="all" aria-selected="true">all</button>
+              <button class="tile-action" data-scope="tokens" aria-selected="false">tokens</button>
+              <button class="tile-action" data-scope="components" aria-selected="false">components</button>
+            </div>
+          </div>
           <div class="panel" id="tokens-panel"><h2>Tokens</h2><div id="tokens-body" class="muted">reading…</div></div>
           <div class="panel" id="components-panel">
             <h2>Components</h2>
-            <div class="list" id="component-list"></div>
-            <div id="component-detail" class="muted">Pick a component to see its spec and code.</div>
+            <div class="grid">
+              <div class="list" id="component-list"></div>
+              <div id="component-detail" class="muted">Pick a component to see its spec and code.</div>
+            </div>
           </div>
-        </div>
-        <div class="panel" style="margin-top: 1rem"><h2>Backlog</h2><div id="backlog"></div></div>
-      </section>
+          <div class="panel"><h2>Backlog</h2><div id="backlog"></div></div>
+        </section>
 
-      <section class="view" id="view-workbench" hidden>
-        <div class="grid">
-          <div class="panel">
-            <h2>Your input</h2>
-            <div id="draft-input" class="muted">No create session is open.</div>
-            <form class="prompt" id="prompt-form">
-              <input id="prompt-text" placeholder="Prompt an edit — it goes to your Claude Code session" />
-              <button type="submit">Send</button>
-            </form>
-            <div class="drop" id="drop">Drop an image here to start an image-mode create</div>
+        <section class="view" id="view-workbench" hidden>
+          <div class="grid">
+            <div class="panel">
+              <h2>Your input</h2>
+              <div id="draft-input" class="muted">No create session is open.</div>
+              <form class="prompt" id="prompt-form">
+                <input id="prompt-text" placeholder="Prompt an edit — it goes to your Claude Code session" />
+                <button class="tile-action" type="submit">Send</button>
+              </form>
+              <div class="drop" id="drop">Drop an image here to start an image-mode create</div>
+            </div>
+            <div class="panel"><h2>Generated output</h2><div id="draft-output" class="muted">Nothing yet.</div></div>
           </div>
-          <div class="panel"><h2>Generated output</h2><div id="draft-output" class="muted">Nothing yet.</div></div>
-        </div>
-        <div class="panel" style="margin-top: 1rem"><h2>Queue</h2><div id="queue" class="muted">Empty.</div></div>
-      </section>
+          <div class="panel"><h2>Queue</h2><div id="queue" class="muted">Empty.</div></div>
+        </section>
 
-      <section class="view" id="view-tokens" hidden>
-        <div class="panel">
-          <h2>Token view</h2>
-          <p class="muted">Which tokens a component consumes, and which values are still raw — what your next <code>phyllum assess</code> run has to work with.</p>
-          <div class="list" id="token-view-list"></div>
-          <div id="token-view-detail" class="muted">Pick a component.</div>
-        </div>
-      </section>
-    </main>
+        <section class="view" id="view-tokens" hidden>
+          <div class="panel lede">
+            <h2>Token view</h2>
+            <p class="muted">Which tokens a component consumes, and which values are still raw — what your next <code>phyllum assess</code> run has to work with.</p>
+            <div class="grid">
+              <div class="list" id="token-view-list"></div>
+              <div id="token-view-detail" class="muted">Pick a component.</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <script>
-      const state = { system: null, session: null, scope: 'all', view: 'library', selected: null, scopeTouched: false };
+      // --- phyllum:swatch-contract ----------------------------------------
+      // The rules below are the ones recorded in skill/refs/gui.md under the
+      // `phyllum:swatches` marker: what counts as near-white, when a label
+      // switches to dark ink, and how wide a ramp strip is. They are kept pure
+      // — strings and numbers, no DOM — because the assertion suite lifts this
+      // exact region out of the page and runs it against a fixture. The table,
+      // the page and the tests therefore cannot drift apart.
+      const SWATCH = {
+        // Relative luminance (WCAG 2.x) at or above this vanishes against the
+        // white layer, so the swatch takes the bordered variant.
+        nearWhiteLuminance: 0.85,
+        // At or above this, the label reads in dark ink rather than light.
+        darkInkLuminance: 0.5,
+        darkInk: '#161616',
+        lightInk: '#ffffff',
+        // A primitives ramp is nine steps, 100–900.
+        rampSteps: 9,
+      };
 
-      const el = (id) => document.getElementById(id);
       const esc = (value) =>
         String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
+      /** A hex colour a swatch can be filled with — the only thing ever inlined. */
+      const isColourValue = (value) => /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(value ?? '').trim());
+
+      function channels(value) {
+        if (!isColourValue(value)) return null;
+        let hex = String(value).trim().slice(1);
+        if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+        return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      }
+
+      /** WCAG relative luminance, 0 (black) to 1 (white); null for a non-colour. */
+      function luminance(value) {
+        const rgb = channels(value);
+        if (!rgb) return null;
+        const [r, g, b] = rgb.map((channel) => {
+          const c = channel / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      }
+
+      /** Near-white: the colour would vanish against the page, so it gets a border. */
+      function isNearWhite(value) {
+        const light = luminance(value);
+        return light !== null && light >= SWATCH.nearWhiteLuminance;
+      }
+
+      /** The ink a label takes on that fill. */
+      const inkFor = (value) =>
+        (luminance(value) ?? 0) >= SWATCH.darkInkLuminance ? SWATCH.darkInk : SWATCH.lightInk;
+
+      /**
+       * One colour token, as a swatch: a filled container carrying its own
+       * value, with the name and the value sitting on it. A value that is not a
+       * colour still renders as a swatch — bordered and unfilled — because the
+       * file said it, and the dashboard shows the file.
+       */
+      function swatchHtml(token, value, options = {}) {
+        const colour = isColourValue(value);
+        const label = options.label ?? token;
+        const bordered = !colour || isNearWhite(value);
+        const style = colour
+          ? 'background:' + esc(String(value).trim()) + ';color:' + inkFor(value)
+          : 'background:transparent';
+        return (
+          '<article class="swatch' + (bordered ? ' swatch--bordered' : '') + '"' +
+          ' data-token="' + esc(token) + '" data-value="' + esc(value) + '">' +
+          '<div class="swatch__fill" style="' + style + '">' +
+          '<span class="swatch__name">' + esc(label) + '</span>' +
+          '<code class="swatch__value">' + esc(value) + '</code>' +
+          '</div></article>'
+        );
+      }
+
+      /**
+       * Primitive rows, grouped into ramps. A primitive step glues its number
+       * to the base name with no hyphen (v0.3.0 §5.3), so the base is the name
+       * with its trailing digits removed; the step is those digits.
+       */
+      function rampGroups(rows) {
+        const groups = [];
+        const byBase = new Map();
+        for (const row of rows ?? []) {
+          const token = String(row.token ?? (row.cells ?? [])[0] ?? '');
+          const value = String(row.value ?? (row.cells ?? [])[1] ?? '');
+          const match = token.match(/^(.*?)(\d+)$/);
+          const base = match ? match[1] : token;
+          const step = match ? match[2] : '';
+          if (!byBase.has(base)) {
+            // The base is the prefix as the file spells it; the label drops a
+            // trailing separator, so `neutral-100`…`neutral-900` reads as one
+            // ramp called "neutral" rather than "neutral-".
+            const group = { base, label: base.replace(/[-_.]$/, ''), steps: [] };
+            byBase.set(base, group);
+            groups.push(group);
+          }
+          byBase.get(base).steps.push({ token, value, step });
+        }
+        return groups;
+      }
+
+      /** A whole ramp strip — one row of steps under its base name. */
+      function rampHtml(group) {
+        const steps = group.steps
+          .map((entry) => swatchHtml(entry.token, entry.value, { label: entry.step || entry.token }))
+          .join('');
+        return (
+          '<div class="ramp" data-base="' + esc(group.base) + '" data-steps="' + group.steps.length + '">' +
+          '<p class="ramp__base">' + esc(group.label ?? group.base) + '</p>' +
+          '<div class="ramp__strip">' + steps + '</div></div>'
+        );
+      }
+      // --- end phyllum:swatch-contract -------------------------------------
+
+      const state = { system: null, session: null, scope: 'all', view: 'library', selected: null, scopeTouched: false };
+
+      const el = (id) => document.getElementById(id);
+
       function select(nav, attr, value) {
         for (const button of nav.querySelectorAll('button')) {
+          if (button.dataset[attr] === undefined) continue;
           button.setAttribute('aria-selected', String(button.dataset[attr] === value));
         }
       }
@@ -192,23 +525,81 @@
 
       // --- rendering ---------------------------------------------------------
 
-      function tokenTable(title, columns, rows) {
-        if (!rows.length) return '<h2>' + esc(title) + '</h2><p class="muted">(none yet)</p>';
-        const head = columns.map((c) => '<th>' + esc(c) + '</th>').join('');
-        const body = rows
-          .map((row) => {
-            const cells = columns.map((column, index) => {
-              const value = row[column] ?? row.cells[index] ?? '';
-              const swatch =
-                index === 1 && /^#([0-9a-f]{3,8})$/i.test(value)
-                  ? '<span class="swatch" style="background:' + esc(value) + '"></span>'
-                  : '';
-              return '<td>' + swatch + '<code>' + esc(value) + '</code></td>';
-            });
-            return '<tr>' + cells.join('') + '</tr>';
+      const heading = (title, count) =>
+        '<h3>' + esc(title) + ' <span class="count">' + count + '</span></h3>';
+
+      const cell = (row, name, index) => String(row[name] ?? (row.cells ?? [])[index] ?? '');
+
+      function coloursSection(rows) {
+        if (!rows.length) return heading('Colours', 0) + '<p class="muted">(none yet)</p>';
+        const swatches = rows.map((row) => swatchHtml(cell(row, 'token', 0), cell(row, 'value', 1))).join('');
+        return heading('Colours', rows.length) + '<div class="swatches">' + swatches + '</div>';
+      }
+
+      function primitivesSection(rows) {
+        if (!rows.length) return '';
+        return heading('Colours — Primitives', rows.length) + rampGroups(rows).map(rampHtml).join('');
+      }
+
+      /** Numbers as measured bars — the same "show the value" move as a swatch. */
+      function numbersSection(rows, columns) {
+        if (!rows.length) return heading('Numbers', 0) + '<p class="muted">(none yet)</p>';
+        const measured = rows.map((row) => {
+          const value = cell(row, 'value', 1);
+          const match = value.match(/^(-?[\d.]+)/);
+          return { row, value, size: match ? Math.abs(Number(match[1])) : null };
+        });
+        const largest = Math.max(...measured.map((entry) => entry.size ?? 0), 0);
+        const note = columns[2] ?? '';
+        const bars = measured
+          .map((entry) => {
+            const width = largest > 0 && entry.size !== null ? Math.max((entry.size / largest) * 100, 1) : 0;
+            const applies = note ? cell(entry.row, note, 2) : '';
+            return (
+              '<div class="bar" data-token="' + esc(cell(entry.row, 'token', 0)) + '">' +
+              '<div class="bar__head"><span class="bar__name">' + esc(cell(entry.row, 'token', 0)) + '</span>' +
+              '<code class="bar__value">' + esc(entry.value) + '</code>' +
+              (applies ? '<span class="bar__note">' + esc(applies) + '</span>' : '') +
+              '</div><div class="bar__track"><div class="bar__fill" style="width:' + width.toFixed(2) + '%"></div></div></div>'
+            );
           })
           .join('');
-        return '<h2>' + esc(title) + ' (' + rows.length + ')</h2><table><tr>' + head + '</tr>' + body + '</table>';
+        return heading('Numbers', rows.length) + '<div class="bars">' + bars + '</div>';
+      }
+
+      // Only these shapes are ever inlined into a specimen's style attribute.
+      const safeSize = (value) => (/^\d*\.?\d+(px|rem|em|pt|%)$/.test(value) ? value : null);
+      const safeWeight = (value) => (/^([1-9]00|normal|bold|lighter|bolder)$/.test(value) ? value : null);
+      const safeLeading = (value) => (/^(normal|\d*\.?\d+(px|rem|em|%)?)$/.test(value) ? value : null);
+
+      /** Typography as live specimens — each token set in its own reading. */
+      function typographySection(rows) {
+        if (!rows.length) return heading('Typography', 0) + '<p class="muted">(none yet)</p>';
+        const specimens = rows
+          .map((row) => {
+            const token = cell(row, 'token', 0);
+            const size = safeSize(cell(row, 'size', 1));
+            const weight = safeWeight(cell(row, 'weight', 2));
+            const leading = safeLeading(cell(row, 'line-height', 3));
+            const style = [
+              size ? 'font-size:' + size : '',
+              weight ? 'font-weight:' + weight : '',
+              leading ? 'line-height:' + leading : '',
+            ]
+              .filter(Boolean)
+              .join(';');
+            const meta = [cell(row, 'size', 1), cell(row, 'weight', 2), cell(row, 'line-height', 3)]
+              .filter(Boolean)
+              .map((part) => '<code>' + esc(part) + '</code>')
+              .join(' · ');
+            return (
+              '<div class="specimen" data-token="' + esc(token) + '">' +
+              '<div class="specimen__meta">' + esc(token) + ' — ' + meta + '</div>' +
+              '<div class="specimen__line" style="' + style + '">' + esc(token) + ' — the quick brown fox</div></div>'
+            );
+          })
+          .join('');
+        return heading('Typography', rows.length) + '<div class="specimens">' + specimens + '</div>';
       }
 
       function renderLibrary() {
@@ -220,16 +611,12 @@
           return;
         }
         el('tokens-body').innerHTML = [
-          tokenTable('Colours', system.columns.colours, system.tokens.colours),
-          // Primitives are Colours' own subsection in the file, so they are
-          // listed right under it. The ramp strips of v0.3.0 §6.5 are a later
-          // milestone; until then the dashboard at least shows every row the
-          // file holds, which is the promise it makes.
-          (system.tokens.primitives || []).length
-            ? tokenTable('Colours — Primitives', system.columns.primitives, system.tokens.primitives)
-            : '',
-          tokenTable('Numbers', system.columns.numbers, system.tokens.numbers),
-          tokenTable('Typography', system.columns.typography, system.tokens.typography),
+          coloursSection(system.tokens.colours),
+          // Primitives are Colours' own subsection in the file, so their strips
+          // sit right under it (v0.3.0 §5.3, §6.5).
+          primitivesSection(system.tokens.primitives || []),
+          numbersSection(system.tokens.numbers, system.columns.numbers),
+          typographySection(system.tokens.typography),
         ].join('');
 
         const list = system.components
@@ -249,8 +636,8 @@
         const system = state.system;
         if (!system || system.error) return new Set();
         const names = [];
-        for (const key of ['colours', 'numbers', 'typography']) {
-          for (const row of system.tokens[key]) names.push(row.token ?? row.cells[0]);
+        for (const key of ['colours', 'primitives', 'numbers', 'typography']) {
+          for (const row of system.tokens[key] ?? []) names.push(row.token ?? row.cells[0]);
         }
         return new Set(names.filter(Boolean));
       }
@@ -264,7 +651,7 @@
         const blocks = component.blocks
           .map((block) => '<p class="muted">' + esc(block.lang) + '</p><pre><code>' + esc(block.content) + '</code></pre>')
           .join('');
-        el('component-detail').innerHTML = '<h2>' + esc(component.name) + '</h2>' + blocks;
+        el('component-detail').innerHTML = '<h3>' + esc(component.name) + '</h3>' + blocks;
 
         const known = tokenNames();
         const used = [];
@@ -277,7 +664,7 @@
           else if (!/^(TODO|\{|\[|$)/.test(value)) raw.push({ slot, value });
         }
         el('token-view-detail').innerHTML =
-          '<h2>' + esc(component.name) + '</h2>' +
+          '<h3>' + esc(component.name) + '</h3>' +
           '<p>Tokens consumed: ' +
           (used.length
             ? used.map((u) => '<span class="chip token">' + esc(u.slot) + ': ' + esc(u.value) + '</span>').join(' ')

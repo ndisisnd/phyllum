@@ -11,10 +11,11 @@ decides anything.
 
 ## Three views
 
-1. **Library** — every component and token, read live from `DESIGN-SYSTEM.md`.
-   Clicking a component shows its spec and its code. The scope argument picks
-   the opening filter: `tokens`, `components`, or `all` (the default). The user
-   can still switch filters inside the GUI.
+1. **Library** — every component and token, read live from `DESIGN-SYSTEM.md`,
+   each token *shown* rather than merely printed (see "Showing the values"
+   below). Clicking a component shows its spec and its code. The scope argument
+   picks the opening filter: `tokens`, `components`, or `all` (the default). The
+   user can still switch filters inside the GUI.
 2. **Workbench** — the active `create` session: the user's input on one side,
    the draft the terminal is building on the other, refreshed as the follow-up
    loop progresses. An input box relays edits from the page, and an image
@@ -22,6 +23,52 @@ decides anything.
 3. **Token view** — a component's token usage: which tokens it consumes, and
    which values are still raw and therefore candidates for the next `tokenise`
    run.
+
+## Showing the values (v0.3.0 §6.5)
+
+A design system read as a table of hex strings is a list you have to imagine.
+The Library view renders each token in the thing it describes:
+
+| Section | Rendering |
+|---------|-----------|
+| Colours | one **swatch** per token — a filled container showing the colour itself, with the token name and its value sitting on the swatch |
+| Colours — Primitives | the same swatches, laid out as **ramp strips**: one strip per base name, its steps side by side in file order |
+| Numbers | a **measured bar** per token, its length proportional to the largest number in the section; a value with no leading number reads as an empty track |
+| Typography | a **live specimen** per token, set in that token's own size, weight and line-height |
+
+Two rules decide how a swatch is drawn, and both are numbers rather than
+judgement calls. `luminance` below is WCAG 2.x relative luminance, `0` for
+black and `1` for white:
+
+<!-- phyllum:swatches -->
+
+| rule | value | meaning |
+|------|-------|---------|
+| near-white | `>= 0.85` | a colour this light vanishes against the page, so the swatch takes the **bordered** variant instead of relying on its fill |
+| dark ink | `>= 0.5` | at or above this the name and value are set in dark ink (`#161616`); below it, light (`#ffffff`) |
+| ramp steps | `9` | a primitives ramp strip is nine steps wide, `100`–`900` |
+
+A value that is not a hex colour at all still renders as a swatch — bordered
+and unfilled — because the dashboard shows the file, never an edit of it.
+
+These numbers live in one place in the page (`SWATCH`, inside the region marked
+`phyllum:swatch-contract`), and the assertion suite reads both this table and
+that region so the two cannot drift.
+
+## Look and feel — Carbon-like, not Carbon
+
+The dashboard is styled along Carbon Design System lines: flat tiles, sharp
+corners (no radius anywhere), a five-step type ramp, generous whitespace, and a
+left-rail shell under a dark product header. It is an aesthetic, not a
+dependency — no `@carbon/*` package, no CDN, no build step.
+
+| Property | Value |
+|----------|-------|
+| Stylesheet | hand-written, inline in `gui/index.html` — one file, no second asset |
+| Type stack | `'IBM Plex Sans'` first, then system sans; mono is `'IBM Plex Mono'` then system mono |
+| Webfont | **none** — Plex is used where it is already installed locally and nothing is fetched |
+| Network | the page makes same-origin requests to its own server only (`/state`, `/system`, `/prompt`, `/upload`); no external URL appears anywhere in the file |
+| Themes | a Carbon-shaped white theme, and a g100-shaped dark theme under `prefers-color-scheme` |
 
 ## Server contract
 
