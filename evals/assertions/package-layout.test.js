@@ -26,6 +26,7 @@ test('every path in the plan §7.2 layout exists', () => {
     'skill/refs/assess.md',
     'skill/refs/apply.md',
     'skill/refs/tokenise.md',
+    'skill/refs/nomenclature.md',
     'skill/refs/gui.md',
     'skill/refs/system.md',
     'skill/refs/version.md',

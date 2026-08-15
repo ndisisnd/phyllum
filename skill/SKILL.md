@@ -93,6 +93,11 @@ reads the design system *and* the codebase, and writes only its own plan.
 | `update` | `refs/update.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
 | `init` | `refs/init.md` — the walkthrough, step by step |
 
+One reference file belongs to no command: `refs/nomenclature.md` is a shared
+library — the standard token-naming vocabulary (slots, strict word lists, slot
+order) and the shipped primitive grey ramp with its derivation scale. Load it
+only when a naming or ramp question comes up; nothing in it runs on its own.
+
 ## The file format
 
 `DESIGN-SYSTEM.md` is human-readable Markdown with machine-parseable structure.
