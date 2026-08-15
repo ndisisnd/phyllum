@@ -46,8 +46,10 @@ Parsing is extraction, never invention. Four passes over the sentence, in order:
 
 1. **Archetype.** Find an archetype word or one of its aliases (contract table
    below). If none is present, do not guess: the first follow-up question asks
-   which kind of component this is, and no draft properties are recorded until
-   it is answered. An unrecognised archetype is a question, not a default.
+   which kind of component this is — and offers **custom**, the contract-free
+   mode below — and no draft properties are recorded until it is answered. An
+   unrecognised archetype is a question, not a default, and never the nearest
+   fit.
 2. **Variant.** Find a variant word (`primary`, `secondary`, `ghost`, `danger`,
    …) next to the archetype word. The component name is
    `Archetype/Variant` — `Button/Primary`. With no variant word the name is
@@ -94,6 +96,29 @@ turns "a button" into a checklist:
 | Card | card, tile, panel | `background`, `border-colour`, `radius`, `padding`, `shadow` | — |
 | Badge | badge, chip, pill, tag, label | `background`, `text-colour`, `radius`, `typography`, `padding` | — |
 | Modal | modal, dialog, dialogue, sheet, drawer | `background`, `radius`, `padding`, `shadow`, `overlay-colour` | — |
+| Toggle | toggle, switch, toggle switch | `track-colour`, `thumb-colour`, `radius`, `size` | `checked`, `focus`, `disabled` |
+| Checkbox | checkbox, check, tickbox | `background`, `border-colour`, `radius`, `size`, `indicator-colour` | `checked`, `focus`, `disabled` |
+| Radio | radio, radio button, option button | `background`, `border-colour`, `size`, `indicator-colour` | `checked`, `focus`, `disabled` |
+| Select | select, dropdown, combobox, menu, picker | `background`, `text-colour`, `border-colour`, `radius`, `typography`, `padding` | `focus`, `disabled`, `error` |
+| Tooltip | tooltip, hint | `background`, `text-colour`, `radius`, `padding`, `typography` | — |
+| Toast | toast, notification, snackbar, alert, banner | `background`, `text-colour`, `radius`, `padding`, `typography`, `shadow` | — |
+| Tabs | tabs, tab, tab bar, segmented control | `background`, `text-colour`, `indicator-colour`, `typography`, `padding`, `gap` | `active`, `hover` |
+| Link | link, anchor, hyperlink | `text-colour`, `typography` | `hover` |
+| Avatar | avatar, profile picture, profile photo | `background`, `text-colour`, `radius`, `size` | — |
+| Progress | progress, progress bar, loader, spinner | `track-colour`, `indicator-colour`, `radius`, `size` | — |
+
+The first five are the plan's originals; the ten below them joined in v0.3.0 §6.6,
+because every surveyed system (Carbon, Polaris, Atlassian, Material 3, Fluent)
+ships them and a design system that cannot describe its own switch is not
+describing itself. Two things kept the rows lean:
+
+- **A slot is mandatory only where the surveyed systems all decide it.** A
+  tooltip's shadow varies; its background, text colour, radius, padding and type
+  do not. Anything else a user wants recorded is still recordable — it is simply
+  not a gap Phyllum asks about.
+- **Link is deliberately the smallest contract in the set** — colour and type,
+  and one state. A link that also wants an underline offset records one; nobody
+  is asked for it.
 
 Two rules, deliberately asymmetric:
 
@@ -139,6 +164,10 @@ property keys is present — `padding-top: 12px` fills the `padding` slot.
 | overlay-colour | overlay-colour | overlay colour, overlay, scrim, backdrop |
 | gap | gap | gap, spacing between, child spacing |
 | focus-ring | focus-ring | focus ring, focus outline, focus state ring |
+| size | size | size, control size, dimensions, diameter, track height |
+| track-colour | track-colour | track colour, track color, rail, rail colour, groove |
+| thumb-colour | thumb-colour | thumb colour, thumb color, handle, handle colour, knob |
+| indicator-colour | indicator-colour | indicator colour, indicator color, indicator, tick colour, dot colour, selected underline |
 
 ### Labelled defaults
 
@@ -182,6 +211,67 @@ it. A default that nobody picked never reaches the spec.
 | Modal | padding | 24px |
 | Modal | shadow | 0 20px 25px rgba(0,0,0,0.15) |
 | Modal | overlay-colour | rgba(0,0,0,0.5) |
+| Toggle | track-colour | #D1D5DB |
+| Toggle | thumb-colour | #FFFFFF |
+| Toggle | radius | 999px |
+| Toggle | size | 44px × 24px |
+| Toggle | checked | track #2563EB |
+| Toggle | focus | 2px ring, 2px offset |
+| Toggle | disabled | 40% opacity |
+| Checkbox | background | #FFFFFF |
+| Checkbox | border-colour | #D1D5DB |
+| Checkbox | radius | 4px |
+| Checkbox | size | 16px |
+| Checkbox | indicator-colour | #FFFFFF |
+| Checkbox | checked | background #2563EB, border #2563EB |
+| Checkbox | focus | 2px ring, 2px offset |
+| Checkbox | disabled | 40% opacity |
+| Radio | background | #FFFFFF |
+| Radio | border-colour | #D1D5DB |
+| Radio | size | 16px |
+| Radio | indicator-colour | #2563EB |
+| Radio | checked | border #2563EB |
+| Radio | focus | 2px ring, 2px offset |
+| Radio | disabled | 40% opacity |
+| Select | background | #FFFFFF |
+| Select | text-colour | #111827 |
+| Select | border-colour | #D1D5DB |
+| Select | radius | 6px |
+| Select | typography | 14px / 400 / 1.5 |
+| Select | padding | 8px 12px |
+| Select | focus | 2px ring, border colour |
+| Select | disabled | 40% opacity |
+| Select | error | border #DC2626 |
+| Tooltip | background | #111827 |
+| Tooltip | text-colour | #FFFFFF |
+| Tooltip | radius | 6px |
+| Tooltip | padding | 6px 8px |
+| Tooltip | typography | 12px / 400 / 1.4 |
+| Toast | background | #FFFFFF |
+| Toast | text-colour | #111827 |
+| Toast | radius | 8px |
+| Toast | padding | 12px 16px |
+| Toast | typography | 14px / 400 / 1.5 |
+| Toast | shadow | 0 10px 15px rgba(0,0,0,0.1) |
+| Tabs | background | transparent |
+| Tabs | text-colour | #6B7280 |
+| Tabs | indicator-colour | #2563EB |
+| Tabs | typography | 14px / 600 / 1.4 |
+| Tabs | padding | 8px 12px |
+| Tabs | gap | 16px |
+| Tabs | active | text #111827, indicator shown |
+| Tabs | hover | text #111827 |
+| Link | text-colour | #2563EB |
+| Link | typography | inherited size / 500 / inherited |
+| Link | hover | underlined |
+| Avatar | background | #E5E7EB |
+| Avatar | text-colour | #374151 |
+| Avatar | radius | 999px |
+| Avatar | size | 32px |
+| Progress | track-colour | #E5E7EB |
+| Progress | indicator-colour | #2563EB |
+| Progress | radius | 999px |
+| Progress | size | 4px |
 
 ### Extrapolation from prior components
 
@@ -297,15 +387,18 @@ inventing a value.
 
 ## Pick rules (Mode C)
 
-With no input, present a picker in two parts:
+With no input, present a picker in three parts:
 
 1. **Archetypes** — every row of the contract table above, in table order.
 2. **Found in your codebase** — recurring element/class patterns that are not in
    `DESIGN-SYSTEM.md` yet, most-used first, each with its count and a file it
    was seen in.
+3. **Custom** — last on the list, always: a component that follows no archetype
+   contract at all (below).
 
-Selecting either one seeds a draft — archetype, and a name — and drops into the
-same follow-up loop as the other two modes. **A candidate seeds a name and an
+Selecting an archetype or a candidate seeds a draft — archetype, and a name — and
+drops into the same follow-up loop as the other two modes. Selecting custom seeds
+nothing but the name it asks for, and drops into the open loop instead. **A candidate seeds a name and an
 archetype, never values.** The values found around it are offered as codebase
 evidence in the follow-up loop, where the user can accept or refuse them one at
 a time.
@@ -323,14 +416,36 @@ archetype aliases" — a `Chip` is a Badge, a `Dialog` is a Modal.
 | Signal | Matches | Archetype | Minimum |
 |--------|---------|-----------|---------|
 | element | `button` | Button | 2 |
-| element | `input`, `textarea`, `select` | Input | 2 |
+| element | `input`, `textarea` | Input | 2 |
+| element | `select` | Select | 2 |
+| element | `progress` | Progress | 2 |
 | element | `dialog` | Modal | 2 |
 | class | `btn`, `button`, `cta`, `action` | Button | 2 |
 | class | `input`, `field`, `textbox` | Input | 2 |
 | class | `card`, `tile`, `panel` | Card | 2 |
 | class | `badge`, `chip`, `pill`, `tag` | Badge | 2 |
 | class | `modal`, `dialog`, `sheet`, `drawer` | Modal | 2 |
-| component | `button`, `input`, `card`, `badge`, `chip`, `modal`, `dialog` | — | 2 |
+| class | `toggle`, `switch` | Toggle | 2 |
+| class | `checkbox` | Checkbox | 2 |
+| class | `radio` | Radio | 2 |
+| class | `select`, `dropdown`, `combobox` | Select | 2 |
+| class | `tooltip` | Tooltip | 2 |
+| class | `toast`, `snackbar`, `notification`, `alert` | Toast | 2 |
+| class | `tabs`, `tab`, `segmented` | Tabs | 2 |
+| class | `link` | Link | 2 |
+| class | `avatar` | Avatar | 2 |
+| class | `progress`, `spinner`, `loader` | Progress | 2 |
+| component | `button`, `input`, `card`, `badge`, `chip`, `modal`, `dialog`, `toggle`, `switch`, `checkbox`, `radio`, `select`, `dropdown`, `tooltip`, `toast`, `snackbar`, `tabs`, `tab`, `avatar`, `spinner` | — | 2 |
+
+A few words the aliases know are deliberately **not** signals, because in real
+markup they mean something else far more often than they mean a component:
+
+- `<a>` and `<link>` as elements — one is every hyperlink on the page and the
+  other is a stylesheet tag, so Link is found by class or by component name only.
+- `Link` as a component name — in most React projects that is the router's,
+  not the design system's.
+- `banner` as a class — it is usually a page landmark or a hero, so Toast is
+  matched on `toast`, `snackbar`, `notification` and `alert` instead.
 
 **The dashboard's queue comes first.** An image dropped on the GUI enqueues a
 `create-image` entry (see `refs/gui.md`). A bare `create` takes the oldest
@@ -341,6 +456,76 @@ of showing the picker — the drop *was* the pick.
 matches a component already in `DESIGN-SYSTEM.md` (by name or by the class name
 Phyllum would generate for it) is not a candidate — it is a component, and
 `create` on it opens a revision instead.
+
+---
+
+## Custom components — create without a contract (v0.3.0 §6.7)
+
+Some components genuinely fit no archetype: a bespoke chart frame, a hero block,
+a composite widget. Forcing one into the nearest contract would ask five
+questions nobody has an answer to and then record `TODO` five times. So `create`
+has a mode with **no contract**.
+
+**Two doors in, and only two:**
+
+| From | When |
+|------|------|
+| the pick menu | **custom** is the last row, after every archetype and every candidate |
+| prose | the description matches **no** archetype word or alias — then custom is *offered*, never assumed |
+
+Prose that *does* match an archetype never lands in custom. "A button that…" is a
+Button, and the way to say otherwise is to pick custom from the menu.
+
+**What "no contract" means:**
+
+- **No mandatory slots, no mandatory states, no gap list.** The spec records
+  exactly the slots the description names, and nothing else is asked about.
+- **Complete when you say so.** The loop asks for a slot and a value at a time —
+  `background #2563EB` — and ends on `done`. There is no checklist to exhaust.
+- **A name is asked for, because there is no archetype to build one from.**
+  `Archetype/Variant` is a rule about archetypes; a custom is called whatever you
+  call it.
+
+**What still holds — everything else:**
+
+- **No invented values.** A slot named without a value is a question, and a
+  skipped question is a `TODO` in the spec and a line in the Backlog. The
+  anti-fabrication invariant does not know what an archetype is.
+- **The same file shape.** A custom is written as an ordinary component — spec
+  block, code blocks, `### <name>` in Components — so `display`, the GUI, `apply`
+  and Backlog reconciliation read it like any other.
+- **Rerunnable.** `create` on a name the system already has opens a revision of
+  it, custom or not.
+- **One write target, one acceptance gate, `.bak` first, atomic write.**
+
+### The custom marker
+
+A custom records its own status, in the spec block, on two lines:
+
+```yaml
+name: Hero/Landing
+archetype: custom
+custom: true
+properties:
+  background: color-primary
+  padding: 48px # TODO: tokenise
+```
+
+`custom` is a reserved word: it is not a row in the contract table and never
+resolves through the aliases, so **every contract lookup for a custom comes back
+empty** — which is the point. Anything that grades a component against a contract
+reads the marker and skips:
+
+| Reader | What it does with a custom |
+|--------|----------------------------|
+| the gap list | returns nothing at all — no slots, no states, no extrapolation |
+| extrapolation | a custom is never counted as a prior component of any archetype |
+| `assess` component matching | no contract, so nothing to grade it against; it is still a registered component, so its pattern is never re-proposed as a candidate |
+| `apply` adoption | a custom claims no markup signature — adoption matches on archetype, and a custom has none |
+
+Nothing else changes: naming drift, unused-component checks and the Backlog treat
+a custom exactly like every other component, because those read names and
+values, not contracts.
 
 ---
 
@@ -524,6 +709,10 @@ skipped slot is the literal `TODO`, and also appears in the Backlog.
 - Invent a value for a slot the user did not fill (see the invariant above).
 - "Correct" a value the user gave, or reject one for being unconventional.
 - Duplicate a component that already exists under the same name.
+- Resolve a description to the *nearest* archetype when it matches none — that
+  is what custom mode is for, and it is offered rather than assumed.
+- Ask a custom component for a slot it never mentioned, or grade one against a
+  contract it never claimed.
 - Generate a primitive ramp for a token nobody said yes to, or a step the file
   already has.
 - Alter the value a token already records in order to fit it onto a ramp.

@@ -832,6 +832,15 @@ A candidate seeds a **name and an archetype, never values**. Whatever CSS sits
 around the pattern is evidence for the follow-up loop to offer, not a fact about
 the component.
 
+**A custom component is skipped by this match, and only by this match**
+(v0.3.0 §6.7). A custom records `custom: true` in its spec block because it
+follows no archetype contract, and the match above is an archetype comparison —
+so there is nothing to compare it against and Phyllum says nothing rather than
+guessing which markup a bespoke component was meant to be. Nothing else changes:
+a custom is still a registered component, so its own pattern is never re-proposed
+as a candidate, and the naming, unused and prop passes read it exactly like every
+other component, because those read names and values rather than contracts.
+
 <!-- phyllum:component-stacks -->
 
 | Framework | Component pass |

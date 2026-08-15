@@ -14,10 +14,12 @@ import test from 'node:test';
 
 import {
   CONTRACT_FILE,
+  CUSTOM_ARCHETYPE,
   archetypes,
   candidateSignals,
   contractFor,
   defaultFor,
+  isCustomArchetype,
   propertiesForSlot,
   slotForProperty,
   traceRules,
@@ -53,6 +55,84 @@ test('the contract table in refs/create.md covers the plan §3.1.1 archetypes', 
   const names = archetypes().map((archetype) => archetype.name);
   for (const required of ['Button', 'Input', 'Card', 'Badge', 'Modal']) {
     assert.ok(names.includes(required), `refs/create.md has no ${required} contract`);
+  }
+});
+
+test('the ten v0.3.0 joiners are in the table, each with a contract of its own', () => {
+  const names = archetypes().map((archetype) => archetype.name);
+  const joiners = [
+    'Toggle',
+    'Checkbox',
+    'Radio',
+    'Select',
+    'Tooltip',
+    'Toast',
+    'Tabs',
+    'Link',
+    'Avatar',
+    'Progress',
+  ];
+  for (const joiner of joiners) {
+    assert.ok(names.includes(joiner), `refs/create.md has no ${joiner} contract (v0.3.0 §6.6)`);
+    const contract = contractFor(joiner.toLowerCase());
+    assert.ok(contract.slots.length > 0, `${joiner} demands nothing, which is not a contract`);
+  }
+
+  // Link is deliberately the smallest contract in the set (§6.6).
+  const link = contractFor('link');
+  for (const contract of archetypes()) {
+    assert.ok(
+      contract.slots.length >= link.slots.length,
+      `${contract.name} is smaller than Link, which the plan calls the smallest`,
+    );
+  }
+});
+
+test('every contract is well-formed: slots the vocabulary knows, states it does not', () => {
+  const properties = new Set(vocabulary().map((row) => row.property));
+  for (const archetype of archetypes()) {
+    assert.equal(archetype.key, archetype.name.toLowerCase());
+    for (const slot of archetype.slots) {
+      assert.ok(
+        propertiesForSlot(slot).length > 0,
+        `${archetype.name}: no property key in the vocabulary can fill ${slot}`,
+      );
+    }
+    for (const state of archetype.states) {
+      assert.ok(
+        !properties.has(state),
+        `${archetype.name}: ${state} is both a state and a property, which makes it ambiguous`,
+      );
+    }
+    assert.equal(
+      new Set(archetype.slots).size,
+      archetype.slots.length,
+      `${archetype.name} lists a slot twice`,
+    );
+  }
+});
+
+test('no word resolves to two archetypes, so an alias is never ambiguous', () => {
+  const seen = new Map();
+  for (const archetype of archetypes()) {
+    for (const word of new Set([archetype.key, ...archetype.aliases])) {
+      assert.ok(!seen.has(word), `"${word}" names both ${seen.get(word)} and ${archetype.name}`);
+      seen.set(word, archetype.name);
+      assert.equal(contractFor(word).name, archetype.name, `"${word}" resolves elsewhere`);
+    }
+  }
+});
+
+test('`custom` is reserved: no archetype claims it, and it resolves to no contract', () => {
+  assert.equal(CUSTOM_ARCHETYPE, 'custom');
+  assert.equal(contractFor(CUSTOM_ARCHETYPE), null, 'a custom must have no contract at all');
+  assert.ok(isCustomArchetype('Custom'));
+  assert.ok(!isCustomArchetype('button'));
+  for (const archetype of archetypes()) {
+    assert.ok(
+      ![archetype.key, ...archetype.aliases].includes(CUSTOM_ARCHETYPE),
+      `${archetype.name} claims the reserved word "custom"`,
+    );
   }
 });
 

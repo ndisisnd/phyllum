@@ -63,6 +63,10 @@ test('a description with no archetype in it asks, and writes nothing', async () 
     assert.equal(code, 0);
     assert.ok(out.includes('could not tell which kind of component'));
     assert.ok(out.includes('Button, Input, Card, Badge, Modal'));
+    // The v0.3.0 joiners are on the list too, and so is the way out of it.
+    assert.ok(out.includes('Toggle'));
+    assert.ok(out.includes('Link'));
+    assert.ok(out.includes('custom'), 'and custom mode is offered rather than the nearest fit');
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, []);
   });
 });

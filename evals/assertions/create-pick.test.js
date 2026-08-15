@@ -150,11 +150,19 @@ test('the picker numbers archetypes first, then candidates, in one sequence', as
   await withProject(async (dir) => {
     const picker = pickList(dir, model());
     assert.equal(picker.archetypes.length, archetypes().length);
-    assert.equal(picker.choices.length, picker.archetypes.length + picker.candidates.length);
+    assert.equal(
+      picker.choices.length,
+      picker.archetypes.length + picker.candidates.length + 1,
+      'archetypes, then candidates, then the one custom row',
+    );
 
     const text = renderPicker(picker);
     assert.ok(text.includes('  1. Button'));
     assert.ok(text.includes(`  ${picker.archetypes.length + 1}. Badge/Info`));
+
+    // Custom is last, always — an escape hatch, never the default (§6.7).
+    assert.equal(picker.choices.at(-1).kind, 'custom');
+    assert.ok(text.includes(`  ${picker.choices.length}. Custom`));
   });
 });
 

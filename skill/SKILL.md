@@ -83,7 +83,7 @@ reads the design system *and* the codebase, and writes only its own plan.
 
 | Command | Reference |
 |---------|-----------|
-| `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step, plus `create primitives`: the two ramp behaviours, the derivation, naming and the `Primitives` subsection |
+| `create` | `refs/create.md` — modes A/B/C, prose parsing rules, the fifteen archetype contracts, custom mode (no contract, and the marker that says so), follow-up loop, acceptance and the write step, plus `create primitives`: the two ramp behaviours, the derivation, naming and the `Primitives` subsection |
 | `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering, the mapping table, the token and component suggestion tracks |
 | `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
 | `tokenise` | `refs/tokenise.md` — how a sentence is read, the batch queue and its splitting grammar, the three passes, the naming sources (the nomenclature library first, the scales as fallback), the follow-up loop when a value or a name is missing, acceptance |
@@ -178,6 +178,22 @@ is where the eyes are. **Pick mode**: bare `create` offers the archetypes plus
 the components the codebase keeps repeating without ever naming, and a pick
 seeds a name and an archetype — never values. An image dropped on the dashboard
 queues an image-mode `create`, which the next bare `create` picks up.
+
+v0.3.0 M4 widens `create`'s vocabulary and gives it a way out of it. The
+archetype table grows from five contracts to **fifteen** — Toggle, Checkbox,
+Radio, Select, Tooltip, Toast, Tabs, Link, Avatar and Progress join, each with
+its own mandatory slots, states, labelled defaults and candidate signals, all in
+`refs/create.md` as rows rather than code. And the picker gains a last row:
+**custom**, a component that follows no contract. A custom has no mandatory
+slots, no mandatory states and no gap list — it records exactly the slots the
+user describes and is complete when they say so. Prose that matches no archetype
+is *offered* custom rather than forced into the nearest fit; prose that matches
+one never lands in custom. Everything non-negotiable holds: no invented values,
+the same spec-block file shape, rerunnable as a revision, one acceptance gate and
+one write. A custom records its status in the spec block (`archetype: custom`
+plus `custom: true`) so that every contract lookup for it comes back empty by
+design — `assess`'s component matching, extrapolation and `apply`'s adoption all
+read the marker and skip rather than grading it against rules it never claimed.
 
 v0.2.0 M1 ships `version` and `update`, the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest

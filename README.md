@@ -145,6 +145,12 @@ measurements into values and everything else into questions, and refuses to clai
 still image can't show. **Pick**: bare `create` offers the archetypes plus the components
 your codebase keeps repeating, and a pick seeds a name and an archetype — never values.
 
+Fifteen archetypes ship with contracts — Button, Input, Card, Badge, Modal, Toggle,
+Checkbox, Radio, Select, Tooltip, Toast, Tabs, Link, Avatar, Progress — and the picker's
+last row is **custom**: a component that follows no contract at all. A custom has no
+mandatory slots and no gap list; it records exactly what you describe, and it says so on
+the page, so nothing downstream grades it against rules it never claimed.
+
 `assess` reads your codebase and tells you how much raw, un-systematised styling is in
 there. Colours, lengths and typography are read out of text files in *any* language — a
 theme file in JSON or Go counts as much as a `.css` file does — while component detection

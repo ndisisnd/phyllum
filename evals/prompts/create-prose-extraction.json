@@ -71,6 +71,109 @@
       }
     },
     {
+      "id": "toggle-track-and-radius",
+      "prompt": "toggle switch with a #D1D5DB track colour and 999px radius",
+      "expected": {
+        "name": "Toggle/Default",
+        "archetype": "toggle",
+        "properties": { "track-colour": "#D1D5DB", "radius": "999px" }
+      }
+    },
+    {
+      "id": "checkbox-indicator",
+      "prompt": "checkbox with a 4px corner radius and a #FFFFFF indicator colour",
+      "expected": {
+        "name": "Checkbox/Default",
+        "archetype": "checkbox",
+        "properties": { "radius": "4px", "indicator-colour": "#FFFFFF" }
+      }
+    },
+    {
+      "id": "select-by-alias",
+      "prompt": "a dropdown with a 6px corner radius and a #D1D5DB border colour",
+      "expected": {
+        "name": "Select/Default",
+        "archetype": "select",
+        "properties": { "radius": "6px", "border-colour": "#D1D5DB" }
+      }
+    },
+    {
+      "id": "toast-by-alias",
+      "prompt": "a snackbar with an 8px corner radius and a #111827 text colour",
+      "expected": {
+        "name": "Toast/Default",
+        "archetype": "toast",
+        "properties": { "radius": "8px", "text-colour": "#111827" }
+      }
+    },
+    {
+      "id": "tooltip-padding",
+      "prompt": "tooltip with a #111827 background and 6px padding",
+      "expected": {
+        "name": "Tooltip/Default",
+        "archetype": "tooltip",
+        "properties": { "background": "#111827", "padding": "6px" }
+      }
+    },
+    {
+      "id": "tabs-indicator-and-gap",
+      "prompt": "tabs with a #2563EB indicator colour and 16px gap",
+      "expected": {
+        "name": "Tabs/Default",
+        "archetype": "tabs",
+        "properties": { "indicator-colour": "#2563EB", "gap": "16px" }
+      }
+    },
+    {
+      "id": "link-smallest-contract",
+      "prompt": "a link with a #2563EB text colour",
+      "expected": {
+        "name": "Link/Default",
+        "archetype": "link",
+        "properties": { "text-colour": "#2563EB" }
+      }
+    },
+    {
+      "id": "avatar-size",
+      "prompt": "avatar with 32px size and 999px radius",
+      "expected": {
+        "name": "Avatar/Default",
+        "archetype": "avatar",
+        "properties": { "size": "32px", "radius": "999px" }
+      }
+    },
+    {
+      "id": "progress-by-alias",
+      "prompt": "progress bar with a #E5E7EB track colour",
+      "expected": {
+        "name": "Progress/Default",
+        "archetype": "progress",
+        "properties": { "track-colour": "#E5E7EB" }
+      }
+    },
+    {
+      "id": "custom-records-only-what-was-said",
+      "custom": true,
+      "name": "Chart/Frame",
+      "prompt": "a bespoke chart frame with a #0F172A background and 24px padding",
+      "expected": {
+        "name": "Chart/Frame",
+        "archetype": "custom",
+        "properties": { "background": "#0F172A", "padding": "24px" }
+      }
+    },
+    {
+      "id": "custom-invents-no-slot",
+      "custom": true,
+      "name": "Hero/Landing",
+      "prompt": "a hero block",
+      "expected": {
+        "name": "Hero/Landing",
+        "archetype": "custom",
+        "properties": {}
+      }
+    },
+    {
       "id": "state-scoped-value",
       "prompt": "button primary with a #2563EB background and a #1D4ED8 background on hover",
       "expected": {

@@ -146,7 +146,14 @@ function draftFor(evalId, testCase, responder, model) {
     const recording = readRecording(evalId, testCase.id);
     return recording ? recording.draft : null;
   }
-  return extractDraft(testCase.prompt, { tokenNames: tokenNamesOf(model) });
+  // A `custom` case is the contract-free mode (v0.3.0 §6.7): the user has
+  // already answered "which kind of component is this?" with "none of them", so
+  // the sentence is read for exactly what it says and the name comes from them.
+  return extractDraft(testCase.prompt, {
+    tokenNames: tokenNamesOf(model),
+    custom: testCase.custom === true,
+    name: testCase.name ?? null,
+  });
 }
 
 const propertiesOf = (draft) =>
@@ -202,6 +209,15 @@ function proseExtraction(responder) {
         max += 1;
         failures.push(`${testCase.id}: ${property} was extracted but not expected`);
       }
+    }
+
+    // The claim custom mode exists to make: no contract, so no gap list — and
+    // therefore no slot proposed that the description never mentioned (§6.7).
+    if (testCase.custom) {
+      max += 1;
+      const gaps = gapsFor(draft, { model: null }).map((gap) => gap.slot);
+      if (gaps.length === 0) points += 1;
+      else failures.push(`${testCase.id}: a custom was asked for ${gaps.join(', ')}`);
     }
   }
 
