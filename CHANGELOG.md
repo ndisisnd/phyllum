@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-15
+
+### [5] — 0.3.0: the vocabulary grows up, and the hardening sweep that closed the release
+
+- `skill/refs/nomenclature.md`: Added — the standard token-naming vocabulary as spec tables: four slots in a fixed order, a strict word list each, the nine shipped neutral-ramp constants, and the lightness/saturation scale a derived ramp is placed on
+- `lib/nomenclature.js`: Added — the reader for those tables, with a name walk that enforces slot order without a regexp and refuses a word claimed by two slots
+- `lib/tokenise-prose.js`, `lib/tokenise-command.js`, `lib/tokenise-spec.js`: Changed — a sentence may carry several values; each becomes one entry in a proposal queue walked one question at a time, in sentence order, with names binding leftwards and duplicates collapsed
+- `lib/primitives.js`, `lib/create-command.js`: Added — `create primitives`: the neutral ramp from shipped constants, a per-token derived ramp after a yes, the recorded value slotted back at its nearest step unchanged
+- `lib/design-system.js`, `lib/init.js`, `templates/DESIGN-SYSTEM.md`: Changed — Colours drops its `notes` column and gains a nested `Primitives` subsection; a file still holding the legacy column is read as it stands
+- `skill/refs/create.md`, `lib/archetypes.js`, `lib/create.js`: Changed — ten more archetype contracts (Toggle, Checkbox, Radio, Select, Tooltip, Toast, Tabs, Link, Avatar, Progress) and a **custom** mode that follows no contract, marked as such so nothing downstream grades it against rules it never claimed
+- `gui/index.html`, `skill/refs/gui.md`: Changed — the dashboard restyled along Carbon lines, colours as filled/bordered swatches, primitives as nine-step strips, typography as live specimens, numbers as bars; still zero dependencies and no network fetch
+- `lib/registry.js`, `lib/upgrade-command.js`, `skill/refs/update.md`, `skill/refs/upgrade.md`: Changed — `update` becomes an exact alias of `apply`; the self-maintenance behaviour moves unchanged to `upgrade`
+- `lib/tokenise-command.js`: Fixed — a corrupt or half-written `.phyllum/session.json` queue was resumed into a proposal reading `value undefined` and put behind an acceptance gate; an entry whose shape no reader produces is now dropped, the loss is reported, and a queue with nothing readable left is no queue at all
+- `lib/nomenclature.js`, `lib/execute.js`: Fixed — a malformed `phyllum:` table arrived as a bare detail naming no file and no fix; it is now a `NomenclatureError` caught at the dispatch boundary beside the backup and permission refusals, and answered with the file, the cause and `phyllum upgrade`
+- `gui/index.html`: Fixed — a `/system` payload missing the shape it promised blanked the dashboard mid-render; every list the renderer walks is guarded, a shapeless payload is answered in a sentence, and a row that is not an object is skipped rather than thrown on
+- `evals/assertions/fault-inputs.test.js`: Added — the v0.3.0 sweep: nine hostile queue-entry shapes, a truncated session file, five doctored vocabulary tables, six malformed design-system files through the dashboard's own renderer, and the swatch escape contract
+- `evals/assertions/primitives.test.js`: Added — derivation at the ends of the scale: black, white and zero-saturation inputs, three- and eight-digit hex, a base name already ending in digits, and `nearestStep`'s totality
+- `evals/baseline.json`: Changed — re-recorded as `release: v0.3.0`, 19 evals at 1.000, no threshold lowered
+- `package.json`: version → 0.3.0
+- `README.md`, `llms.txt`, `skill/SKILL.md`, `RELEASES.md`: docs updated for the 0.3.0 surface
+
 ## 2026-08-14
 
 ### [4] — Move the welcome out of a postinstall script and into the CLI greeting

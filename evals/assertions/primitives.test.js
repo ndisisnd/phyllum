@@ -401,3 +401,110 @@ test('`primitives` is a reserved word after create, and quoting it means the wor
     assert.ok(!out.includes('create primitives —'), 'a quoted word is a description, not the mode');
   });
 });
+
+// ---------------------------------------------------------------------------
+// v0.3.0 M7 — derivation at the ends of the scale
+//
+// The ramp maths is arithmetic, and arithmetic has edges. Black has no hue and
+// no saturation; white has neither and sits at the top of the scale; a grey has
+// a hue the reader had to invent (zero, by convention) because there is nothing
+// to take one from. All three are colours a real design system records, and all
+// three are the inputs a derivation is most likely to answer with `NaN`, an
+// undefined step, or a value that is not a colour at all.
+//
+// Nothing here is a fix — the derivation already handles them. It is a lock:
+// these are the answers, and a change to the scale or the maths that moves them
+// has to say so out loud rather than in a user's file.
+// ---------------------------------------------------------------------------
+
+/** Every step of a ramp is a value the file can hold and the GUI can render. */
+const assertWellFormed = (rows, label) => {
+  assert.equal(rows.length, rampScale().length, `${label}: nine steps`);
+  assert.deepEqual(rows.map((row) => row.step), rampScale().map((row) => row.step), `${label}: in scale order`);
+  for (const row of rows) {
+    assert.ok(!/NaN|undefined|null/.test(row.value), `${label}: ${row.token} is ${row.value}`);
+    assert.ok(!/NaN|undefined/.test(row.token), `${label}: a step has no name`);
+  }
+  assert.equal(rows.filter((row) => row.base).length, 1, `${label}: exactly one step is the base`);
+};
+
+test('a ramp derived from black, white or a grey is still nine usable values', () => {
+  const edges = [
+    ['black', '#000000'],
+    ['white', '#FFFFFF'],
+    ['mid grey — zero saturation, no hue to hold', '#808080'],
+    ['near-black', '#010101'],
+    ['near-white', '#FEFEFE'],
+  ];
+  for (const [label, value] of edges) {
+    const rows = deriveRamp('edge', value);
+    assertWellFormed(rows, label);
+    // The token's own value is never altered, at any point on the scale — the
+    // never-correct rule does not have an exception for the ends of it.
+    const base = rows.find((row) => row.base);
+    assert.equal(base.value, value, `${label}: the recorded value moved`);
+    // Every other step is a six-digit hex the reader can read back.
+    for (const row of rows.filter((row) => !row.base)) {
+      assert.match(row.value, /^#[0-9A-F]{6}$/, `${label}: ${row.token}`);
+      assert.ok(toHsl(row.value), `${label}: ${row.token} is not a colour`);
+    }
+  }
+});
+
+test('black and white land at opposite ends of the scale', () => {
+  const steps = rampScale().map((row) => row.step);
+  assert.equal(deriveRamp('k', '#000000').find((row) => row.base).step, steps.at(-1), 'black is the darkest step');
+  assert.equal(deriveRamp('w', '#FFFFFF').find((row) => row.base).step, steps[0], 'white is the lightest');
+});
+
+test('a zero-saturation token derives a grey ramp, not a coloured one', () => {
+  // Holding hue and saturation means holding a saturation of nothing: every
+  // step must come back grey, or the derivation invented a colour.
+  for (const rows of [deriveRamp('g', '#808080'), deriveRamp('g', '#333333')]) {
+    for (const row of rows.filter((r) => !r.base)) {
+      const { s } = toHsl(row.value);
+      assert.ok(s < 1, `${row.token} came back saturated (${s})`);
+    }
+  }
+});
+
+test('the value column is taken as the file spells it, in any notation', () => {
+  // Three-digit hex, eight-digit hex and a functional notation are all things a
+  // hand-written design system holds. The base row is the characters the user
+  // wrote — the same case, the same length — because re-spelling it is a
+  // correction, and Phyllum does not correct values.
+  for (const value of ['#fff', '#FFFFFFFF', 'rgb(0, 0, 0)', '#2563eb']) {
+    const rows = deriveRamp('t', value);
+    assertWellFormed(rows, value);
+    assert.equal(rows.find((row) => row.base).value, value, `${value} was rewritten`);
+  }
+});
+
+test('a value no colour reader reads derives nothing at all', () => {
+  for (const value of ['var(--brand)', 'linear-gradient(red, blue)', 'inherit', '', null, undefined, '#GGG']) {
+    assert.equal(deriveRamp('t', value), null, String(value));
+  }
+});
+
+test('a base name that already ends in digits still makes nine distinct steps', () => {
+  // `blue500` is a name people really use, and gluing a step number onto it
+  // gives `blue500100`. Ugly, but unambiguous and — the part that matters —
+  // still nine different names rather than a collision.
+  const rows = deriveRamp('blue500', '#2563EB');
+  assertWellFormed(rows, 'blue500');
+  assert.equal(new Set(rows.map((row) => row.token)).size, rows.length, 'two steps share a name');
+  assert.equal(rows[0].token, stepName('blue500', rampScale()[0].step));
+});
+
+test('the edges derive identically twice, like every other input', () => {
+  for (const value of ['#000000', '#FFFFFF', '#808080']) {
+    assert.deepEqual(deriveRamp('t', value), deriveRamp('t', value), value);
+  }
+});
+
+test('nearestStep is total: it answers for every lightness, including past the ends', () => {
+  const steps = rampScale().map((row) => row.step);
+  for (const lightness of [-50, 0, 0.0001, 45, 99.999, 100, 150]) {
+    assert.ok(steps.includes(nearestStep(lightness)), `no step for lightness ${lightness}`);
+  }
+});

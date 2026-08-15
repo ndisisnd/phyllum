@@ -180,6 +180,59 @@ the components the codebase keeps repeating without ever naming, and a pick
 seeds a name and an archetype — never values. An image dropped on the dashboard
 queues an image-mode `create`, which the next bare `create` picks up.
 
+v0.3.0 M1 ships the **nomenclature library** — a standard vocabulary for token
+names, shipped as spec tables in `refs/nomenclature.md` rather than as code, the
+same way the naming scales have always shipped. A standardised name is built
+from four slots in a fixed order — `<family>-<rank>[-<exception>][-<state>]` —
+where the *set of words* per slot is strict and *which* slots a name uses is
+loose. Eight families (`neutral`, `interaction`, `accent`, `surface`, `success`,
+`warning`, `danger`, `info`), three ranks, six exception words and seven state
+words, each list drawn from what Carbon, Polaris, Atlassian, Material 3 and
+Fluent all actually ship. Slot order is part of the strictness, so
+`interaction-primary-hover` is a name and `hover-interaction` is not — state is
+last in every surveyed system, and the walk that reads a name enforces it. The
+same file carries the nine shipped neutral-ramp constants and the fixed
+lightness-and-saturation scale a derived ramp is placed on. The library
+**supersedes** the old `color-primary` scale as the default suggestion, which
+becomes the fallback for a colour whose description signals no role; it is the
+semantic layer, primitives are the value layer. Nothing existing is ever renamed
+— the library changes proposals only.
+
+v0.3.0 M2 teaches `tokenise` to read a sentence carrying **several values**. One
+sentence in, a **proposal queue** out: `phyllum tokenise "#2563EB #10B981
+#F59E0B"` becomes three entries, and `"heading 24px bold 1.2, body 16px regular
+1.5"` becomes two typography readings. The queue is intake, not protocol — every
+entry runs the same walk a lone value has always run, one question at a time, in
+sentence order. Names bind leftwards, so "brand blue #2563EB and success green
+#10B981" names both; duplicates inside one sentence collapse to one proposal;
+the ranked colour scale counts earlier acceptances in the same run, so the first
+colour ranks before the second. A skipped or declined entry costs only itself and
+the queue moves on. The whole queue is kept in `.phyllum/session.json` as it
+goes, so a run cut short is picked up where it stood rather than retyped, and the
+`.bak` is taken before the *first* write of the run, so the undo it holds is the
+file as it stood before the whole sentence.
+
+v0.3.0 M3 ships **`create primitives`** and slims the Colours table. The command
+lays down the primitive colour ramps semantic tokens sit on: nine steps, `100`
+to `900`. With no colour tokens recorded it offers the neutral ramp alone — nine
+constants read straight out of `refs/nomenclature.md`, identical for every user,
+shown in full before acceptance. With colour tokens recorded it offers a ramp per
+token, and **each token is asked about first**: a no generates nothing for it.
+A derived ramp holds the token's hue and saturation, places lightness on the
+fixed scale, and slots **the user's own value back at its nearest step
+unchanged** — the never-correct rule has no exception at the ends of a scale.
+It is arithmetic and table lookup end to end, no model in the path, so unlike the
+rest of `create` it runs in a plain terminal. Steps glue the number to the base
+name with no hyphen (`accentRed` → `accentRed100`), which is how a value-layer
+name reads differently at a glance from a hyphenated semantic one. Ramps land
+under a nested `#### Primitives` heading inside Colours, as ordinary rows; a ramp
+already present is reported, never duplicated, and a half-present ramp offers
+only its missing steps. The same milestone drops Colours' `notes` column —
+provenance is history, not design system — so Colours is `token | value`, matching
+every other section's value-only posture. A file still carrying the legacy column
+is read and served as it stands; `init`'s repair offers the removal rather than
+performing it.
+
 v0.3.0 M4 widens `create`'s vocabulary and gives it a way out of it. The
 archetype table grows from five contracts to **fifteen** — Toggle, Checkbox,
 Radio, Select, Tooltip, Toast, Tabs, Link, Avatar and Progress join, each with
@@ -195,6 +248,22 @@ one write. A custom records its status in the spec block (`archetype: custom`
 plus `custom: true`) so that every contract lookup for it comes back empty by
 design — `assess`'s component matching, extrapolation and `apply`'s adoption all
 read the marker and skip rather than grading it against rules it never claimed.
+
+v0.3.0 M5 is a presentation release for the dashboard: it **shows the values**
+instead of printing them. Every colour token renders as a filled swatch of its
+own colour, with a bordered variant where a near-white would vanish against the
+page and a label that flips to dark ink once the fill is light enough — both
+thresholds are rows in `refs/gui.md`, not constants in the page. A primitives
+ramp renders as a nine-step strip, which is where the `Primitives` subsection
+pays off visually. Typography tokens render as live specimens in their own size,
+weight and line-height; numbers render as bars measured against the largest value
+in the table. The styling follows Carbon Design System *lines* — flat tiles,
+sharp corners, a disciplined type ramp, generous whitespace, a left rail — and
+takes no dependency on Carbon or anything else: the stylesheet is hand-written in
+the one file, the type stack is Plex-first falling back to system sans, and the
+page fetches nothing, so it renders with no network at all. Behaviour is
+unchanged — read-only, live `DESIGN-SYSTEM.md`, localhost only, the same
+`gui`/`kill` lifecycle. The dashboard shows the file; writing it stays the CLI's.
 
 v0.3.0 M6 hands the word "update" to `apply` and gives the self-maintenance job
 its own verb, `upgrade`. `phyllum update` is now an exact alias of `phyllum

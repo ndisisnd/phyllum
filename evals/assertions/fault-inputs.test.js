@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { designSystemReadError, executeArgv } from '../../lib/execute.js';
+import { designSystemReadError, executeArgv, nomenclatureFailureNotice } from '../../lib/execute.js';
 import { configProblem, readApplyConfig } from '../../lib/apply-config.js';
 import { MAX_SOURCE_BYTES, MAX_TEXT_BYTES, readTextFile } from '../../lib/scan-text.js';
 import { scanCandidates } from '../../lib/candidates.js';
@@ -31,7 +31,11 @@ import { emptyModel } from '../../lib/design-system.js';
 import { PRD_FILE, STATE_DIR } from '../../lib/write.js';
 import { ASSESS_SPEC_FILE, SPEC_FILE, parseSpec } from '../../lib/tokenise-spec.js';
 import { renderSpecNotices } from '../../lib/assess-report.js';
-import { POPULATED_FIXTURE, readFixture, snapshotContents, diffSnapshots, withTempDir } from './helpers.js';
+import { NOMENCLATURE_FILE, NomenclatureError, parseNomenclature, reloadNomenclature } from '../../lib/nomenclature.js';
+import { isResumableCandidate, renderDroppedNotice, unfinishedQueue } from '../../lib/tokenise-command.js';
+import { STATE_FILE } from '../../lib/state.js';
+import { systemJson } from '../../lib/system-json.js';
+import { PACKAGE_ROOT, POPULATED_FIXTURE, readFixture, snapshotContents, diffSnapshots, withTempDir } from './helpers.js';
 
 /** Root reads anything, so a permissions case would pass for the wrong reason. */
 const AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;
@@ -540,4 +544,257 @@ test('the notice reads as a sentence, and says the assessment ran anyway', () =>
   assert.match(lines[0], /ran without them/, 'the finding is still trustworthy, minus that rule');
   assert.match(lines.at(-1), /refs\/assess\.md/, 'and it names the file to fix');
   assert.match(renderSpecNotices(['a', 'b'])[0], /2 rules were skipped/);
+});
+
+// --- lifting the page's own swatch rules ------------------------------------
+
+/**
+ * The dashboard's contract region, evaluated. `gui.test.js` lifts the same
+ * region to check what it renders; this file lifts it to check what it does
+ * when handed something no server should have sent.
+ */
+function swatchContract() {
+  const text = fs.readFileSync(path.join(PACKAGE_ROOT, 'gui', 'index.html'), 'utf8');
+  const start = text.indexOf('// --- phyllum:swatch-contract');
+  const end = text.indexOf('// --- end phyllum:swatch-contract');
+  assert.ok(start !== -1 && end > start, 'the page marks its swatch-contract region');
+  return new Function(
+    `${text.slice(start, end)}\nreturn { SWATCH, isColourValue, swatchHtml, rampGroups, rampHtml };`,
+  )();
+}
+
+// ---------------------------------------------------------------------------
+// v0.3.0 M7 — the surfaces this release added, swept on the same axis
+//
+// Three new things read something they did not write: `tokenise` reads its own
+// queue back out of `.phyllum/session.json`, `create primitives` and the naming
+// suggestions read the shipped vocabulary tables, and the dashboard reads a
+// `/system` payload produced by a separate process. The bar is the one this file
+// has always set — no stack, a message that names the file and the fix, nothing
+// written — with one addition that belongs to this release: **no question about
+// nothing**. A proposal built from an unreadable queue entry reads `value
+// undefined`, and putting that behind an acceptance gate is worse than not
+// asking at all, because the user cannot tell a bug from a value they forgot
+// typing.
+// ---------------------------------------------------------------------------
+
+const HOSTILE_CANDIDATES = [
+  ['a string where an object belongs', 'junk'],
+  ['a number', 42],
+  ['an array', ['#2563EB']],
+  ['an empty object', {}],
+  ['a pass no reader produces', { pass: 'shadows', value: '#2563EB' }],
+  ['a colour with no value', { pass: 'colours' }],
+  ['a colour whose value is blank', { pass: 'colours', value: '   ' }],
+  ['a typography reading with no size', { pass: 'typography', value: '24px', size: '' }],
+  ['null', null],
+];
+
+const writeQueue = (dir, queue, input = 'brand blue #2563EB') => {
+  fs.mkdirSync(path.join(dir, STATE_DIR), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, STATE_DIR, 'session.json'),
+    JSON.stringify({ version: 1, tokenise: { input, queue } }),
+  );
+};
+
+test('an unreadable queue entry is not resumable, whatever shape it arrived in', () => {
+  for (const [label, candidate] of HOSTILE_CANDIDATES) {
+    assert.equal(isResumableCandidate(candidate), false, label);
+  }
+  // The shapes the reader actually produces stay resumable, or the guard would
+  // be a regression dressed up as a fix.
+  assert.equal(isResumableCandidate({ pass: 'colours', value: '#2563EB' }), true);
+  assert.equal(isResumableCandidate({ pass: 'numbers', value: '12px', role: 'spacing' }), true);
+  assert.equal(isResumableCandidate({ pass: 'typography', value: '24px', size: '24px' }), true);
+});
+
+test('a queue of nothing but unreadable entries is no queue at all', async () => {
+  for (const [label, candidate] of HOSTILE_CANDIDATES) {
+    await withTempDir(async (dir) => {
+      writeQueue(dir, [{ status: 'pending', candidate }]);
+      assert.equal(unfinishedQueue(dir), null, label);
+    });
+  }
+});
+
+test('a half-written session.json leaves the queue empty rather than throwing', async () => {
+  await withTempDir(async (dir) => {
+    fs.mkdirSync(path.join(dir, STATE_DIR), { recursive: true });
+    // The shape a crash mid-write leaves behind: valid JSON up to the cut.
+    fs.writeFileSync(path.join(dir, STATE_DIR, 'session.json'), '{"tokenise":{"queue":[{"status":"pend');
+    assert.equal(unfinishedQueue(dir), null);
+  });
+  const junkFiles = ['null', '[]', '"a string"', '{"tokenise":"not an object"}', '{"tokenise":{"queue":"not a list"}}'];
+  for (const junk of junkFiles) {
+    await withTempDir(async (dir) => {
+      fs.mkdirSync(path.join(dir, STATE_DIR), { recursive: true });
+      fs.writeFileSync(path.join(dir, STATE_DIR, 'session.json'), junk);
+      assert.equal(unfinishedQueue(dir), null, junk);
+    });
+  }
+});
+
+test('a readable entry survives an unreadable neighbour, and the loss is said out loud', async () => {
+  await withTempDir(async (dir) => {
+    writeQueue(dir, [
+      { status: 'pending', candidate: 'junk' },
+      { status: 'pending', candidate: { pass: 'colours', value: '#2563EB' } },
+      { status: 'written', candidate: { pass: 'colours', value: '#10B981' } },
+    ]);
+    const queue = unfinishedQueue(dir);
+    assert.equal(queue.pending.length, 1, 'only the readable open entry');
+    assert.equal(queue.pending[0].value, '#2563EB');
+    // A settled entry was never open, so it is not a loss and is not counted.
+    assert.equal(queue.dropped, 1, 'the unreadable one is counted, not forgotten');
+    assert.match(renderDroppedNotice(queue.dropped), /1 unfinished entry/);
+    assert.ok(renderDroppedNotice(queue.dropped).includes(STATE_FILE), 'the notice names the file');
+    assert.equal(renderDroppedNotice(0), null, 'nothing lost, nothing said');
+  });
+});
+
+test('a corrupt queue never becomes a proposal about nothing', async () => {
+  for (const [label, candidate] of HOSTILE_CANDIDATES) {
+    await withTempDir(async (dir) => {
+      fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), readFixture(POPULATED_FIXTURE));
+      writeQueue(dir, [{ status: 'pending', candidate }]);
+      const before = snapshotContents(dir);
+
+      // `ask` says yes to everything and `confirm` accepts everything: the most
+      // permissive run there is, so anything that *could* be proposed would be.
+      const result = await executeArgv(['tokenise'], {
+        ...ctx(dir, { env: { CLAUDE_CODE: '1' } }),
+        ask: async () => 'y',
+        confirm: async () => true,
+      });
+
+      assert.ok(!/undefined/.test(result.out), `${label}: a proposal about nothing reached the user`);
+      assert.ok(!/Resuming/.test(result.out), `${label}: an unreadable queue was resumed`);
+      assert.ok(!/at Object\.|at Module\./.test(result.out), `${label}: a stack trace leaked`);
+      const moved = diffSnapshots(before, snapshotContents(dir));
+      // `.phyllum/session.json` is Phyllum's own and may be rewritten; the user's
+      // file may not move, because nothing here was ever accepted.
+      assert.deepEqual(moved.added, [], label);
+      assert.deepEqual(moved.removed, [], label);
+      assert.ok(
+        moved.changed.every((file) => file.startsWith(STATE_DIR)),
+        `${label}: ${moved.changed.join(', ')}`,
+      );
+    });
+  }
+});
+
+// --- the shipped vocabulary tables ------------------------------------------
+
+/** Each case doctors the shipped file one way, then names what should be said. */
+const BROKEN_TABLES = [
+  ['a marker that is gone', (text) => text.replace('<!-- phyllum:neutral-ramp -->', '<!-- gone -->'), /missing the .*neutral-ramp.* table marker/],
+  ['a ramp constant that is not a colour', (text) => text.replace('#F5F5F5', 'not-a-hex'), /not a six-digit hex value/],
+  ['a scale step with no lightness', (text) => text.replace('| 96 ', '|  '), /has no lightness/],
+  ['a scale step with no saturation', (text) => text.replace('| 0.60 ', '|  '), /has no saturation/],
+  ['one word claimed by two slots', (text) => text.replace('`bold`,', '`neutral`,'), /claimed by both/],
+];
+
+test('a malformed vocabulary table is a sentence naming the file and the fix', () => {
+  const shipped = fs.readFileSync(NOMENCLATURE_FILE, 'utf8');
+  for (const [label, doctor, expected] of BROKEN_TABLES) {
+    const broken = doctor(shipped);
+    assert.notEqual(broken, shipped, `${label}: the doctoring found nothing to change`);
+
+    // The reader is exercised on doctored text rather than by overwriting the
+    // package's own file, which is what `parseNomenclature` is split out for —
+    // and what keeps this sweep from writing inside the repository.
+    let error = null;
+    try {
+      parseNomenclature(broken);
+    } catch (thrown) {
+      error = thrown;
+    }
+    assert.ok(error instanceof NomenclatureError, `${label}: raised ${error?.name ?? 'nothing'}`);
+    assert.match(error.message, expected, label);
+    assert.equal(error.file, NOMENCLATURE_FILE, `${label}: the error carries the file`);
+
+    // And what the terminal says about it, at the boundary that catches it.
+    const notice = nomenclatureFailureNotice('create', error);
+    assert.match(notice, expected, label);
+    assert.match(notice, /nomenclature\.md/, `${label}: the notice names the file`);
+    assert.match(notice, /phyllum upgrade/, `${label}: the notice names the fix`);
+    assert.ok(!/at Object\.|at Module\.|at file:/.test(notice), `${label}: a stack trace leaked`);
+    assert.ok(notice.endsWith('\n'), `${label}: the notice is a page, not a fragment`);
+  }
+  // The shipped tables are what the doctored copies were doctored away from,
+  // and they still read.
+  assert.ok(parseNomenclature(shipped).slots.length > 0);
+  assert.equal(reloadNomenclature().neutralRamp.length, 9);
+});
+
+// --- the dashboard's payload ------------------------------------------------
+
+test('the dashboard renders a malformed DESIGN-SYSTEM.md rather than throwing on it', () => {
+  const hostile = [
+    ['an empty file', ''],
+    ['bytes that are not markdown', '  not a design system'],
+    ['headings with no tables', '# X\n## Tokens\n### Colours\n### Numbers\n### Typography\n## Components\n## Backlog\n'],
+    ['ragged rows', '## Tokens\n\n### Colours\n\n| token | value |\n| --- | --- |\n| a |\n| b | #fff | extra |\n| | |\n'],
+    ['a primitives step that is not a colour', '## Tokens\n\n### Colours\n\n| token | value |\n| --- | --- |\n\n#### Primitives\n\n| token | value |\n| --- | --- |\n| neutral-100 | not-a-colour |\n| 999 | #fff |\n'],
+    ['an unterminated fence', '## Components\n\n### Btn\n\n```yaml\nname: Btn\n'],
+  ];
+  for (const [label, text] of hostile) {
+    const payload = systemJson(text);
+    assert.ok(payload.counts, `${label}: the server still answers`);
+    for (const key of ['colours', 'numbers', 'typography', 'primitives']) {
+      assert.ok(Array.isArray(payload.tokens[key]), `${label}: ${key} is a list`);
+    }
+    // And the page's own renderer walks whatever came back.
+    assert.ok(Array.isArray(swatchContract().rampGroups(payload.tokens.primitives)), label);
+  }
+});
+
+test('the page never inlines a value that is not a colour', () => {
+  const contract = swatchContract();
+  // A hand-edited file can put anything in the value column. Only a hex literal
+  // is ever written into a `style` attribute, so a value carrying CSS or markup
+  // renders as text on an unfilled swatch instead of as a rule or a tag.
+  const hostile = [
+    'red;position:fixed;inset:0',
+    '#fff" onload="alert(1)',
+    '<img src=x onerror=alert(1)>',
+    'url(https://example.com)',
+    '#GGGGGG',
+    'expression(alert(1))',
+  ];
+  for (const value of hostile) {
+    const html = contract.swatchHtml('t', value);
+    // The value is still *shown* — the dashboard shows the file — but it is
+    // shown as text. The one place it may never reach is the `style` attribute.
+    assert.equal(html.match(/style="([^"]*)"/)[1], 'background:transparent', value);
+    assert.ok(html.includes('swatch--bordered'), `${value}: an unfilled swatch takes the border`);
+    // And the escape is complete: a swatch is exactly four elements, whatever
+    // the value tried to be, so nothing in it opened a tag or closed a quote.
+    assert.equal((html.match(/</g) ?? []).length, 8, `${value}: the element count moved`);
+    assert.equal((html.match(/style=/g) ?? []).length, 1, `${value}: a second style attribute appeared`);
+    assert.ok(!/on[a-z]+="/i.test(html), `${value}: an event handler attribute appeared`);
+  }
+
+  assert.match(contract.swatchHtml('t', '#2563EB'), /background:#2563EB/, 'a real colour still fills');
+});
+
+test('a row shape the payload never promised is skipped, not thrown on', () => {
+  const { rampGroups } = swatchContract();
+  for (const rows of [null, undefined, 'not a list', 42, {}, [null], [undefined], ['a string'], [42]]) {
+    assert.deepEqual(rampGroups(rows), [], String(rows));
+  }
+  assert.equal(rampGroups([{ token: 'neutral-100', value: '#F5F5F5' }]).length, 1, 'a real row still groups');
+});
+
+test('renderLibrary answers a payload that is not a design system', () => {
+  const page = fs.readFileSync(path.join(PACKAGE_ROOT, 'gui', 'index.html'), 'utf8');
+  // Every list the renderer walks goes through a guard first. Asserted as a
+  // property of the source because the alternative is a DOM, and the page is
+  // deliberately dependency-free.
+  assert.ok(page.includes("if (!system.tokens || typeof system.tokens !== 'object')"), 'a shapeless payload is answered');
+  assert.match(page, /not a design system/, 'and answered in a sentence');
+  assert.match(page, /Array\.isArray\(system\.components\)/, 'components is guarded');
+  assert.match(page, /Array\.isArray\(system\.backlog\)/, 'backlog is guarded');
+  assert.match(page, /const rowsOf = \(key\) =>/, 'every token section reads through one guard');
 });

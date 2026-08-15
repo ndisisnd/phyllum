@@ -28,17 +28,19 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.2.1 -->
+<!-- mkpub:release 0.3.0 -->
 > [!NOTE]
-> **🚀 New in 0.2.1 · `assess` stops inventorying and starts judging**
+> **🚀 New in 0.3.0 · The vocabulary grows up**
 >
-> Every finding now carries a severity, near-identical components and styles are
-> scored as clones, naming drift and prop mismatches are called out, and unused
-> tokens and components are found by running coverage backwards. The run ends in
-> one drift score and one verdict. `assess --json` writes the whole assessment to
-> a file for CI, `display` reads the system back (`system` stays as an alias), and
-> every edit to `DESIGN-SYSTEM.md` now leaves a `.bak` one undo behind. Upgrade
-> with `phyllum upgrade`
+> One `tokenise` sentence can now carry several values, queued and asked about
+> one at a time. A standard naming vocabulary ships with Phyllum, so a name
+> suggestion can say what a colour is *for* rather than only what it looks like.
+> `create primitives` lays down primitive colour ramps — wholly mechanical, no
+> model needed. Ten more archetypes join `create`, plus **custom**: a component
+> that follows no contract at all. The dashboard has been restyled along Carbon
+> lines and renders colours as swatches. And `update` changes meaning: it is now
+> an alias of `apply`, so it updates your *codebase*; moving the install is
+> `phyllum upgrade`. Update with `phyllum upgrade`
 <!-- /mkpub:release -->
 
 ---
@@ -151,6 +153,27 @@ last row is **custom**: a component that follows no contract at all. A custom ha
 mandatory slots and no gap list; it records exactly what you describe, and it says so on
 the page, so nothing downstream grades it against rules it never claimed.
 
+`create primitives` is the odd one out: it writes no component at all. It lays down the
+**primitive colour ramps** your semantic tokens sit on — nine steps, `100` (lightest) to
+`900` (darkest), written under a `Primitives` heading inside the Colours table. With no
+colour tokens recorded, you get the neutral grey ramp, which is nine constants Phyllum
+ships and every install shares. With colour tokens recorded, you are asked about each one
+in turn, and a yes derives that token's own ramp: its hue and saturation held, lightness
+placed on a fixed scale, and **the value you recorded slotted in unchanged** at whichever
+step it is nearest. Nothing is derived for a token you said no to, all nine values are
+shown before you accept, and the same input gives the same ramp on every run and every
+machine — there is no model anywhere in that path, which is why it works in a plain
+terminal.
+
+Names are the other half of that. Phyllum ships a **standard naming vocabulary** —
+families like `neutral`, `interaction`, `success` and `danger`, ranks (`primary`,
+`secondary`, `tertiary`), exception words like `subtle` and `inverse`, and state words
+like `hover` and `pressed` — spelled in a fixed slot order, so `interaction-primary-hover`
+is a name and `hover-interaction` is not. When your sentence says what a colour is *for*,
+the suggestion comes from that vocabulary; when it doesn't, the older lightness-and-
+saturation scales still answer. Either way it is only ever a suggestion, and **nothing you
+already have is ever renamed**.
+
 `assess` reads your codebase and tells you how much raw, un-systematised styling is in
 there. Colours, lengths and typography are read out of text files in *any* language — a
 theme file in JSON or Go counts as much as a `.css` file does — while component detection
@@ -222,6 +245,16 @@ when its criteria verify by reading the file, its diff stays inside those files,
 own test suite is green. A failing phase stops the run, keeps the completed commits, and
 records where it stopped in the plan; the next `apply run` resumes from there. Nothing is
 ever rolled back. You get a status report every five minutes while it works.
+
+`gui` opens a local dashboard onto the same file, and it **shows the values rather than
+printing them**: every colour token is a filled swatch of that colour, with a border where
+a near-white would otherwise vanish against the page; a primitives ramp is a nine-step
+strip; typography tokens render as live specimens in their own size, weight and
+line-height; and numbers render as measured bars. The page is styled along Carbon Design
+System lines — flat tiles, sharp corners, a disciplined type ramp — but it takes no
+dependency on Carbon or anything else: the stylesheet is hand-written in the one file and
+the page fetches nothing from the network. It stays read-only, on localhost only. Writing
+is the CLI's job.
 
 Writes are atomic — Phyllum writes a temp file and renames it, so a crashed run can't
 corrupt `DESIGN-SYSTEM.md`.

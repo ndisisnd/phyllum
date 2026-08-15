@@ -463,7 +463,12 @@
       function rampGroups(rows) {
         const groups = [];
         const byBase = new Map();
-        for (const row of rows ?? []) {
+        // Anything that is not a list of rows is no rows at all (v0.3.0 M7).
+        // The dashboard reads a file a person edits, through a server that can
+        // answer with less than it promised, so "not what I expected" has to
+        // render as an empty section rather than as a blank page.
+        for (const row of Array.isArray(rows) ? rows : []) {
+          if (row === null || typeof row !== 'object') continue;
           const token = String(row.token ?? (row.cells ?? [])[0] ?? '');
           const value = String(row.value ?? (row.cells ?? [])[1] ?? '');
           const match = token.match(/^(.*?)(\d+)$/);
@@ -610,23 +615,38 @@
           el('tokens-body').textContent = system ? system.message : 'reading…';
           return;
         }
+        // A payload that is missing the shape it promised is the same class of
+        // problem as one that says `error`, and it gets the same answer: a
+        // sentence, not a page that stopped rendering half way (v0.3.0 M7).
+        // `/system` is served by a separate process reading a file a person can
+        // edit, so "200 OK and not a design system" is a real answer to handle.
+        if (!system.tokens || typeof system.tokens !== 'object') {
+          el('tokens-body').textContent =
+            'The server answered with something that is not a design system. Check DESIGN-SYSTEM.md, then reload.';
+          return;
+        }
+        // Each section renders from whatever list it was actually given; a
+        // section the payload left out is an empty section, never a thrown one.
+        const rowsOf = (key) => (Array.isArray(system.tokens[key]) ? system.tokens[key] : []);
+        const columns = system.columns && typeof system.columns === 'object' ? system.columns : {};
         el('tokens-body').innerHTML = [
-          coloursSection(system.tokens.colours),
+          coloursSection(rowsOf('colours')),
           // Primitives are Colours' own subsection in the file, so their strips
           // sit right under it (v0.3.0 §5.3, §6.5).
-          primitivesSection(system.tokens.primitives || []),
-          numbersSection(system.tokens.numbers, system.columns.numbers),
-          typographySection(system.tokens.typography),
+          primitivesSection(rowsOf('primitives')),
+          numbersSection(rowsOf('numbers'), Array.isArray(columns.numbers) ? columns.numbers : []),
+          typographySection(rowsOf('typography')),
         ].join('');
 
-        const list = system.components
-          .map((component, index) => '<button data-index="' + index + '">' + esc(component.name) + '</button>')
+        const list = (Array.isArray(system.components) ? system.components : [])
+          .map((component, index) => '<button data-index="' + index + '">' + esc(component && component.name) + '</button>')
           .join('');
         el('component-list').innerHTML = list || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
         el('token-view-list').innerHTML = list || '<p class="muted">No components yet.</p>';
 
-        el('backlog').innerHTML = system.backlog.length
-          ? '<ul>' + system.backlog.map((item) => '<li>' + esc(item) + '</li>').join('') + '</ul>'
+        const backlog = Array.isArray(system.backlog) ? system.backlog : [];
+        el('backlog').innerHTML = backlog.length
+          ? '<ul>' + backlog.map((item) => '<li>' + esc(item) + '</li>').join('') + '</ul>'
           : '<p class="muted">Nothing outstanding.</p>';
 
         if (state.selected !== null) showComponent(state.selected);
@@ -634,22 +654,27 @@
 
       function tokenNames() {
         const system = state.system;
-        if (!system || system.error) return new Set();
+        if (!system || system.error || !system.tokens) return new Set();
         const names = [];
         for (const key of ['colours', 'primitives', 'numbers', 'typography']) {
-          for (const row of system.tokens[key] ?? []) names.push(row.token ?? row.cells[0]);
+          const rows = Array.isArray(system.tokens[key]) ? system.tokens[key] : [];
+          for (const row of rows) {
+            if (row === null || typeof row !== 'object') continue;
+            names.push(row.token ?? (row.cells ?? [])[0]);
+          }
         }
         return new Set(names.filter(Boolean));
       }
 
       function showComponent(index) {
         const system = state.system;
-        if (!system || system.error || !system.components[index]) return;
-        state.selected = index;
+        if (!system || system.error || !Array.isArray(system.components)) return;
         const component = system.components[index];
+        if (!component || typeof component !== 'object') return;
+        state.selected = index;
 
-        const blocks = component.blocks
-          .map((block) => '<p class="muted">' + esc(block.lang) + '</p><pre><code>' + esc(block.content) + '</code></pre>')
+        const blocks = (Array.isArray(component.blocks) ? component.blocks : [])
+          .map((block) => '<p class="muted">' + esc(block && block.lang) + '</p><pre><code>' + esc(block && block.content) + '</code></pre>')
           .join('');
         el('component-detail').innerHTML = '<h3>' + esc(component.name) + '</h3>' + blocks;
 

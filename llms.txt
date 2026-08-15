@@ -14,7 +14,11 @@ system"; moving the install is `upgrade`. `apply run` is the single exception to
 `phyllum/apply-<date>` branch of its own, one commit per phase, writing only the files the
 running phase's criteria name. Mechanical commands run in pure Node; the intelligent ones
 (`create`, `tokenise`) run natively inside a Claude Code session or shell out to the
-`claude` CLI.
+`claude` CLI — with one exception inside `create`: `create primitives` is wholly
+mechanical, shipped constants and deterministic arithmetic, so it needs no model.
+Phyllum's naming vocabulary and its ramp constants are shipped as parsed spec tables in
+`skill/refs/`, never as code and never as an npm dependency; the zero-dependency rule is
+absolute.
 These paths are repo-relative. Phyllum is published on npm as `phyllum`; the source lives at https://github.com/ndisisnd/phyllum.
 
 ## Docs
@@ -29,9 +33,10 @@ These paths are repo-relative. Phyllum is published on npm as `phyllum`; the sou
 - [create](skill/refs/create.md): the three modes (prose, image, pick), the fifteen archetype contracts, custom mode — no contract, no gap list, recorded exactly as described and marked as such — the follow-up loop, acceptance and the write step, plus `create primitives` — primitive colour ramps, asked per token, written under Colours' `Primitives` subsection
 - [assess](skill/refs/assess.md): the read-only codebase scan — what is read (text files in any language, bounded: build output, dependency directories, gitignored paths, oversized files and non-text files are skipped), React-only component detection, clustering before naming, the diff on rerun, and the judgement half: severities on every finding, similarity groups scored into clone/similar bands, naming drift and prop mismatches, hygiene (framework collisions, unused tokens and components), and the drift score and verdict the run ends in; `--json [path]` writes the whole assessment to one file instead of reviewing it
 - [apply](skill/refs/apply.md): planning the design system into the code and then executing that plan — harness detection and its precedence, one acceptance criterion per change, one phase per commit, the PRD's marker contract, resume vs `--fresh`, and for `apply run`: the harness hand-off, the branch and commit guarantees, the mechanical-vs-agent split, `.phyllum/config.json`'s model overrides, per-phase verification, and the source-write grant
-- [tokenise](skill/refs/tokenise.md): naming the values in one sentence — the proposal queue and its splitting grammar, the three passes, the naming sources, the follow-up loop, acceptance
+- [tokenise](skill/refs/tokenise.md): naming the values in one sentence — the proposal queue and its splitting grammar (several values in one sentence, one question at a time, in sentence order, duplicates collapsed, a skip costing only itself), the three passes, the naming sources (the nomenclature library first where the sentence signals a role, the lightness/saturation scales as fallback), the follow-up loop, acceptance
 - [init](skill/refs/init.md): the guided setup walkthrough — scaffold, skill install, optional seeding
-- [gui](skill/refs/gui.md): the localhost server contract and the three-view dashboard
+- [nomenclature](skill/refs/nomenclature.md): the shared library no command owns — the standard token-naming vocabulary (four slots in a fixed order, a strict word list per slot: families, ranks, exception words, state words), the nine shipped neutral-ramp constants, and the fixed lightness-and-saturation scale a derived ramp is placed on. Read by `tokenise`'s name suggestions and by `create primitives`; it is data, not behaviour, and nothing in it runs on its own
+- [gui](skill/refs/gui.md): the localhost server contract and the three-view dashboard, plus the presentation contract — colour tokens as filled swatches, near-white values bordered, primitives ramps as nine-step strips, typography as live specimens, numbers as measured bars; hand-written Carbon-like styling with no dependency and no network fetch, read-only as ever
 - [display](skill/refs/system.md): the terminal listing format; `system` is the same command under its older name, kept as a permanent alias
 - [version](skill/refs/version.md): the installed version, the on-demand npm registry check, and what happens offline
 - [upgrade](skill/refs/upgrade.md): moving the install to the latest published version — install detection (npm/pnpm, global/project), the graceful refusals, and the skill re-sync
