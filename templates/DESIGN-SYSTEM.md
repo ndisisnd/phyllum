@@ -10,8 +10,8 @@
 
 ### Colours
 
-| token | value | notes |
-| --- | --- | --- |
+| token | value |
+| --- | --- |
 
 ### Numbers
 

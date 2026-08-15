@@ -112,7 +112,7 @@ test('each pass writes into its own section, with the right columns', async () =
 
     const colour = model.tokens.colours.find((row) => row[1] === '#16A34A');
     assert.ok(colour, 'a colour goes in Colours');
-    assert.ok(colour[2].includes('from prose'), 'the notes cell records where it came from');
+    assert.equal(colour.length, 2, 'Colours is token | value — provenance is history, not design system');
 
     const number = model.tokens.numbers.find((row) => row[1] === '24px');
     assert.ok(number, 'a number goes in Numbers');

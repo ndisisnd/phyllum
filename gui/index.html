@@ -221,6 +221,13 @@
         }
         el('tokens-body').innerHTML = [
           tokenTable('Colours', system.columns.colours, system.tokens.colours),
+          // Primitives are Colours' own subsection in the file, so they are
+          // listed right under it. The ramp strips of v0.3.0 §6.5 are a later
+          // milestone; until then the dashboard at least shows every row the
+          // file holds, which is the promise it makes.
+          (system.tokens.primitives || []).length
+            ? tokenTable('Colours — Primitives', system.columns.primitives, system.tokens.primitives)
+            : '',
           tokenTable('Numbers', system.columns.numbers, system.tokens.numbers),
           tokenTable('Typography', system.columns.typography, system.tokens.typography),
         ].join('');

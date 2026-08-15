@@ -10,12 +10,12 @@
 
 ### Colours
 
-| token | value | notes |
-| --- | --- | --- |
-| color-primary | #2563EB | the brand blue |
-| color-brand | #2A66E4 | the brand blue again, from the marketing rebuild |
-| color-surface | #FFFFFF | page background |
-| color-ink | #111827 | body text |
+| token | value |
+| --- | --- |
+| color-primary | #2563EB |
+| color-brand | #2A66E4 |
+| color-surface | #FFFFFF |
+| color-ink | #111827 |
 
 ### Numbers
 

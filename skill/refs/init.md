@@ -33,6 +33,19 @@ If the file already exists, **do not overwrite it**. Validate its section
 structure against the template contract and offer to repair anything missing.
 User content is never dropped: a rerun's diff shows additions only.
 
+Two shape changes arrived with v0.3.0, and they are handled in opposite ways
+because one adds and one takes away:
+
+- **The `Primitives` subsection** (inside Colours, `refs/create.md` §5.3) is
+  added only when there are primitives to put under it. A file without it is
+  valid, so repair never adds an empty one.
+- **The Colours `notes` column** went in v0.3.0 (§5.5). A file written before
+  that still has it, possibly with things written in it, so repair **offers**
+  the removal and does not take it. A no keeps every word: the renderer writes
+  back the shape it found. `--yes` does not answer this one — every other prompt
+  in `init` adds something, and a gate that removes content is only ever
+  answered by a person.
+
 ## Step 3 — install the skill
 
 Copy the skill definition into `.claude/skills/phyllum/`, and add one `.phyllum/`
@@ -64,5 +77,7 @@ of truth lives.
 | No `DESIGN-SYSTEM.md` | Created from the template |
 | File exists and is valid | Left byte-identical; init says so |
 | File exists, sections missing | Missing headings added back in canonical position; nothing removed |
+| File still has the Colours `notes` column | Reported, and its removal offered; a no leaves the file untouched and asks again next time |
+| File has no `Primitives` subsection | Left alone — it appears when `create primitives` writes one |
 | Skill already installed | Files rewritten from the package (they are Phyllum-owned) |
 | `.phyllum/` already in `.gitignore` | Left alone |

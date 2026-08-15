@@ -131,6 +131,11 @@ point of stating it here rather than picking a second set of numbers: a derived
 ramp lines up with the neutral ramp rung by rung, so `accentRed400` and
 `neutral-400` are the same brightness.
 
+**Nearest is nearest by lightness**, and a tie goes to the lighter step. Ties are
+rare and the two candidates are exactly as far away as each other, so the rule
+only has to be *fixed*, not clever — a derivation that depended on which way an
+array was walked would not be one users could predict.
+
 **Saturation tapers at the extremes**, as published ramps do: the lightest and
 darkest steps read as tint and shade rather than as the colour itself, and
 holding full saturation there makes them look muddy. The multiplier is applied

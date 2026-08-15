@@ -61,7 +61,7 @@ test('parse reads the header, tokens, components and backlog', () => {
   assert.equal(model.header.project, 'acme-web');
   assert.equal(model.header.version, '0.1.0');
   assert.equal(model.tokens.colours.length, 2);
-  assert.deepEqual(model.tokens.colours[0], ['color-primary', '#2563EB', 'main brand blue']);
+  assert.deepEqual(model.tokens.colours[0], ['color-primary', '#2563EB']);
   assert.equal(model.tokens.numbers.length, 1);
   assert.equal(model.tokens.typography.length, 1);
   assert.deepEqual(

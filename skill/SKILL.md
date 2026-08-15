@@ -53,7 +53,7 @@ above holds unchanged for every other command.
 | `phyllum` | — | Interactive session; a menu of the commands below |
 | `menu` | — | List every subskill, one line per command |
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
-| `create` | `build` | Craft a new component from prose, an image, or a pick |
+| `create` | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values become a queue, asked one at a time |
@@ -72,7 +72,7 @@ create, never a component named "help". A quoted `"help"` means the word.
 Scope words (`tokens` / `components` / `all`) are only meaningful on `display`
 (and its alias `system`) and `gui`, and default to `all`. `assess` reserves its own three words in
 argument position — `tokens` / `components` / `update` — for its chained modes,
-and `apply` reserves one: `run`.
+`create` reserves one, `primitives`, and `apply` reserves one: `run`.
 
 Which command reads what is the whole division of labour, and it is worth stating
 plainly: `assess` reads your codebase, `tokenise` reads the sentence you typed,
@@ -83,7 +83,7 @@ reads the design system *and* the codebase, and writes only its own plan.
 
 | Command | Reference |
 |---------|-----------|
-| `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step |
+| `create` | `refs/create.md` — modes A/B/C, prose parsing rules, archetype contracts, follow-up loop, acceptance and the write step, plus `create primitives`: the two ramp behaviours, the derivation, naming and the `Primitives` subsection |
 | `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering, the mapping table, the token and component suggestion tracks |
 | `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
 | `tokenise` | `refs/tokenise.md` — how a sentence is read, the batch queue and its splitting grammar, the three passes, the naming sources (the nomenclature library first, the scales as fallback), the follow-up loop when a value or a name is missing, acceptance |
@@ -105,8 +105,11 @@ Its skeleton is fixed and every section is always present, even when empty:
 
 1. **Header block** — project name, Phyllum version, created date, and a one-line
    warning that Phyllum manages the file.
-2. **Tokens** — three fixed subsections: Colours, Numbers, Typography. Empty
-   tables still ship their header rows.
+2. **Tokens** — three fixed subsections: Colours (`token | value`), Numbers
+   (`token | value | applies to`), Typography (`token | size | weight |
+   line-height`). Empty tables still ship their header rows. Colours may hold one
+   nested `#### Primitives` subsection, in the same columns, for the ramps
+   `create primitives` writes; it appears only when there are ramps.
 3. **Components** — one `###` heading per component, holding a fenced YAML spec
    block followed by a generated code block.
 4. **Backlog** — auto-maintained list of `TODO: tokenise` raw values and skipped

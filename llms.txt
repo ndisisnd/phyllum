@@ -25,7 +25,7 @@ These paths are repo-relative. Phyllum is published on npm as `phyllum`; the sou
 
 ## Reference
 
-- [create](skill/refs/create.md): the three modes (prose, image, pick), archetype contracts, the follow-up loop, acceptance and the write step
+- [create](skill/refs/create.md): the three modes (prose, image, pick), archetype contracts, the follow-up loop, acceptance and the write step, plus `create primitives` — primitive colour ramps, asked per token, written under Colours' `Primitives` subsection
 - [assess](skill/refs/assess.md): the read-only codebase scan — what is read (text files in any language, bounded: build output, dependency directories, gitignored paths, oversized files and non-text files are skipped), React-only component detection, clustering before naming, the diff on rerun, and the judgement half: severities on every finding, similarity groups scored into clone/similar bands, naming drift and prop mismatches, hygiene (framework collisions, unused tokens and components), and the drift score and verdict the run ends in; `--json [path]` writes the whole assessment to one file instead of reviewing it
 - [apply](skill/refs/apply.md): planning the design system into the code and then executing that plan — harness detection and its precedence, one acceptance criterion per change, one phase per commit, the PRD's marker contract, resume vs `--fresh`, and for `apply run`: the harness hand-off, the branch and commit guarantees, the mechanical-vs-agent split, `.phyllum/config.json`'s model overrides, per-phase verification, and the source-write grant
 - [tokenise](skill/refs/tokenise.md): naming the values in one sentence — the proposal queue and its splitting grammar, the three passes, the naming sources, the follow-up loop, acceptance

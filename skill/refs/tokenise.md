@@ -417,13 +417,22 @@ On acceptance, and only then:
 
    | Section | Columns |
    |---------|---------|
-   | Colours | token, value, notes |
+   | Colours | token, value |
    | Numbers | token, value, applies to |
    | Typography | token, size, weight, line-height |
 
-   The `notes` cell records where the token came from — the sentence you typed.
+   Colours is `token | value` as of v0.3.0 (§5.5). It used to carry a third
+   `notes` cell recording the sentence you typed — provenance, which is history
+   rather than design system, so it went. A file written before that keeps the
+   column it has: the renderer writes back the shape it found, and `init` offers
+   the one-time removal rather than taking it.
+
    The `applies to` cell records the role — `corner radius`, `spacing`,
    `border width` — which is what lets a later run tell a radius from a padding.
+
+   Colours has one subsection, `Primitives`, holding the ramps
+   `create primitives` writes (`refs/create.md`). `tokenise` never writes into
+   it: a named value is a semantic token and goes in the Colours table itself.
 2. **Backlog reconciliation.** When an accepted token's value matches a
    `TODO: tokenise \`<value>\` (<Component> <property>)` entry, the referencing
    component's spec block is updated — the raw value becomes the token name and

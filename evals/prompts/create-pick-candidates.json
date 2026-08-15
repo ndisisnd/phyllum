@@ -50,6 +50,46 @@
       "expect": "absent",
       "signature": "button.btn.btn--primary",
       "note": "One button in one file is not a pattern, and a picker that invents candidates is worse than one that offers none."
+    },
+    {
+      "id": "primitives-asks-per-token-before-proposing",
+      "kind": "primitives",
+      "planSections": ["§5.1", "§5.3"],
+      "colours": [
+        ["accentRed", "#DC2626"],
+        ["brand-blue", "#2563EB"]
+      ],
+      "answers": { "accentRed": true, "brand-blue": false, "neutral": true },
+      "expect": { "asked": ["accentRed", "brand-blue", "neutral"], "proposed": ["accentRed", "neutral"] },
+      "note": "Each token gets its own yes/no before any ramp is proposed for it, in the order the file lists them — and a no generates nothing for that token."
+    },
+    {
+      "id": "primitives-with-no-colour-tokens-offers-the-neutral-ramp-only",
+      "kind": "primitives",
+      "planSections": ["§5.1"],
+      "colours": [],
+      "answers": { "neutral": true },
+      "expect": { "asked": ["neutral"], "proposed": ["neutral"] },
+      "note": "With nothing recorded there is nothing to derive from, so the shipped neutral ramp is the whole offer."
+    },
+    {
+      "id": "primitives-never-asks-about-a-value-it-cannot-read",
+      "kind": "primitives",
+      "planSections": ["§5.2"],
+      "colours": [["brandVar", "var(--brand)"]],
+      "answers": { "neutral": false },
+      "expect": { "asked": ["neutral"], "proposed": [] },
+      "note": "A ramp is derived from a colour. A value that is not one is reported as skipped, never guessed at — and never offered as though it could be."
+    },
+    {
+      "id": "primitives-does-not-re-ask-about-a-ramp-that-is-already-there",
+      "kind": "primitives",
+      "planSections": ["§5.3"],
+      "colours": [["accentRed", "#DC2626"]],
+      "existingRamps": ["accentRed"],
+      "answers": { "neutral": false },
+      "expect": { "asked": ["neutral"], "proposed": [] },
+      "note": "Rerunnable: a ramp whose steps are all present is reported, not offered a second time."
     }
   ]
 }

@@ -13,9 +13,9 @@ values until the marketing site is retired. Do not "fix" this.
 
 ### Colours
 
-| token | value | notes |
-| --- | --- | --- |
-| color-primary | #2563EB | main brand blue |
+| token | value |
+| --- | --- |
+| color-primary | #2563EB |
 
 ### Numbers
 

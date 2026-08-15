@@ -32,6 +32,7 @@ import { FAMILIES, renderFindings, renderScore } from '../lib/assess-report.js';
 import { countFamilies, driftMass, scoreAssessment } from '../lib/assess-score.js';
 import { scanCandidates } from '../lib/candidates.js';
 import { detectHarness } from '../lib/harness-detect.js';
+import { deriveRamp, neutralRampRows, walkPrimitives } from '../lib/primitives.js';
 import { buildPhases, componentChanges, criterionFields, tokenChanges } from '../lib/prd.js';
 import { applyFile, classifyCriterion, rawLiteralRemains } from '../lib/apply-mechanical.js';
 import { verifyCriterion } from '../lib/apply-run.js';
@@ -451,6 +452,38 @@ function pickCandidates() {
   const failures = [];
 
   for (const testCase of spec.cases) {
+    // `create primitives` is the other thing `create` offers before you choose
+    // (v0.3.0 §5.1). It is graded here because the claim is the same one the
+    // picker makes: what Phyllum puts in front of you, and in what order —
+    // never a ramp nobody asked for. The walk is the command's own loop with
+    // the answers pinned and the I/O left out.
+    if (testCase.kind === 'primitives') {
+      const model = emptyModel();
+      model.tokens.colours = (testCase.colours ?? []).map(([token, value]) => [token, value]);
+      for (const base of testCase.existingRamps ?? []) {
+        const value = (testCase.colours ?? []).find(([token]) => token === base)?.[1];
+        const rows = base === 'neutral' ? neutralRampRows() : deriveRamp(base, value);
+        for (const row of rows) model.tokens.primitives.push([row.token, row.value]);
+      }
+      const walk = walkPrimitives(model, testCase.answers ?? {});
+
+      max += 1;
+      if (walk.asked.join(' + ') === testCase.expect.asked.join(' + ')) points += 1;
+      else failures.push(`${testCase.id}: asked ${walk.asked.join(', ') || '(nothing)'}, expected ${testCase.expect.asked.join(', ')}`);
+
+      max += 1;
+      const proposed = walk.proposed.map((offer) => offer.base);
+      if (proposed.join(' + ') === testCase.expect.proposed.join(' + ')) points += 1;
+      else failures.push(`${testCase.id}: proposed ${proposed.join(', ') || '(nothing)'}, expected ${testCase.expect.proposed.join(', ') || '(nothing)'}`);
+
+      // The order claim, which is the point of the whole eval: nothing is
+      // proposed for a token whose question was never asked.
+      max += 1;
+      if (proposed.every((base) => walk.asked.includes(base))) points += 1;
+      else failures.push(`${testCase.id}: proposed a ramp for a token it never asked about`);
+      continue;
+    }
+
     const candidates = candidatesFor(testCase);
     const found = candidates.find((candidate) => candidate.signature === testCase.signature);
 
@@ -1402,7 +1435,6 @@ function walkQueue(queue, answers) {
     const proposal = proposalFrom(candidate, {
       name: candidate.name ?? suggestion.name,
       model,
-      prose: '(the sentence)',
       suggested: suggestion?.name ?? null,
     });
     questions.push(questionFor(proposal));

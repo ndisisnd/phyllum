@@ -344,7 +344,7 @@ test('accepting scanned proposals writes token rows into the right sections', as
     const colour = reparsed.tokens.colours.find((row) => row[0] === 'color-text');
     assert.ok(colour, 'a colour goes in Colours');
     assert.equal(colour[1], '#111827');
-    assert.ok(colour[2].includes('used'), 'the notes cell records the sightings');
+    assert.equal(colour.length, 2, 'Colours is token | value — nothing else is recorded beside it');
 
     const number = reparsed.tokens.numbers.find((row) => row[0] === 'space-md');
     assert.ok(number, 'a number goes in Numbers');
@@ -366,7 +366,7 @@ test('a merged cluster is one row, with the members it folded in on the record',
     const rows = model.tokens.colours.filter((row) => ['#2563EB', '#2564EC'].includes(row[1]));
     assert.equal(rows.length, 1, 'one blue, one token');
     assert.equal(rows[0][0], 'color-primary');
-    assert.ok(rows[0][2].includes('#2564EC'), 'the merged member is visible in the notes');
+    assert.equal(rows[0].length, 2, 'Colours records the token and its value, and nothing else');
   });
 });
 

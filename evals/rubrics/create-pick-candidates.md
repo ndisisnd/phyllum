@@ -21,12 +21,32 @@ modes around it are just as important:
 The scan is deterministic — it reads markup and counts — so this eval needs no
 model and grades the same on any machine.
 
+## `create primitives` — the same claim, one mode over (v0.3.0 §5.1)
+
+`create primitives` offers ramps the way pick mode offers candidates, and the
+rule it has to keep is stricter: **each colour token gets its own yes/no before
+any ramp is proposed for it, and a no generates nothing for that token.** A ramp
+proposed unasked is the same failure as a candidate invented — Phyllum putting
+something in front of you that nobody asked for, in a place where it is easy to
+say yes by reflex.
+
+Four cases pin it, and each one is a way the rule could quietly stop holding:
+tokens asked about in file order with a no honoured; no colour tokens at all, so
+the shipped neutral ramp is the whole offer; a value that is not a colour, which
+is reported rather than asked about, because there is nothing to derive from; and
+a ramp already in the file, which is reported rather than offered twice.
+
+These cases walk the command's own loop with the answers pinned, so what is
+graded is the conversation's order rather than a re-description of it.
+
 ## Scoring
 
 For a case expecting a candidate: one point for the signature appearing, one for
 the name Phyllum derives from it, one for the archetype it resolves to, and one
 for the count being at least what the fixture repeats. For a case expecting
-absence: one point for it being absent.
+absence: one point for it being absent. For a `primitives` case: one point for
+the questions asked and their order, one for what was proposed, and one for
+nothing being proposed that was never asked about.
 
 **Threshold: 1.0.** Every case here has one correct answer that follows from the
 signals table in `skill/refs/create.md`; there is no judgement to be generous

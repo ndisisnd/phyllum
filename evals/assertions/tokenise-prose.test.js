@@ -622,7 +622,7 @@ test('the library is consulted for colours only, per the name-source table', () 
   assert.equal(nameSourceFallback('nomenclature'), 'scale', 'the old scale is the fallback, not the default');
 });
 
-test('the notes cell records the sentence, and cannot break the table it lands in', async () => {
+test('a pipe in the sentence never reaches the table, and no provenance cell is written', async () => {
   await withProject(async (dir) => {
     await runTokenise(args('our brand | blue #2563EB'), {
       cwd: dir,
@@ -632,7 +632,11 @@ test('the notes cell records the sentence, and cannot break the table it lands i
     });
     const row = parse(read(dir)).tokens.colours.find((item) => item[1] === '#2563EB');
     assert.ok(row, 'the row parsed back, so the pipe did not split the table');
-    assert.ok(row[2].includes('from prose'));
-    assert.ok(!row[2].includes('|'));
+    assert.equal(row.length, 2, 'Colours is token | value (v0.3.0 §5.5) — the sentence is not recorded');
+    assert.ok(!row.join(' ').includes('|'), 'nothing from the sentence carries a pipe into the file');
+    assert.ok(
+      !read(dir).includes('| token | value | notes |'),
+      'the Colours table has no notes column to record it in',
+    );
   });
 });

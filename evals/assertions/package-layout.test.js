@@ -272,6 +272,14 @@ test('the M5 eval assets exist, and the ground truth is the images themselves', 
 
   const picks = JSON.parse(read('evals/prompts/create-pick-candidates.json'));
   for (const testCase of picks.cases) {
+    // A `primitives` case pins its colour tokens in the prompt file rather than
+    // in a fixture codebase: there is no codebase to scan, only a design system
+    // to read (v0.3.0 §5.1).
+    if (testCase.kind === 'primitives') {
+      assert.ok(Array.isArray(testCase.colours), `${testCase.id}: pins no colour tokens`);
+      assert.ok(Array.isArray(testCase.expect.asked), `${testCase.id}: pins no questions`);
+      continue;
+    }
     assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, testCase.fixture)), `missing ${testCase.fixture}`);
     assert.ok(
       fs.existsSync(path.join(PACKAGE_ROOT, testCase.designSystem)),

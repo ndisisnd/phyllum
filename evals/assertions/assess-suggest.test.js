@@ -219,7 +219,7 @@ test('a token accepted from the scan lands in its own section with its evidence'
 
       const colour = model.tokens.colours.find((row) => row[1] === '#2563EB');
       assert.ok(colour, 'a scanned colour goes in Colours');
-      assert.match(colour[2], /used \d+×/, 'the notes cell records how much of the codebase it covers');
+      assert.equal(colour[1], '#2563EB', 'with its value, and no provenance cell beside it');
 
       const number = model.tokens.numbers.find((row) => row[1] === '12px');
       assert.ok(number, 'a scanned number goes in Numbers, with its role');

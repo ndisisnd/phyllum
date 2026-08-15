@@ -72,7 +72,7 @@ The commands:
 
 | Command | What it does |
 |---------|--------------|
-| `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats |
+| `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
 | `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values are queued and asked about one at a time |
@@ -89,7 +89,8 @@ The commands:
 Phyllum needs **Node 20 or newer** and has no dependencies to install.
 
 Some commands are wholly mechanical and work on their own: `menu`, `help`, `display`,
-`gui`, `kill`, `version`, `update`, and `apply` — which only ever writes a plan.
+`gui`, `kill`, `version`, `update`, `create primitives` — shipped constants and
+arithmetic, no model in the path — and `apply`, which only ever writes a plan.
 
 Some want [Claude Code](https://www.claude.com/product/claude-code), and run natively
 inside a Claude Code session or shell out to the `claude` CLI from a plain terminal.

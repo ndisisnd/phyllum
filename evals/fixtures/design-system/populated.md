@@ -10,10 +10,10 @@
 
 ### Colours
 
-| token | value | notes |
-| --- | --- | --- |
-| color-primary | #2563EB | main brand blue |
-| color-surface | #FFFFFF | page background |
+| token | value |
+| --- | --- |
+| color-primary | #2563EB |
+| color-surface | #FFFFFF |
 
 ### Numbers
 

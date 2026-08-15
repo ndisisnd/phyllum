@@ -10,10 +10,10 @@
 
 ### Colours
 
-| token | value | notes |
-| --- | --- | --- |
-| color-primary | #2563EB | main brand blue |
-| color-legacy | #7C3AED | the purple from the old marketing site |
+| token | value |
+| --- | --- |
+| color-primary | #2563EB |
+| color-legacy | #7C3AED |
 
 ### Numbers
 
