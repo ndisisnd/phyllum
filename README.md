@@ -30,17 +30,13 @@
 
 <!-- mkpub:release 0.3.0 -->
 > [!NOTE]
-> **🚀 New in 0.3.0 · The vocabulary grows up**
+> **🚀 New in 0.3.0 · Batch tokenise, primitive ramps, and a naming vocabulary**
 >
-> One `tokenise` sentence can now carry several values, queued and asked about
-> one at a time. A standard naming vocabulary ships with Phyllum, so a name
-> suggestion can say what a colour is *for* rather than only what it looks like.
-> `create primitives` lays down primitive colour ramps — wholly mechanical, no
-> model needed. Ten more archetypes join `create`, plus **custom**: a component
-> that follows no contract at all. The dashboard has been restyled along Carbon
-> lines and renders colours as swatches. And `update` changes meaning: it is now
-> an alias of `apply`, so it updates your *codebase*; moving the install is
-> `phyllum upgrade`. Update with `phyllum upgrade`
+> One `tokenise` sentence can now carry several values, name suggestions draw on a
+> standard vocabulary, and `create primitives` lays down the colour ramps your tokens
+> sit on. `update` now updates your codebase from the design system; updating Phyllum
+> itself is `phyllum upgrade`.
+> Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
 ---
