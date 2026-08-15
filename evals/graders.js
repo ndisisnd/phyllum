@@ -121,9 +121,18 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * than against the last thing a user could install. M6 cuts the release, so
  * `v0.2.1` becomes the bar the next release will have to clear. Nineteen evals,
  * every one at 1.000, no threshold lowered and none ever has been.
+ *
+ * v0.3.0 repeats that shape exactly. M1–M6 left both stamps at `v0.2.1`, and M7
+ * — the milestone that cuts the release — moves them together to `v0.3.0`. The
+ * release added no eval and removed none; it grew three of them instead, because
+ * a new archetype or a new way of reading a sentence is a new *case* under an
+ * existing question rather than a new question. `create-prose-extraction` goes
+ * from 33 points to 75, `create-pick-candidates` from 11 to 23, and
+ * `tokenise-prose-extraction` from 49 to 145. Still nineteen evals, still every
+ * one at 1.000, still no threshold lowered and none ever has been.
  */
-export const MILESTONE = 'v0.2.1 M6';
-export const RELEASE = 'v0.2.1';
+export const MILESTONE = 'v0.3.0 M7';
+export const RELEASE = 'v0.3.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');

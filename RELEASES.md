@@ -2,6 +2,32 @@
 
 What's new for you, release by release.
 
+## v0.3.0 — 2026-08-15
+
+> Naming gets a vocabulary. One sentence can now carry several values, and each one is queued and asked about in turn. Phyllum ships a standard set of token names, so a suggestion can say what a colour is *for* and not only what it looks like. A new `create primitives` lays down the colour ramps your tokens sit on. `create` learns ten more component types plus one that follows no rules at all, the dashboard shows your colours instead of listing them, and `update` now means what most people expect it to.
+
+### ✨ New
+- Name several values in one go: `phyllum tokenise "#2563EB #10B981 #F59E0B"` reads all three and walks them one question at a time, in the order you said them. Skipping one costs only that one, and a run you cut short is picked up where it stood rather than retyped.
+- A standard naming vocabulary now ships with Phyllum. When your sentence says what a colour is for — "our main interactive blue" — the suggested name says so too (`interaction-primary`), instead of describing its lightness. Nothing you already have is ever renamed.
+- `phyllum create primitives` builds the primitive colour ramps underneath your design system: nine steps from light to dark, either the shipped neutral greys or a ramp derived from a colour token you already recorded. You are asked about every token first, all nine values are shown before you accept, and the value you recorded is kept exactly as you wrote it.
+- Ten more component types understand their own contracts — Toggle, Checkbox, Radio, Select, Tooltip, Toast, Tabs, Link, Avatar and Progress — so describing one gets you the right questions rather than the nearest guess.
+- And for the components that fit no mould, `create` gains **custom**: no required slots, no gap list, no contract. It records exactly what you describe and is finished when you say it is.
+
+### 📈 Improved
+- The dashboard now shows your design system rather than listing it. Colours are swatches you can actually see, near-white ones get a border so they don't vanish, primitive ramps render as strips, type shows as live specimens in its own font settings, and numbers show as measured bars. It has been restyled throughout, and still needs no install, no build step and no network.
+- The Colours table is simpler: just the token and its value. The old notes column recorded how a value got there, which is history rather than design system.
+- `create primitives` needs no AI at all — it is shipped values and arithmetic, so it works in a plain terminal like `display` and `apply` do.
+
+### 🐛 Fixed
+- A design-system file that has been hand-edited into a shape Phyllum doesn't recognise no longer blanks the dashboard — you get a message saying so.
+- An interrupted `tokenise` whose session file was left half-written no longer offers to resume a value it can't actually read. The unreadable part is reported and left out, and the rest of the queue carries on.
+- If Phyllum's own shipped naming tables are damaged, it now says which file is wrong and that `phyllum upgrade` restores it, instead of failing with a bare technical line.
+
+### ⚠️ Breaking
+- **`phyllum update` now means "update my codebase from the design system"** — it is an alias of `phyllum apply`, so it writes a plan to `.phyllum/PRD.md` and runs nothing. Updating your Phyllum install is **`phyllum upgrade`** now; nothing about that behaviour changed except the word.
+
+Update with `phyllum upgrade`.
+
 ## v0.2.3 — 2026-08-14
 
 > Run `phyllum` in a fresh project and it now greets you with both ways to begin and a link to learn more. The install-time banner that some security setups warned about is gone — its welcome lives in the CLI now, where it always shows.

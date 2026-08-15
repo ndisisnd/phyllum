@@ -1,9 +1,9 @@
 {
-  "recordedAt": "2026-08-13",
-  "phyllumVersion": "0.2.3",
-  "milestone": "v0.2.1 M6",
-  "release": "v0.2.1",
-  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v0.2.1 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why. Every score the previous release recorded is still met or beaten, and no threshold has ever been lowered.",
+  "recordedAt": "2026-08-15",
+  "phyllumVersion": "0.3.0",
+  "milestone": "v0.3.0 M7",
+  "release": "v0.3.0",
+  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v0.3.0 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why. Every score the previous release recorded is still met or beaten, and no threshold has ever been lowered. v0.3.0 grew three eval case sets rather than moving any score: create-prose-extraction 33 to 75 points (the ten archetype joiners and custom mode), create-pick-candidates 11 to 23, and tokenise-prose-extraction 49 to 145 (the batch queue and the nomenclature-led naming). The recorded-model run under `recordedRuns` still holds the v0.2.1 responses, so the cases added since are listed as unrecorded rather than counted as passed.",
   "assertions": {
     "command": "npm test",
     "harness": "evals/harness/fs-harness.js",
@@ -42,8 +42,8 @@
       "responder": "deterministic",
       "score": 1,
       "threshold": 0.95,
-      "points": 33,
-      "max": 33
+      "points": 75,
+      "max": 75
     },
     "create-anti-fabrication": {
       "responder": "deterministic",
@@ -84,8 +84,8 @@
       "responder": "deterministic",
       "score": 1,
       "threshold": 1,
-      "points": 11,
-      "max": 11
+      "points": 23,
+      "max": 23
     },
     "assess-clustering": {
       "responder": "deterministic",
@@ -140,8 +140,8 @@
       "responder": "deterministic",
       "score": 1,
       "threshold": 1,
-      "points": 49,
-      "max": 49
+      "points": 145,
+      "max": 145
     }
   },
   "recordedRuns": {
@@ -150,7 +150,19 @@
       "threshold": 0.95,
       "points": 33,
       "max": 33,
-      "unrecordedCases": []
+      "unrecordedCases": [
+        "toggle-track-and-radius",
+        "checkbox-indicator",
+        "select-by-alias",
+        "toast-by-alias",
+        "tooltip-padding",
+        "tabs-indicator-and-gap",
+        "link-smallest-contract",
+        "avatar-size",
+        "progress-by-alias",
+        "custom-records-only-what-was-said",
+        "custom-invents-no-slot"
+      ]
     },
     "create-anti-fabrication": {
       "score": 1,
