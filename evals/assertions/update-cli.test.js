@@ -506,22 +506,325 @@ test('a change sentence changes only what it mentions', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// The M6 seam (§6.3)
+// `update component`: the list, the pick, the revision (§6.3)
 // ---------------------------------------------------------------------------
 
-test('`update component` resolves, says what is not built yet, and writes nothing', async () => {
+/** The recorded properties of one component, as the spec block records them. */
+function specOf(text, name) {
+  const component = parse(text).components.find((item) => item.name === name);
+  return component.blocks.find((block) => block.lang === 'yaml').content;
+}
+
+test('`update component` reaches the real flow — the list, then the change question', async () => {
   await project(async (dir) => {
-    const before = snapshotContents(dir);
-    const result = await executeArgv(['update', 'component'], ctx(dir, scripted([])));
+    const conversation = scripted(['skip']);
+    const result = await executeArgv(['update', 'component'], ctx(dir, conversation));
     assert.equal(result.code, 0);
-    assert.ok(/M6/.test(result.out), 'it names the milestone it lands in');
-    assert.ok(result.out.includes('phyllum create'), 'and the door that is open today');
+    assert.ok(!/not built yet|M6/.test(result.out), 'the seam is gone; the flow is here');
+    assert.ok(
+      conversation.asked[0].includes('Which one are you updating?'),
+      'it opens on the pick, not on an apology',
+    );
+  });
+});
+
+test('the component list prints every recorded component with its archetype', async () => {
+  await project(async (dir) => {
+    const conversation = scripted(['skip']);
+    const result = await executeArgv(['update', 'component'], ctx(dir, conversation));
+
+    const model = parse(SYSTEM);
+    assert.ok(result.out.includes(`Components — ${model.components.length} recorded:`));
+    model.components.forEach((component, index) => {
+      const spec = component.blocks.find((block) => block.lang === 'yaml').content;
+      const archetype = spec.match(/^archetype:\s*(.+)$/m)[1];
+      assert.ok(
+        new RegExp(`${index + 1}\\. ${component.name}\\s+${archetype}`).test(result.out),
+        `${component.name} is listed with its archetype`,
+      );
+    });
+  });
+});
+
+test('a system with no components says so, points at `create`, and exits clean', async () => {
+  await withTempDir(async (dir) => {
+    const emptied = `${SYSTEM.split('## Components')[0]}## Components\n\n_No components yet. Run \`phyllum create\` to add one._\n\n## Backlog\n`;
+    fs.writeFileSync(path.join(dir, DESIGN_SYSTEM_FILE), emptied);
+    const before = snapshotContents(dir);
+    const conversation = scripted([]);
+    const result = await executeArgv(['update', 'component'], ctx(dir, conversation));
+
+    assert.equal(result.code, 0, 'an empty section is not an error');
+    assert.ok(/no components/i.test(result.out), 'it says the section is empty');
+    assert.ok(result.out.includes('phyllum create'), 'and points at the command that fills it');
+    assert.deepEqual(conversation.asked, [], 'nothing is asked, because there is nothing to pick');
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
       added: [],
       changed: [],
       removed: [],
     });
   });
+});
+
+test('the component-change question renders the hint its table row declares', async () => {
+  await project(async (dir) => {
+    const conversation = scripted(['1', 'skip']);
+    await executeArgv(['update', 'component'], ctx(dir, conversation));
+    const question = conversation.asked.at(-1);
+    const row = updateQuestionFor('component-change');
+
+    assert.equal(
+      updateHint('component-change'),
+      '[slot becomes <value>] and/or [add a <state> state]',
+    );
+    assert.equal(
+      question,
+      `${row.asks} \`Button/Primary\`? ${row.hint} — e.g. "${row.example}". (or "skip")`,
+      'the ask, the target, the hint, an example, the escape — in that order',
+    );
+  });
+});
+
+test('a change through `update component` alters only what the prose names', async () => {
+  await project(async (dir) => {
+    const conversation = scripted(['1', 'background becomes color-surface']);
+    const result = await executeArgv(['update', 'component'], ctx(dir, conversation));
+
+    assert.ok(result.out.includes('color-primary → color-surface'), 'old and new, side by side');
+
+    const before = specOf(SYSTEM, 'Button/Primary');
+    const after = specOf(read(dir), 'Button/Primary');
+    assert.ok(after.includes('background: color-surface'), 'the slot the sentence named changed');
+
+    // Every other line of the spec block is byte-identical, in place and in order.
+    const others = (text) => text.split('\n').filter((line) => !/^\s*background:/.test(line));
+    assert.deepEqual(others(after), others(before), 'nothing the sentence never named moved');
+
+    // And the component the sentence never named is untouched, whole.
+    assert.equal(specOf(read(dir), 'Card/Basic'), specOf(SYSTEM, 'Card/Basic'));
+  });
+});
+
+test('a slot named without a value is a question, and a skipped question is a TODO', async () => {
+  await project(async (dir) => {
+    // "add a disabled state" names a state and gives it nothing — the
+    // never-list forbids inventing one, so it is asked, and a skip records the
+    // honest TODO rather than a guess.
+    const conversation = scripted(['1', 'add a disabled state', 'skip']);
+    await executeArgv(['update', 'component'], ctx(dir, conversation));
+
+    assert.ok(
+      conversation.asked.some((question) => /what changes on disabled/i.test(question)),
+      'the state is asked about, never invented',
+    );
+    const after = specOf(read(dir), 'Button/Primary');
+    assert.ok(after.includes('disabled: TODO'), 'the skip is recorded as a TODO');
+    assert.ok(after.includes('background: color-primary'), 'and the recorded slots are untouched');
+  });
+});
+
+test('`update component "<prose>"` naming one component skips the list', async () => {
+  await project(async (dir) => {
+    const conversation = scripted([]);
+    const result = await executeArgv(
+      ['update', 'component', 'Button/Primary background becomes color-surface'],
+      ctx(dir, conversation),
+    );
+    assert.deepEqual(conversation.asked, [], 'nothing was asked — the sentence said it all');
+    assert.ok(!result.out.includes('Components — '), 'and the list was never printed');
+    assert.ok(result.out.includes('color-primary → color-surface'));
+  });
+});
+
+test('`update "<prose>"` naming a component goes straight to its confirmation', async () => {
+  await project(async (dir) => {
+    const conversation = scripted([], { accept: false });
+    const result = await executeArgv(
+      ['update', 'Button/Primary background becomes color-surface'],
+      ctx(dir, conversation),
+    );
+    assert.deepEqual(conversation.asked, [], 'the menu never opened');
+    assert.equal(conversation.gates.length, 1, 'the one question put was the gate');
+    assert.ok(result.out.includes('`Button/Primary`'));
+  });
+});
+
+test('prose naming two components asks rather than guessing', async () => {
+  await project(async (dir) => {
+    const before = snapshotContents(dir);
+    const conversation = scripted(['skip']);
+    const result = await executeArgv(
+      ['update', 'component', 'Button/Primary and Card/Basic get a new background'],
+      ctx(dir, conversation),
+    );
+    assert.ok(result.out.includes('Components — '), 'it falls back to the list');
+    assert.ok(
+      conversation.asked[0].includes('Which one are you updating?'),
+      'and asks which one is meant',
+    );
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: [],
+      changed: [],
+      removed: [],
+    });
+  });
+});
+
+test('`update component` writes nothing before the gate, and takes the .bak first', async () => {
+  await project(async (dir) => {
+    const before = snapshotContents(dir);
+    let atGate = null;
+    const conversation = {
+      asked: [],
+      gates: [],
+      ask: async (question) => {
+        conversation.asked.push(question);
+        return ['1', 'background becomes color-surface'][conversation.asked.length - 1] ?? 'skip';
+      },
+      confirm: async (question) => {
+        conversation.gates.push(question);
+        atGate = snapshotContents(dir);
+        return true;
+      },
+    };
+    await executeArgv(['update', 'component'], ctx(dir, conversation));
+
+    assert.equal(conversation.gates.length, 1, 'exactly one gate');
+    assert.deepEqual(
+      diffSnapshots(before, atGate),
+      { added: [], changed: [], removed: [] },
+      'the project is untouched at the moment the question is put',
+    );
+
+    const diff = diffSnapshots(before, snapshotContents(dir));
+    assert.deepEqual(diff.added, [BACKUP_FILE], 'the one undo, and nothing else');
+    assert.deepEqual(diff.changed, [DESIGN_SYSTEM_FILE], 'the one file Phyllum edits');
+    assert.deepEqual(diff.removed, []);
+    assert.equal(fs.readFileSync(path.join(dir, BACKUP_FILE), 'utf8'), SYSTEM);
+  });
+});
+
+test('a refused component change writes nothing at all', async () => {
+  await project(async (dir) => {
+    const before = snapshotContents(dir);
+    const conversation = scripted(['1', 'background becomes color-surface'], { accept: false });
+    const result = await executeArgv(['update', 'component'], ctx(dir, conversation));
+    assert.ok(/not accepted/i.test(result.out));
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: [],
+      changed: [],
+      removed: [],
+    });
+  });
+});
+
+test('skipping a question about a slot the file already fills leaves it as it is', async () => {
+  await withTempDir(async (dir) => {
+    // "add a disabled state" names a state the record already fills. Skipping
+    // the question means "leave it", not "blank it" — the recorded value stands,
+    // and it is never carried twice.
+    const system = SYSTEM.replace(
+      '  radius: rounded-md\n```\n\n### Card/Basic',
+      '  radius: rounded-md\nstates:\n  disabled: half opacity\n```\n\n### Card/Basic',
+    );
+    fs.writeFileSync(path.join(dir, DESIGN_SYSTEM_FILE), system);
+    const before = snapshotContents(dir);
+
+    const result = await executeArgv(
+      ['update', 'component'],
+      ctx(dir, scripted(['1', 'add a disabled state', 'skip'])),
+    );
+    assert.ok(/nothing to write/i.test(result.out), 'a skip that changes nothing writes nothing');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: [],
+      changed: [],
+      removed: [],
+    });
+
+    // Answered instead, the same question changes that one state and nothing else.
+    await executeArgv(
+      ['update', 'component'],
+      ctx(dir, scripted(['1', 'add a disabled state', 'full opacity'])),
+    );
+    const after = specOf(read(dir), 'Button/Primary');
+    assert.equal(
+      (after.match(/^\s*disabled:/gm) ?? []).length,
+      1,
+      'the state is recorded once, never twice',
+    );
+    assert.ok(after.includes('disabled: full opacity'));
+    assert.ok(after.includes('background: color-primary'), 'and the slots it never named stand');
+  });
+});
+
+test('the menu reaches the component flow from its first row', async () => {
+  await project(async (dir) => {
+    const conversation = scripted(['1', '1', 'background becomes color-surface']);
+    const result = await executeArgv(['update'], ctx(dir, conversation));
+    assert.ok(conversation.asked[0].includes(updateCopy('menu-question')), 'the menu came first');
+    assert.ok(result.out.includes('Components — '), 'and row 1 opened the component list');
+    assert.ok(specOf(read(dir), 'Button/Primary').includes('background: color-surface'));
+  });
+});
+
+test('revising a custom keeps its marker, because a custom has no contract to acquire', async () => {
+  await withTempDir(async (dir) => {
+    const system = SYSTEM.replace(
+      'name: Card/Basic\narchetype: card\n',
+      'name: Card/Basic\narchetype: custom\ncustom: true\n',
+    );
+    fs.writeFileSync(path.join(dir, DESIGN_SYSTEM_FILE), system);
+
+    const conversation = scripted(['skip']);
+    const listed = await executeArgv(['update', 'component'], ctx(dir, conversation));
+    assert.ok(/2\. Card\/Basic\s+custom/.test(listed.out), 'the list prints it as `custom`');
+
+    await executeArgv(
+      ['update', 'component', 'Card/Basic background becomes color-primary'],
+      ctx(dir, scripted([])),
+    );
+    const after = specOf(read(dir), 'Card/Basic');
+    assert.ok(after.includes('custom: true'), 'the marker survives the revision');
+    assert.ok(after.includes('archetype: custom'), 'and so does the reserved archetype word');
+    assert.ok(after.includes('background: color-primary'));
+  });
+});
+
+test('a component entry with no spec block says so and points at `create`', async () => {
+  await withTempDir(async (dir) => {
+    const system = SYSTEM.replace(
+      /### Card\/Basic\n\n```yaml[\s\S]*?```\n/,
+      '### Card/Basic\n\nA hand-written note, and no spec block.\n',
+    );
+    fs.writeFileSync(path.join(dir, DESIGN_SYSTEM_FILE), system);
+    const before = snapshotContents(dir);
+    const result = await executeArgv(['update', 'component'], ctx(dir, scripted(['2'])));
+
+    assert.ok(/2\. Card\/Basic\s+\(no spec block\)/.test(result.out), 'no archetype is invented');
+    assert.ok(/no spec block/.test(result.out), 'picking it says why it cannot be revised');
+    assert.ok(result.out.includes('phyllum create'), 'and where to go instead');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: [],
+      changed: [],
+      removed: [],
+    });
+  });
+});
+
+test('`update component` never writes .phyllum/PRD.md, under any argument', async () => {
+  const argumentSets = [
+    ['update', 'component'],
+    ['update', 'component', 'Button/Primary background becomes color-surface'],
+    ['update', 'component', 'nothing recorded is called this'],
+    ['update', 'Button/Primary background becomes color-surface'],
+  ];
+  for (const args of argumentSets) {
+    await project(async (dir) => {
+      await executeArgv(args, ctx(dir, scripted(['1', 'background becomes color-surface'])));
+      const after = snapshotContents(dir);
+      assert.ok(!after.has(PRD_FILE), `${args.join(' ')} wrote ${PRD_FILE}`);
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

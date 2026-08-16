@@ -56,7 +56,7 @@ above holds unchanged for every other command.
 | `create` | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
-| `update` | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lands in M6 |
+| `update` | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lists the recorded components and revises the one you pick |
 | `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" or "our overlay rgba(0, 0, 0, 0.5)" — several values become a queue, asked one at a time |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
@@ -278,8 +278,11 @@ side before the acceptance gate, and the write is the one funnel, `.bak` first.
 A rename ripples in that same write — every component spec slot and every
 Backlog `TODO` line naming the old token — and the run says so before you
 accept. A new value re-runs convergence with the cross-format comparison, so an
-edit can never put two names on one value. `update component` lands in M6;
-`refs/update.md` carries the whole contract.
+edit can never put two names on one value. `update component` prints the
+recorded components with their archetypes, takes a pick and a sentence, and lands
+the change as a **revision** — the same machinery `create` opens on a name it
+already knows, so what the sentence names changes and every slot it does not
+name is left exactly as recorded. `refs/update.md` carries the whole contract.
 
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest
