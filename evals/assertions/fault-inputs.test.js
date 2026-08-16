@@ -559,7 +559,8 @@ function swatchContract() {
   const end = text.indexOf('// --- end phyllum:swatch-contract');
   assert.ok(start !== -1 && end > start, 'the page marks its swatch-contract region');
   return new Function(
-    `${text.slice(start, end)}\nreturn { SWATCH, isColourValue, swatchHtml, rampGroups, rampHtml };`,
+    `${text.slice(start, end)}\nreturn { SWATCH, CARD, isColourValue, isGradientValue, isFillValue, cardHtml,` +
+      ' swatchHtml, rampGroups, rampHtml };',
   )();
 }
 
@@ -777,6 +778,23 @@ test('the page never inlines a value that is not a colour', () => {
   }
 
   assert.match(contract.swatchHtml('t', '#2563EB'), /background:#2563EB/, 'a real colour still fills');
+
+  // A card is the same story with one more shape allowed through: a gradient
+  // (v0.4.0 §5.1), gated the same way. Everything else is bordered and empty.
+  for (const value of [...hostile, 'linear-gradient(#fff, #eee); position:fixed', 'linear-gradient(url(x))']) {
+    const html = contract.cardHtml('t', value);
+    assert.equal(html.match(/style="([^"]*)"/)[1], 'background:transparent', value);
+    assert.ok(html.includes('card--bordered'), `${value}: an unfilled card takes the border`);
+    assert.equal((html.match(/</g) ?? []).length, 8, `${value}: the element count moved`);
+    assert.equal((html.match(/style=/g) ?? []).length, 1, `${value}: a second style attribute appeared`);
+    assert.ok(!/on[a-z]+="/i.test(html), `${value}: an event handler attribute appeared`);
+  }
+  assert.match(contract.cardHtml('t', '#2563EB'), /background:#2563EB/, 'a real colour still fills a card');
+  assert.match(
+    contract.cardHtml('t', 'linear-gradient(#fff, #eee)'),
+    /background:linear-gradient\(#fff, #eee\)/,
+    'and a real gradient paints itself',
+  );
 });
 
 test('a row shape the payload never promised is skipped, not thrown on', () => {

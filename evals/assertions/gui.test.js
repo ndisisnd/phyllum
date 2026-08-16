@@ -30,7 +30,7 @@ import { readState } from '../../lib/state.js';
 import { systemJson } from '../../lib/system-json.js';
 import { parse, render } from '../../lib/design-system.js';
 import { addPrimitives, neutralRampRows } from '../../lib/primitives.js';
-import { comparatorCell, numberCell, tableAfter } from '../../lib/md-tables.js';
+import { comparatorCell, numberCell, stripTicks, tableAfter } from '../../lib/md-tables.js';
 import {
   PACKAGE_ROOT,
   POPULATED_FIXTURE,
@@ -481,29 +481,136 @@ function swatchContract() {
   const region = text.slice(start, end);
   assert.ok(!/\b(document|window)\b/.test(region), 'the contract region touches no DOM');
   const factory = new Function(
-    `${region}\nreturn { SWATCH, isColourValue, luminance, isNearWhite, inkFor, swatchHtml, rampGroups, rampHtml };`,
+    `${region}\nreturn { SWATCH, CARD, isColourValue, isGradientValue, isFillValue, luminance, isNearWhite,` +
+      ' inkFor, cardHtml, swatchHtml, rampGroups, rampHtml };',
   );
   return factory();
 }
 
 const articles = (html) => html.match(/<article class="swatch[^"]*"[^>]*>/g) ?? [];
+const cards = (html) => html.match(/<article class="card[^"]*"[^>]*>/g) ?? [];
 
-test('every colour token in a fixture renders as a swatch carrying its own value', () => {
+/** The three card nodes, in the order the ref records them. */
+const cardNodes = (html) => [...html.matchAll(/class="card__(swatch|name|value)"/g)].map((match) => match[1]);
+
+test('every colour token in a fixture renders as one card — swatch, name, then value', () => {
   const contract = swatchContract();
   const system = systemJson(readFixture(POPULATED_FIXTURE));
   assert.ok(system.tokens.colours.length > 0, 'the fixture has colours to show');
 
-  const html = system.tokens.colours.map((row) => contract.swatchHtml(row.token, row.value)).join('');
-  const found = articles(html);
-  assert.equal(found.length, system.tokens.colours.length, 'one swatch element per colour token');
+  const html = system.tokens.colours.map((row) => contract.cardHtml(row.token, row.value)).join('');
+  const found = cards(html);
+  assert.equal(found.length, system.tokens.colours.length, 'one card element per colour token');
 
   for (const row of system.tokens.colours) {
-    const swatch = found.find((tag) => tag.includes(`data-token="${row.token}"`));
-    assert.ok(swatch, `${row.token} has no swatch element`);
-    assert.ok(swatch.includes(`data-value="${row.value}"`), `${row.token}'s swatch carries its value`);
-    assert.ok(html.includes(`background:${row.value}`), `${row.token}'s swatch is filled with the colour itself`);
-    assert.ok(html.includes(`>${row.token}<`), `${row.token}'s name sits on the swatch`);
-    assert.ok(html.includes(`>${row.value}<`), `${row.token}'s value sits on the swatch`);
+    const one = contract.cardHtml(row.token, row.value);
+    assert.equal(cards(one).length, 1, `${row.token} is exactly one card`);
+    assert.ok(one.includes(`data-token="${row.token}"`), `${row.token} has no card element`);
+    assert.ok(one.includes(`data-value="${row.value}"`), `${row.token}'s card carries its value`);
+    assert.deepEqual(
+      cardNodes(one),
+      ['swatch', 'name', 'value'],
+      `${row.token}'s card holds a swatch, a name node and a value node, in that order`,
+    );
+    assert.ok(one.includes(`background:${row.value}`), `${row.token}'s swatch is filled with the colour itself`);
+    assert.ok(
+      new RegExp(`class="card__name">${row.token}<`).test(one),
+      `${row.token}'s name is printed beneath the swatch`,
+    );
+    assert.ok(
+      new RegExp(`class="card__value">${row.value}<`).test(one),
+      `${row.token}'s value is printed on its own line`,
+    );
+    // The label is off the fill now, so the swatch carries no text at all.
+    assert.match(one, /<div class="card__swatch" style="[^"]*"><\/div>/, 'the swatch itself is empty');
+  }
+});
+
+test('the cards sit in one grid container that wraps to the viewport', () => {
+  const text = readPage();
+  assert.match(text, /'<div class="cards">'/, 'the Colours section wraps its cards in a grid container');
+  const rule = text.match(/\.cards\s*\{([^}]*)\}/);
+  assert.ok(rule, 'the page styles that container');
+  assert.match(rule[1], /display:\s*grid/, 'as a grid');
+  assert.match(
+    rule[1],
+    /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(var\(--card-min\),\s*1fr\)\)/,
+    'whose columns wrap to the viewport rather than to the token count',
+  );
+  assert.ok(!/one-token-per-row/.test(rule[1]));
+});
+
+test('the card dimensions are the ones skill/refs/gui.md records, in the table, the constant and the CSS', () => {
+  const contract = swatchContract();
+  const text = readPage();
+  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:cards -->', 'refs/gui.md');
+  const recorded = (name) => stripTicks(rows.find((row) => row[0] === name)[1]);
+
+  const dimensions = [
+    ['swatch radius', 'radius', '--card-radius'],
+    ['card min width', 'minWidth', '--card-min'],
+    ['card max width', 'maxWidth', '--card-max'],
+    ['grid gap', 'gap', '--card-gap'],
+    ['swatch height', 'swatchHeight', '--card-swatch-height'],
+  ];
+  for (const [row, key, property] of dimensions) {
+    const value = recorded(row);
+    assert.equal(contract.CARD[key], value, `CARD.${key} is the "${row}" the ref table records`);
+    const declared = text.match(new RegExp(`${property}:\\s*([^;]+);`));
+    assert.ok(declared, `the stylesheet declares ${property}`);
+    assert.equal(declared[1].trim(), value, `${property} is the same ${row}`);
+  }
+
+  // The rounded corner is the one departure: it is the swatch's, and no other
+  // element takes a radius of its own.
+  const radii = [...text.matchAll(/border-radius:\s*([^;]+);/g)]
+    .map((match) => match[1].trim())
+    .filter((value) => value !== '0');
+  assert.deepEqual(radii, ['var(--card-radius)'], 'the card swatch is the only rounded element on the page');
+});
+
+test('a gradient value is painted as the swatch fill, with nothing beyond background', () => {
+  const contract = swatchContract();
+  const gradient = 'linear-gradient(135deg, #2563EB, #10B981)';
+  const card = contract.cardHtml('brand-gradient', gradient);
+
+  assert.equal(cards(card).length, 1, 'a gradient token is an ordinary card');
+  assert.deepEqual(cardNodes(card), ['swatch', 'name', 'value']);
+  assert.ok(card.includes(`background:${gradient}`), 'the gradient is the swatch background');
+  assert.match(
+    card,
+    /<div class="card__swatch" style="background:[^;"]*"><\/div>/,
+    'and the swatch declares nothing beyond that background',
+  );
+  assert.equal(card.includes('card--bordered'), false, 'a gradient has no single luminance, so it is not near-white');
+  assert.ok(card.includes(`class="card__value">${gradient}<`), 'the value is printed verbatim beneath it');
+
+  // Every gradient shape the colours pass reads is a shape the swatch paints.
+  for (const shape of [
+    'linear-gradient(#fff, #eee)',
+    'radial-gradient(circle, #fff 0%, #000 100%)',
+    'conic-gradient(from 90deg, red, blue)',
+    'repeating-linear-gradient(45deg, #fff 0 10px, #000 10px 20px)',
+    'repeating-radial-gradient(#fff, #000 20%)',
+    'repeating-conic-gradient(#fff 0deg 10deg, #000 10deg 20deg)',
+  ]) {
+    assert.ok(contract.isGradientValue(shape), `${shape} fills a swatch`);
+    assert.ok(contract.cardHtml('g', shape).includes('background:' + shape));
+  }
+
+  // The value comes out of a file a person edits, so it is gated before it is
+  // inlined: anything that could end the declaration or open a request is not
+  // painted, it is bordered and empty.
+  for (const hostile of [
+    'linear-gradient(#fff, #eee); position:fixed',
+    'linear-gradient(url(http://example.com/x.png))',
+    'linear-gradient(#fff) /* x */',
+    'var(--brand)',
+    'not-a-gradient(#fff)',
+  ]) {
+    assert.equal(contract.isGradientValue(hostile), false, `${hostile} must not reach a style attribute`);
+    const refused = contract.cardHtml('g', hostile);
+    assert.ok(refused.includes('background:transparent') && refused.includes('card--bordered'), refused);
   }
 });
 
@@ -515,8 +622,17 @@ test('near-white colours take the bordered variant, and only they do', () => {
   assert.ok(contract.isNearWhite('#FFFFFF'), 'white is near-white');
   assert.equal(contract.isNearWhite('#2563EB'), false, 'a mid blue is not');
   assert.ok(
+    contract.cardHtml('color-surface', '#FFFFFF').includes('card--bordered'),
+    'the near-white card is bordered',
+  );
+  assert.equal(
+    contract.cardHtml('color-primary', '#2563EB').includes('card--bordered'),
+    false,
+    'a card that shows up on its own is not bordered',
+  );
+  assert.ok(
     contract.swatchHtml('color-surface', '#FFFFFF').includes('swatch--bordered'),
-    'the near-white swatch is bordered',
+    'and the rule still holds for a ramp step',
   );
   assert.equal(
     contract.swatchHtml('color-primary', '#2563EB').includes('swatch--bordered'),

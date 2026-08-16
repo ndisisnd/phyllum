@@ -12,13 +12,15 @@
     Workbench  the current create session, plus a box to prompt from here
     Tokens     a component's token usage, and which values are still raw
 
-  The look is Carbon-like, not Carbon: flat tiles, sharp corners, a disciplined
-  type ramp, generous whitespace, a left rail. Hand-written — taking a Carbon
-  package, or any other dependency, is out of scope by rule, not by omission.
+  The look is Carbon-like, not Carbon: flat tiles, sharp corners — bar one
+  recorded exception, the rounded colour-card swatch (v0.4.0 §5.5) — a
+  disciplined type ramp, generous whitespace, a left rail. Hand-written — taking
+  a Carbon package, or any other dependency, is out of scope by rule, not by
+  omission.
 
-  Values are shown, not merely printed: colours are swatches, primitive ramps
-  are nine-step strips, typography tokens are live specimens, numbers are
-  measured bars.
+  Values are shown, not merely printed: semantic colours are cards in a grid,
+  primitive ramps are nine-step strips, typography tokens are live specimens,
+  numbers are measured bars.
 
   The page is a viewer and a prompt relay. It polls GET /state, reads GET
   /system, and posts what the user types to POST /prompt — where the Claude
@@ -59,6 +61,15 @@
 
         --rail: 15rem;
         --gap: 2rem;
+
+        /* colour cards (v0.4.0 §5.5) — the numbers the `phyllum:cards` table
+           in skill/refs/gui.md records, and the only rounded corner on the
+           page. */
+        --card-radius: 0.5rem;
+        --card-min: 13rem;
+        --card-max: 20rem;
+        --card-gap: 1rem;
+        --card-swatch-height: 7rem;
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -232,8 +243,42 @@
       .list button:hover { background: var(--bg); border-left-color: var(--line-strong); }
       .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-      /* --- swatches (v0.3.0 §6.5) ---------------------------------------- */
-      .swatches { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+      /* --- colour cards (v0.4.0 §5.5) ------------------------------------
+         A semantic colour token is a card: a rounded, filled swatch, with the
+         name and then the value printed beneath it rather than on it. The
+         grid wraps to the viewport, so the column count follows the window
+         and never the token count. */
+      .cards {
+        display: grid;
+        gap: var(--card-gap);
+        grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+        justify-content: start;
+      }
+      .card { display: block; max-width: var(--card-max); }
+      .card__swatch {
+        height: var(--card-swatch-height);
+        border-radius: var(--card-radius);
+        border: 1px solid transparent;
+      }
+      .card--bordered > .card__swatch { border-color: var(--line-strong); }
+      .card__name {
+        display: block;
+        margin-top: 0.75rem;
+        font-size: var(--type-02);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        word-break: break-word;
+      }
+      .card__value {
+        display: block;
+        margin-top: 0.25rem;
+        font-family: var(--mono);
+        font-size: var(--type-01);
+        color: var(--muted);
+        word-break: break-word;
+      }
+
+      /* --- swatches (v0.3.0 §6.5) — the ramp-strip treatment, since v0.4.0 */
       .swatch { display: block; }
       .swatch__fill {
         display: flex;
@@ -398,11 +443,40 @@
         rampSteps: 9,
       };
 
+      // The colour-card dimensions recorded in the `phyllum:cards` table of
+      // skill/refs/gui.md. They are the same strings the stylesheet holds in
+      // its custom properties, so the table, the constant and the CSS are one
+      // set of numbers rather than three.
+      const CARD = {
+        radius: '0.5rem',
+        minWidth: '13rem',
+        maxWidth: '20rem',
+        gap: '1rem',
+        swatchHeight: '7rem',
+      };
+
       const esc = (value) =>
         String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-      /** A hex colour a swatch can be filled with — the only thing ever inlined. */
+      /** A hex colour a swatch can be filled with. */
       const isColourValue = (value) => /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(String(value ?? '').trim());
+
+      /**
+       * A CSS gradient the swatch can be filled with (v0.4.0 §5.1). The answer
+       * to "does the swatch need anything beyond `background: <value>`" is no —
+       * the browser paints it — but the value comes out of a file a person
+       * edits, so it is gated before it reaches a style attribute: one of the
+       * six gradient functions, and nothing in it that could end the
+       * declaration or open a request.
+       */
+      const isGradientValue = (value) => {
+        const text = String(value ?? '').trim();
+        if (!/^(repeating-)?(linear|radial|conic)-gradient\(.*\)$/is.test(text)) return false;
+        return !/[;"'\\]|\/\*|url\s*\(/.test(text);
+      };
+
+      /** Anything the page is willing to paint a swatch with. */
+      const isFillValue = (value) => isColourValue(value) || isGradientValue(value);
 
       function channels(value) {
         if (!isColourValue(value)) return null;
@@ -433,9 +507,11 @@
         (luminance(value) ?? 0) >= SWATCH.darkInkLuminance ? SWATCH.darkInk : SWATCH.lightInk;
 
       /**
-       * One colour token, as a swatch: a filled container carrying its own
-       * value, with the name and the value sitting on it. A value that is not a
-       * colour still renders as a swatch — bordered and unfilled — because the
+       * One primitive step, as a swatch: a filled container carrying its own
+       * value, with the label sitting on it. Since v0.4.0 this is the ramp-strip
+       * treatment only — a semantic colour token is a card (see `cardHtml`),
+       * while a ramp reads as one thing and keeps its strip. A value that is not
+       * a colour still renders as a swatch — bordered and unfilled — because the
        * file said it, and the dashboard shows the file.
        */
       function swatchHtml(token, value, options = {}) {
@@ -452,6 +528,28 @@
           '<span class="swatch__name">' + esc(label) + '</span>' +
           '<code class="swatch__value">' + esc(value) + '</code>' +
           '</div></article>'
+        );
+      }
+
+      /**
+       * One semantic colour token, as a card (v0.4.0 §5.5): a rounded, filled
+       * swatch, then the token name, then the value on its own line — beneath
+       * the fill, not on it, so no label has to survive an arbitrary
+       * background. A gradient is an ordinary card whose fill happens to be a
+       * gradient. A value the page cannot paint is bordered and unfilled,
+       * because the dashboard shows the file, never an edit of it.
+       */
+      function cardHtml(token, value) {
+        const fill = isFillValue(value);
+        const bordered = !fill || isNearWhite(value);
+        const style = fill ? 'background:' + esc(String(value).trim()) : 'background:transparent';
+        return (
+          '<article class="card' + (bordered ? ' card--bordered' : '') + '"' +
+          ' data-token="' + esc(token) + '" data-value="' + esc(value) + '">' +
+          '<div class="card__swatch" style="' + style + '"></div>' +
+          '<span class="card__name">' + esc(token) + '</span>' +
+          '<code class="card__value">' + esc(value) + '</code>' +
+          '</article>'
         );
       }
 
@@ -537,8 +635,8 @@
 
       function coloursSection(rows) {
         if (!rows.length) return heading('Colours', 0) + '<p class="muted">(none yet)</p>';
-        const swatches = rows.map((row) => swatchHtml(cell(row, 'token', 0), cell(row, 'value', 1))).join('');
-        return heading('Colours', rows.length) + '<div class="swatches">' + swatches + '</div>';
+        const cards = rows.map((row) => cardHtml(cell(row, 'token', 0), cell(row, 'value', 1))).join('');
+        return heading('Colours', rows.length) + '<div class="cards">' + cards + '</div>';
       }
 
       function primitivesSection(rows) {
