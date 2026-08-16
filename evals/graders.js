@@ -130,9 +130,21 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * from 33 points to 75, `create-pick-candidates` from 11 to 23, and
  * `tokenise-prose-extraction` from 49 to 145. Still nineteen evals, still every
  * one at 1.000, still no threshold lowered and none ever has been.
+ *
+ * v0.4.0 repeats it a third time, and the reasoning is worth restating because
+ * this release is the one where the shape could most easily have been broken.
+ * M1–M6 left both stamps at `v0.3.0`; M7 — the milestone that cuts the release —
+ * moves them together to `v0.4.0`. The release adds no eval and removes none: a
+ * kind picker, a gradient shape and an editing verb are new *cases* under the
+ * questions the suite already asks, and the deterministic mechanics they brought
+ * are assertion territory rather than eval territory, which is where they went.
+ * `update`'s own conversational ends are graded by the same
+ * `tokenise-prose-extraction` reading of a sentence that `tokenise`'s are, since
+ * a sentence describing a change is still a sentence. Still nineteen evals, still
+ * every one at 1.000, still no threshold lowered and none ever has been.
  */
-export const MILESTONE = 'v0.3.0 M7';
-export const RELEASE = 'v0.3.0';
+export const MILESTONE = 'v0.4.0 M7';
+export const RELEASE = 'v0.4.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');

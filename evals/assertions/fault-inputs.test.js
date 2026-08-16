@@ -30,6 +30,7 @@ import { assessValues } from '../../lib/assess.js';
 import { emptyModel } from '../../lib/design-system.js';
 import { PRD_FILE, STATE_DIR } from '../../lib/write.js';
 import { ASSESS_SPEC_FILE, SPEC_FILE, parseSpec } from '../../lib/tokenise-spec.js';
+import { UPDATE_SPEC_FILE, parseUpdateSpec } from '../../lib/update-spec.js';
 import { renderSpecNotices } from '../../lib/assess-report.js';
 import { NOMENCLATURE_FILE, NomenclatureError, parseNomenclature, reloadNomenclature } from '../../lib/nomenclature.js';
 import { isResumableCandidate, renderDroppedNotice, unfinishedQueue } from '../../lib/tokenise-command.js';
@@ -539,11 +540,36 @@ test('a hostile row never reaches a user as a stack trace', async () => {
 
 test('the notice reads as a sentence, and says the assessment ran anyway', () => {
   assert.deepEqual(renderSpecNotices([]), [], 'silence when there is nothing to say');
-  const lines = renderSpecNotices(['phyllum:severity: ignored an unreadable row (…) — why']);
+  const lines = renderSpecNotices(['refs/assess.md phyllum:severity: ignored an unreadable row (…) — why']);
   assert.match(lines[0], /One rule was skipped/);
   assert.match(lines[0], /ran without them/, 'the finding is still trustworthy, minus that rule');
   assert.match(lines.at(-1), /refs\/assess\.md/, 'and it names the file to fix');
   assert.match(renderSpecNotices(['a', 'b'])[0], /2 rules were skipped/);
+});
+
+/**
+ * Which file to fix is read off the notices, not assumed (v0.4.0 M7).
+ *
+ * Until this release every tolerant table lived in `refs/assess.md`, so naming
+ * that file in the closing line was safe. `refs/tokenise.md` and
+ * `refs/update.md` have tolerant tables now, and a closing line sending a reader
+ * to the wrong file is worse than one sending them nowhere.
+ */
+test('the notice names the file its rows came from, whichever file that is', () => {
+  const one = renderSpecNotices(['refs/tokenise.md phyllum:picker: ignored an unreadable row (…) — why']);
+  assert.match(one.at(-1), /refs\/tokenise\.md/);
+  assert.doesNotMatch(one.at(-1), /refs\/assess\.md/, 'and never a file it did not hear from');
+
+  const two = renderSpecNotices([
+    'refs/tokenise.md phyllum:picker: ignored an unreadable row (…) — why',
+    'refs/update.md phyllum:update-verbs: ignored an unreadable row (…) — why',
+  ]);
+  assert.match(two.at(-1), /refs\/tokenise\.md/);
+  assert.match(two.at(-1), /refs\/update\.md/, 'both files, when both are involved');
+
+  // The header says what still ran, and the caller says what that was: an
+  // `update` run is not "the assessment above".
+  assert.match(renderSpecNotices(['a'], { ran: 'this run' })[0], /this run ran without them/);
 });
 
 // --- lifting the page's own swatch rules ------------------------------------
@@ -815,4 +841,366 @@ test('renderLibrary answers a payload that is not a design system', () => {
   assert.match(page, /Array\.isArray\(system\.components\)/, 'components is guarded');
   assert.match(page, /Array\.isArray\(system\.backlog\)/, 'backlog is guarded');
   assert.match(page, /const rowsOf = \(key\) =>/, 'every token section reads through one guard');
+});
+
+// ---------------------------------------------------------------------------
+// v0.4.0 M7 — the surfaces this release added, swept on the same axis
+//
+// Three new things read something they did not write. The **contract tables**
+// grew from one tolerant file to three: `refs/tokenise.md` gained the picker,
+// the fork, the argument hints, the gradient scale and the comparison table, and
+// `refs/update.md` arrived whole. The **design system itself** became something
+// a command edits rather than only appends to, which makes a hand-mangled file
+// an input to a write rather than to a read. And a **rename** became a thing
+// Phyllum does on purpose, which means it became a thing Phyllum can do wrongly.
+//
+// The bar is this file's usual three parts, plus the two v0.3.0 M7 added and
+// this release sharpens:
+//
+//   **No question about nothing.** A picker row, a menu row or a token row that
+//   resolves to nothing must never be printed as a numbered option. It is worse
+//   than a missing option, because the user cannot tell a bug from a choice.
+//
+//   **No silent shortening.** A list one row shorter than the file is a lie
+//   unless the omission is said. This is the `.phyllum/config.json` rule, and
+//   the dropped-queue-entry rule, applied to a table and to a token list.
+// ---------------------------------------------------------------------------
+
+// --- the v0.4.0 contract tables ---------------------------------------------
+
+const updateSpecText = () => fs.readFileSync(UPDATE_SPEC_FILE, 'utf8');
+
+/** One hostile row per table `refs/tokenise.md` gained, and where it lands. */
+const HOSTILE_TOKENISE = [
+  ['<!-- phyllum:picker -->', '|  | a colour | `colour-fork` | — |', 'picker'],
+  ['<!-- phyllum:colour-fork -->', '| `solid` | solid | | `<answer>` |', 'colourFork'],
+  ['<!-- phyllum:value-questions -->', '|  | Write your colour as | `[HEX]` | `#2563EB` |', 'valueQuestions'],
+  ['<!-- phyllum:gradient-names -->', '|  | — | gradient |', 'gradientNames'],
+  ['<!-- phyllum:value-comparison -->', '| hex | `#rrggbb` |  |', 'valueComparison'],
+];
+
+for (const [marker, row, key] of HOSTILE_TOKENISE) {
+  const name = marker.replace(/<!--\s*|\s*-->/g, '');
+  test(`a hostile row in ${name} is dropped, and said out loud`, () => {
+    const clean = parseSpec(specText(), assessSpecText());
+    const broken = parseSpec(withRow(specText(), marker, row), assessSpecText());
+
+    assert.deepEqual(clean.ignored, [], 'the shipped tables have nothing to report');
+    assert.equal(broken.ignored.length, 1, `${name}: exactly the one bad row`);
+    assert.match(broken.ignored[0], new RegExp(name), 'the notice names the table');
+    assert.match(broken.ignored[0], /refs\/tokenise\.md/, 'and the file it is in');
+    assert.match(broken.ignored[0], /ignored an unreadable row/);
+
+    const count = (value) => (Array.isArray(value) ? value.length : Object.keys(value).length);
+    assert.equal(count(broken[key]), count(clean[key]) - 1, `${name}: one row fewer, not zero rows`);
+  });
+}
+
+/** One hostile row per `refs/update.md` table, and where it lands. */
+const HOSTILE_UPDATE = [
+  ['<!-- phyllum:update-copy -->', '|  | What are you updating? |', 'copy'],
+  ['<!-- phyllum:update-grammar -->', '|  | the menu | — | — |', 'grammar'],
+  ['<!-- phyllum:update-menu -->', '|  | a component | `component` | `component` |', 'menu'],
+  ['<!-- phyllum:update-types -->', '|  | a colour | `colours` | — | — |', 'types'],
+  ['<!-- phyllum:update-questions -->', '|  | What is changing | `[new value]` | `now #fff` |', 'questions'],
+  ['<!-- phyllum:update-rename -->', '| `rename` |  |', 'renamePhrases'],
+  ['<!-- phyllum:update-verbs -->', '| `becomes` |  |', 'changeVerbs'],
+];
+
+for (const [marker, row, key] of HOSTILE_UPDATE) {
+  const name = marker.replace(/<!--\s*|\s*-->/g, '');
+  test(`a hostile row in ${name} is dropped, and said out loud`, () => {
+    const clean = parseUpdateSpec(updateSpecText());
+    const broken = parseUpdateSpec(withRow(updateSpecText(), marker, row));
+
+    assert.deepEqual(clean.ignored, [], 'the shipped tables have nothing to report');
+    assert.equal(broken.ignored.length, 1, `${name}: exactly the one bad row`);
+    assert.match(broken.ignored[0], new RegExp(name), 'the notice names the table');
+    assert.match(broken.ignored[0], /refs\/update\.md/, 'and the file it is in');
+
+    // A rename or verb row carries several spellings, so dropping one row drops
+    // at least one phrase — never all of them, and never none.
+    const count = (value) => (Array.isArray(value) ? value.length : Object.keys(value).length);
+    assert.ok(count(broken[key]) < count(clean[key]), `${name}: the bad row is gone`);
+    assert.ok(count(broken[key]) > 0, `${name}: the rest of the table still works`);
+  });
+}
+
+test('a dropped picker row is never printed as a numbered option', () => {
+  const broken = parseSpec(
+    withRow(specText(), '<!-- phyllum:picker -->', '|  | a colour | `colour-fork` | — |'),
+    assessSpecText(),
+  );
+  for (const option of broken.picker) {
+    assert.notEqual(option.pick, '', 'a pick that resolves to nothing is not an option');
+    assert.notEqual(option.followUp, '', 'and neither is a pick with nowhere to go');
+  }
+});
+
+test('a broken table row never reaches a user as a stack trace, on either new command', async () => {
+  await withTempDir(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), MANGLED_SYSTEM);
+    for (const argv of [['tokenise'], ['update'], ['update', 'token']]) {
+      const result = await executeArgv(argv, { cwd: dir });
+      assert.ok(!/at Object\.|at Module\.|at file:/.test(result.out), `${argv.join(' ')}: no stack`);
+    }
+  });
+});
+
+// --- a hand-mangled DESIGN-SYSTEM.md, met by the editing verb ----------------
+
+/**
+ * The file people hand-edit, hand-edited badly. Two ragged token rows (one with
+ * no value, one with no name), a component heading with no spec block, and a
+ * Backlog. Every one of these is a shape `design-system.js` parses without
+ * complaint, because they are all *nearly* right.
+ */
+const MANGLED_SYSTEM = `# Design System
+
+> Phyllum manages this file.
+
+- Project: acme-web
+- Phyllum version: 0.3.0
+- Created: 2026-08-12
+
+## Tokens
+
+### Colours
+
+| token | value |
+| --- | --- |
+| color-primary | #2563EB |
+| color-surface |  |
+|  | #123456 |
+
+### Numbers
+
+| token | value | applies to |
+| --- | --- | --- |
+| rounded-md | 12px | corner radius |
+
+### Typography
+
+| token | size | weight | line-height |
+| --- | --- | --- | --- |
+
+## Components
+
+### Button/Primary
+
+\`\`\`yaml
+name: Button/Primary
+archetype: button
+properties:
+  background: color-primary
+\`\`\`
+
+### Card/Basic
+
+Just prose. No spec block at all.
+
+## Backlog
+
+- TODO: swap \`color-primary\` into Card/Basic
+`;
+
+/** A design system with the same token name on two rows — the ambiguous file. */
+const DUPLICATE_NAMES = MANGLED_SYSTEM.replace(
+  '| color-surface |  |\n|  | #123456 |',
+  '| color-primary | #10B981 |',
+);
+
+const scripted = (answers) => {
+  const asked = [];
+  return {
+    asked,
+    ask: async (question) => {
+      asked.push(question);
+      return answers.shift() ?? 'skip';
+    },
+    confirm: async () => true,
+  };
+};
+
+async function inSystem(body, system = MANGLED_SYSTEM) {
+  return withTempDir(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), system);
+    return body(dir);
+  });
+}
+
+test('a token row with no value is never offered, and the omission is said', async () => {
+  await inSystem(async (dir) => {
+    const before = snapshotContents(dir);
+    const conversation = scripted(['1', 'skip']);
+    const result = await executeArgv(['update', 'token'], { cwd: dir, ...conversation });
+
+    assert.equal(result.code, 0, 'a ragged table is not a crash');
+    assert.match(result.out, /Colours — 1 token:/, 'only the row that is a token');
+    assert.doesNotMatch(result.out, /undefined/, 'never a proposal about nothing');
+    // The two ragged rows are said out loud rather than quietly missing — the
+    // `.phyllum/config.json` rule, applied to the design system's own tables.
+    assert.match(result.out, /2 rows in DESIGN-SYSTEM\.md are missing a token name or a value/);
+    assert.match(result.out, /fix the table by hand/, 'and what to do about it');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] }, 'nothing written');
+  });
+});
+
+test('a component with no spec block is listed honestly and revised by nobody', async () => {
+  await inSystem(async (dir) => {
+    const before = snapshotContents(dir);
+    const conversation = scripted(['2', 'background becomes color-primary']);
+    const result = await executeArgv(['update', 'component'], { cwd: dir, ...conversation });
+
+    assert.equal(result.code, 0);
+    assert.match(result.out, /\(no spec block\)/, 'the list says so rather than inventing an archetype');
+    assert.match(result.out, /nothing recorded to revise/, 'and the flow says so rather than drafting one');
+    assert.match(result.out, /phyllum create/, 'and points at the command that records one');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] }, 'nothing written');
+  });
+});
+
+// --- the rename, checked the way a value change already was ------------------
+
+/**
+ * Convergence stops two names landing on one value. Nothing stopped two values
+ * landing on one name, and a rename is the only edit that could do it — which
+ * made `update token` able to write a file every other command treats as
+ * impossible, and to point every reference at the wrong half of it.
+ */
+test('a rename onto a name the system already uses is surfaced, not written', async () => {
+  await inSystem(async (dir) => {
+    const before = snapshotContents(dir);
+    const conversation = scripted(['1', '1', 'rename to color-surface']);
+    const result = await executeArgv(['update', 'token'], { cwd: dir, ...conversation });
+
+    assert.match(result.out, /`color-surface` already names a token/);
+    assert.match(result.out, /mirror of two names on one value/, 'named as convergence, turned over');
+    assert.match(result.out, /merge .* by hand/, 'with the way out');
+    assert.match(result.out, /Nothing has been written/);
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] }, 'and nothing was');
+  }, MANGLED_SYSTEM.replace('|  | #123456 |', '| color-surface | #FFFFFF |'));
+});
+
+test('a rename in a file with duplicate names refuses rather than stealing references', async () => {
+  await inSystem(async (dir) => {
+    const before = snapshotContents(dir);
+    const conversation = scripted(['1', '2', 'rename to brand-green']);
+    const result = await executeArgv(['update', 'token'], { cwd: dir, ...conversation });
+
+    // The ripple rewrites every reference to the old name. With the name on two
+    // rows it cannot know which row a reference meant, so rewriting them all
+    // would hand the picked row every reference the other row owned — a
+    // component that meant `#2563EB` silently meaning `#10B981`.
+    assert.match(result.out, /names 2 rows in DESIGN-SYSTEM\.md/);
+    assert.match(result.out, /cannot say which one a reference means/);
+    assert.match(result.out, /distinct names by hand/, 'with the way out');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] }, 'nothing written');
+  }, DUPLICATE_NAMES);
+});
+
+test('a value change on a duplicated name still works, and touches only its own row', async () => {
+  await inSystem(async (dir) => {
+    const conversation = scripted(['1', '2', 'now #ABCDEF']);
+    const result = await executeArgv(['update', 'token'], { cwd: dir, ...conversation });
+
+    assert.match(result.out, /Wrote `color-primary`/);
+    const after = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    // The row is picked by position, so the *other* `color-primary` is untouched
+    // — a duplicate name is a reason to refuse a rename, never a reason to
+    // refuse an edit the file can express unambiguously.
+    assert.match(after, /\| color-primary \| #2563EB \|/, 'the first row stands');
+    assert.match(after, /\| color-primary \| #ABCDEF \|/, 'the second row changed');
+  }, DUPLICATE_NAMES);
+});
+
+test('a rename ripple survives a file with no Backlog and no Components at all', async () => {
+  const stripped = MANGLED_SYSTEM.replace(/## Components[\s\S]*$/, '## Backlog\n').replace(
+    '|  | #123456 |',
+    '',
+  );
+  await inSystem(async (dir) => {
+    const conversation = scripted(['1', '1', 'rename to interaction-primary']);
+    const result = await executeArgv(['update', 'token'], { cwd: dir, ...conversation });
+
+    assert.equal(result.code, 0, 'a missing section is not a crash');
+    assert.match(result.out, /nothing else references `color-primary`/, 'said, not assumed');
+    assert.match(result.out, /Wrote `interaction-primary`/);
+  }, stripped);
+});
+
+// --- the picker, answered by nobody -----------------------------------------
+
+/**
+ * A conversation is a loop, and a loop over an answer that never changes is the
+ * one shape that hangs rather than failing. Every question `tokenise` and
+ * `update` can ask is put here against an answer stream that is at EOF, is
+ * garbage, or is `null`, and the run has to end — with nothing written, and
+ * without asking the same question forever.
+ */
+const HOSTILE_ANSWERS = [
+  ['at EOF', () => ''],
+  ['garbage', () => '@@@@'],
+  ['null, as a closed stream gives', () => null],
+  ['a number no row carries', () => '99'],
+];
+
+for (const [label, answer] of HOSTILE_ANSWERS) {
+  for (const argv of [['tokenise'], ['update'], ['update', 'token'], ['update', 'component']]) {
+    test(`\`${argv.join(' ')}\` ends when every answer is ${label}`, async () => {
+      await inSystem(async (dir) => {
+        const before = snapshotContents(dir);
+        let asked = 0;
+        const result = await executeArgv(argv, {
+          cwd: dir,
+          ask: async () => {
+            asked += 1;
+            // A run that asks more than this is not conversing, it is looping.
+            assert.ok(asked <= 12, `${argv.join(' ')} asked ${asked} times without ending`);
+            return answer();
+          },
+          confirm: async () => false,
+        });
+        assert.ok(result.code === 0 || result.code === 1, 'it ends');
+        assert.ok(!/at Object\.|at file:/.test(result.out), 'and not on a stack');
+        assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] }, 'nothing written');
+      });
+    });
+  }
+}
+
+// --- the swatch contract, met by a gradient -----------------------------------
+
+/**
+ * M4 gated the card renderer on a value it recognises. This is the other half of
+ * that gate: a *gradient-shaped* string carrying markup or CSS of its own is
+ * still only ever text, and a value that is neither colour nor gradient fills
+ * nothing at all.
+ */
+test('a hostile gradient value never escapes the card renderer', () => {
+  const { isFillValue, isGradientValue, cardHtml } = swatchContract();
+  const HOSTILE_GRADIENTS = [
+    'linear-gradient(90deg, red); background: url(http://evil//)',
+    'linear-gradient(90deg, #fff)"><script>alert(1)</script>',
+    "linear-gradient(90deg, #fff)'; }",
+    'linear-gradient(90deg, red) <img src=x onerror=alert(1)>',
+    'url(http://example.com/x.png)',
+    'expression(alert(1))',
+    '</style><script>alert(1)</script>',
+  ];
+  for (const value of HOSTILE_GRADIENTS) {
+    assert.equal(isFillValue(value), false, `${value} is not a fill`);
+    assert.equal(isGradientValue(value), false, `${value} is not a gradient`);
+    const html = cardHtml('token', value);
+    // The value is still *shown* — it is what the file records — but only ever
+    // as escaped text, so no tag it spells becomes a tag and no declaration it
+    // spells reaches a style attribute.
+    assert.ok(!/<script/i.test(html), `${value}: no markup survives into the page`);
+    assert.ok(!/<img/i.test(html), `${value}: no tag survives into the page`);
+    const styles = [...html.matchAll(/style="([^"]*)"/g)].map((match) => match[1]).join(' ');
+    assert.ok(!styles.includes(value), `${value}: never reaches a style attribute`);
+    assert.ok(!/url\s*\(/i.test(styles), `${value}: never opens a request from one`);
+  }
+  // And the honest gradient still fills, so the gate is a gate and not a wall.
+  assert.equal(isGradientValue('linear-gradient(135deg, #2563EB, #10B981)'), true);
 });
