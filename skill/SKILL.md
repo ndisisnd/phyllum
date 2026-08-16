@@ -56,7 +56,7 @@ above holds unchanged for every other command.
 | `create` | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | `update` | Plan applying the design system to the codebase; `apply run` executes the plan; `update` / `update run` are the same command |
-| `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values become a queue, asked one at a time |
+| `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" or "our overlay rgba(0, 0, 0, 0.5)" — several values become a queue, asked one at a time |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
 | `display` | `system` | Print the design system to the terminal |
@@ -290,7 +290,10 @@ package manager gets a graceful refusal naming the exact command to run instead.
 
 v0.2.0 M2 reworks `tokenise` into a **prose-only** command: one sentence in, one
 named token out. It no longer reads the codebase — scanning becomes `assess`'s
-job — so `phyllum tokenise "our brand blue #2563EB"` is the whole input. A name
+job — so `phyllum tokenise "our brand blue #2563EB"` is the whole input, and any
+colour format is as good as hex: `phyllum tokenise "our overlay rgba(0, 0, 0,
+0.5)"` walks the identical path, records the value exactly as pasted, and is
+recognised as the same colour a `#2563EB`-style spelling of it would be. A name
 in the sentence is used verbatim; without one, Phyllum suggests a name off the
 scales in `refs/tokenise.md` and confirms it. A sentence with no value ("add a
 token for our brand blue") opens a follow-up question asking for the value, the

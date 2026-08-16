@@ -6,6 +6,7 @@ its own turn through the same protocol:
 
 ```
 phyllum tokenise "our brand blue #2563EB"
+phyllum tokenise "our overlay rgba(0, 0, 0, 0.5)"
 phyllum tokenise "16px spacing called space-md"
 phyllum tokenise "heading 24px bold 1.2"
 phyllum tokenise "#2563EB #10B981 #F59E0B"
@@ -35,7 +36,8 @@ There is no second copy of these rules in the code.
 Two facts, and one of them is optional:
 
 - **The value** — the concrete thing being named. A colour (`#2563EB`,
-  `rgb(37, 99, 235)`, `hsl(217, 91%, 60%)`), a length (`12px`, `1rem`), or a
+  `rgba(37, 99, 235, 0.5)`, `rgb(37, 99, 235)`, `hsl(217, 91%, 60%)`), a
+  length (`12px`, `1rem`), or a
   typography reading (a size, optionally a weight and a line-height). A sentence
   may hold several; each one is read the same way and queued in turn.
 - **The name** — if the sentence gives one, it is used verbatim. If it doesn't,
@@ -120,9 +122,10 @@ mode, it is a form, and a form is the thing this command exists not to be.
 | resume | `.phyllum/session.json` | the whole queue is held in the session file, so an interrupted run picks up where it stood |
 
 Duplicates are compared the way the already-named check compares them:
-case-folded, whitespace-stripped, `#abc` expanded to `#aabbcc`, and a length only
-against a length in the same role. Convergence applies *inside* a run as well as
-between runs.
+case-folded, whitespace-stripped, `#abc` expanded to `#aabbcc`, a colour by its
+channels whatever format it is written in, and a length only against a length in
+the same role. So "our brand blue #2563EB and rgba(37, 99, 235, 1) again" is one
+entry, not two. Convergence applies *inside* a run as well as between runs.
 
 Ordering is not decoration. The ranked colour scale counts what the system
 already names, and a token accepted earlier in the same run is something the
@@ -194,6 +197,14 @@ scales, exactly as it does today.
 | colours | Colours | `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `hsl()`, `hsla()` | color, background, background-color, border, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, outline, outline-color, fill, stroke |
 | numbers | Numbers | `px`, `rem` | (by role — see below) |
 | typography | Typography | font-size + font-weight + line-height in one rule | font, font-size, font-weight, line-height |
+
+**Alpha is recorded, never edited.** A `#rrggbbaa` hex and an `rgba()` alpha
+survive into the written row exactly as typed — Phyllum does not drop the alpha,
+round it, or rewrite the colour into another format. The naming scale reads the
+colour *underneath* the alpha: lightness and saturation come from the red, green
+and blue channels alone, so `rgba(0, 0, 0, 0.5)` is named as the black it is.
+Alpha is still part of what makes two colours the same colour — see the
+already-named section below.
 
 The numbers pass does not treat every length alike. A 12px corner radius and a
 12px padding are the same number and different facts, so each length carries a
@@ -405,6 +416,38 @@ If the value in your sentence is already the value of a token, `tokenise` says
 which token names it and stops. It does not write a second row, and it does not
 rename the one you have — that is your edit to make. Values are compared
 normalised: case-folded, whitespace-stripped, `#abc` expanded to `#aabbcc`.
+
+**A colour is compared by its channels, not by its spelling.** Any colour shape
+the passes table lists is read into one canonical comparison form before it is
+compared:
+
+<!-- phyllum:value-comparison -->
+
+| Shape | Written as | Compared as |
+|-------|------------|-------------|
+| hex | `#rgb`, `#rrggbb`, `#rgba`, `#rrggbbaa` | channels |
+| rgb | `rgb()`, `rgba()` | channels |
+| hsl | `hsl()`, `hsla()` | channels |
+| other | anything else — a length, a compound, a value Phyllum cannot read | string |
+
+**channels** is `rgba(r,g,b,a)`: red, green and blue as integers 0–255 and alpha
+as a number 0–1, which is the one spelling every colour shape above can be
+written in. **string** is the normalised string described just above. So `rgba(37, 99, 235)` is the `#2563EB` the system already names, in either
+direction, and a sentence carrying both spells one colour and gets one queue
+entry.
+
+Three rules keep that honest:
+
+- **Alpha counts.** `rgba(0, 0, 0, 0.5)` and `rgba(0, 0, 0, 0.9)` are different
+  facts and get different tokens. A colour that writes no alpha is fully opaque,
+  so `#2563EB`, `#2563EBFF` and `rgba(37, 99, 235, 1)` are one colour.
+- **No tolerance.** Two spellings either land on the same channels or they do
+  not. Colours that are merely *near* each other are the clustering table's
+  business (`refs/assess.md`), and a tolerance here would collapse two colours a
+  reader can tell apart into one name.
+- **Comparison only.** The value written into `DESIGN-SYSTEM.md` is byte for
+  byte what you typed, in the format you typed it. Phyllum never converts a
+  value it records.
 
 ---
 

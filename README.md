@@ -73,7 +73,7 @@ The commands:
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
 | `apply` | Plan applying the design system to the codebase; `apply run` executes the plan (`update` is the same command, kept as an alias) |
-| `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values are queued and asked about one at a time |
+| `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB" or "our overlay rgba(0, 0, 0, 0.5)" — several values are queued and asked about one at a time |
 | `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
 | `kill` | Stop the dashboard server `gui` started |
@@ -205,6 +205,9 @@ disk. A backup that cannot be written stops the edit rather than proceeding
 without it.
 
 `tokenise` names the values in a sentence: `phyllum tokenise "our brand blue #2563EB"`.
+Any colour format works — `phyllum tokenise "our overlay rgba(0, 0, 0, 0.5)"` — and the
+value is recorded exactly as you typed it, while one colour written two ways is still
+recognised as one colour.
 A sentence carrying several — `phyllum tokenise "#2563EB #10B981 #F59E0B"` — becomes a
 queue, walked one question at a time in the order you said them, and a value you skip
 costs only itself. If the sentence names a token, that name is used; if not, Phyllum

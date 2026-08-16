@@ -23,11 +23,15 @@ import { parse } from '../../lib/design-system.js';
 import { slotWords } from '../../lib/nomenclature.js';
 import { readState } from '../../lib/state.js';
 import {
+  SPEC_FILE,
+  comparedAs,
   nameSourceApplies,
   nameSourceFallback,
   roleSignalFor,
   roleSignalWords,
+  valueComparisons,
 } from '../../lib/tokenise-spec.js';
+import { alphaOf, colourShape, comparisonValue } from '../../lib/tokenise.js';
 import { runTokenise, resolveRole, unfinishedQueue } from '../../lib/tokenise-command.js';
 import {
   IMPLIED_LINE_HEIGHT,
@@ -431,6 +435,139 @@ test('a length is only a duplicate of a length in the same role', () => {
     { pass: 'numbers', value: '12px', role: 'radius' },
   ];
   assert.equal(collapseDuplicates(candidates).length, 2, 'same number, different facts');
+});
+
+// ---------------------------------------------------------------------------
+// Cross-format convergence — one colour is one colour, however it is written
+// (v0.4.0 plan §3.1)
+// ---------------------------------------------------------------------------
+
+test('the comparison table is the contract, and the code reads it', () => {
+  const table = valueComparisons();
+  assert.deepEqual(Object.keys(table).sort(), ['hex', 'hsl', 'other', 'rgb']);
+  for (const shape of ['hex', 'rgb', 'hsl']) {
+    assert.equal(table[shape], 'channels', `${shape} compares by channels`);
+    assert.equal(comparedAs(shape), 'channels');
+  }
+  assert.equal(comparedAs('other'), 'string');
+  assert.equal(comparedAs('gradient'), 'string', 'a shape the table does not list is not folded');
+
+  assert.equal(colourShape('#2563EB'), 'hex');
+  assert.equal(colourShape('rgba(37, 99, 235, 1)'), 'rgb');
+  assert.equal(colourShape('hsl(217, 91%, 60%)'), 'hsl');
+  assert.equal(colourShape('12px'), 'other');
+  assert.ok(
+    fs.readFileSync(SPEC_FILE, 'utf8').includes('<!-- phyllum:value-comparison -->'),
+    'the table is marked for the parser',
+  );
+});
+
+test('every colour shape compares as one canonical channel form', () => {
+  const blue = comparisonValue('#2563EB');
+  assert.equal(blue, 'rgba(37,99,235,1)', 'the canonical form is the rgba channel tuple');
+  for (const spelling of ['#2563eb', '#2563EBFF', 'rgb(37, 99, 235)', 'rgba(37,99,235,1)']) {
+    assert.equal(comparisonValue(spelling), blue, `${spelling} is the same colour`);
+  }
+  assert.equal(comparisonValue('#ABC'), comparisonValue('rgb(170, 187, 204)'));
+  assert.equal(
+    comparisonValue('hsl(221.2, 83.2%, 53.3%)'),
+    comparisonValue('rgb(37, 99, 235)'),
+    'hsl converts to integer channels and compares there — no tolerance is applied',
+  );
+  assert.equal(comparisonValue('12px'), '12px', 'a value that is not a colour keeps the string form');
+});
+
+test('alpha is read, and two alphas are two facts', () => {
+  assert.equal(alphaOf('#2563EB'), 1, 'no alpha written is fully opaque');
+  assert.equal(alphaOf('#2563EBFF'), 1);
+  assert.equal(alphaOf('rgba(0, 0, 0, 0.5)'), 0.5);
+  assert.equal(alphaOf('hsla(217, 91%, 53%, 0.25)'), 0.25);
+  assert.notEqual(
+    comparisonValue('rgba(0, 0, 0, 0.5)'),
+    comparisonValue('rgba(0, 0, 0, 0.9)'),
+    'a half-opaque black and a nearly-opaque one are different tokens',
+  );
+  assert.notEqual(comparisonValue('#2563EB80'), comparisonValue('#2563EB'));
+});
+
+test('one colour written two ways is one queue entry', () => {
+  const parsed = parseProse('our overlay #2563EB and rgba(37, 99, 235, 1) again');
+  assert.equal(parsed.candidates.length, 1, 'the same colour in two formats is one value');
+  assert.equal(parsed.candidates[0].value, '#2563EB', 'and the first mention keeps its place');
+
+  const other = parseProse('our overlay rgb(37, 99, 235) and #2563EB again');
+  assert.equal(other.candidates.length, 1, 'convergence has no preferred direction');
+  assert.equal(other.candidates[0].value, 'rgb(37, 99, 235)');
+});
+
+test('alpha variants in one sentence do not collapse', () => {
+  const parsed = parseProse('rgba(0, 0, 0, 0.5) and rgba(0, 0, 0, 0.9)');
+  assert.equal(parsed.candidates.length, 2, 'differing alphas are differing facts');
+});
+
+test('a colour already named in another format trips the already-named check', () => {
+  const model = emptyModel();
+  model.tokens.colours.push(['color-primary', '#2563EB']);
+  for (const spelling of ['rgba(37, 99, 235, 1)', 'rgb(37, 99, 235)', 'hsl(221.2, 83.2%, 53.3%)']) {
+    assert.equal(
+      existingTokenFor({ pass: 'colours', value: spelling }, model).name,
+      'color-primary',
+      `${spelling} is the colour the system already names`,
+    );
+  }
+  assert.equal(
+    existingTokenFor({ pass: 'colours', value: 'rgba(37, 99, 235, 0.5)' }, model),
+    null,
+    'a different alpha is a different colour, and still nameable',
+  );
+
+  // And the other direction: the recorded value is the rgba one.
+  const inverted = emptyModel();
+  inverted.tokens.colours.push(['color-primary', 'rgba(37, 99, 235, 1)']);
+  assert.equal(existingTokenFor({ pass: 'colours', value: '#2563EB' }, inverted).name, 'color-primary');
+});
+
+test('a colour already named in another format is refused a second row', async () => {
+  await withProject(async (dir) => {
+    await runTokenise(args('our brand blue #2563EB'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'y',
+      confirm: async () => true,
+    });
+    const { out } = await runTokenise(args('our overlay rgba(37, 99, 235, 1)'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'y',
+      confirm: async () => true,
+    });
+    assert.match(out, /is already `color-primary`/, 'the same colour, said another way');
+    assert.equal(parse(read(dir)).tokens.colours.length, 1, 'and no second row was written');
+  });
+});
+
+test('the recorded value is byte-identical to what was typed, in every format', async () => {
+  const written = [
+    '#2563EB',
+    '#2563ebff',
+    'rgb(37, 99, 235)',
+    'rgba(0, 0, 0, 0.5)',
+    'hsl(221.2, 83.2%, 53.3%)',
+    'hsla(221.2, 83.2%, 53.3%, 0.25)',
+  ];
+  for (const value of written) {
+    await withProject(async (dir) => {
+      await runTokenise(args(`our colour ${value}`), {
+        cwd: dir,
+        env: {},
+        ask: async () => 'y',
+        confirm: async () => true,
+      });
+      const colours = parse(read(dir)).tokens.colours;
+      assert.equal(colours.length, 1, `${value} was written`);
+      assert.equal(colours[0][1], value, 'exactly as typed — Phyllum never converts a value');
+    });
+  }
 });
 
 test('the queue runs one question at a time, and each entry writes its own token', async () => {
