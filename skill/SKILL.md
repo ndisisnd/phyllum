@@ -55,7 +55,8 @@ above holds unchanged for every other command.
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
-| `apply` | `update` | Plan applying the design system to the codebase; `apply run` executes the plan; `update` / `update run` are the same command |
+| `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
+| `update` | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lands in M6 |
 | `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" or "our overlay rgba(0, 0, 0, 0.5)" — several values become a queue, asked one at a time |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
@@ -91,7 +92,7 @@ reads the design system *and* the codebase, and writes only its own plan.
 | `display` | `refs/system.md` — listing format; `system` is the same command under its older name |
 | `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |
 | `upgrade` | `refs/upgrade.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
-| `update` | `refs/update.md` — one page: `update` is `apply`'s alias, and `refs/apply.md` is the contract |
+| `update` | `refs/update.md` — the grammar (menu, chains, prose), the menu copy and its 0.4.x `apply` breadcrumb, the token flow with its type rows and argument hints, prose target-matching, the rename ripple, the convergence re-check, the never-list |
 | `init` | `refs/init.md` — the walkthrough, step by step |
 
 One reference file belongs to no command: `refs/nomenclature.md` is a shared
@@ -265,19 +266,20 @@ page fetches nothing, so it renders with no network at all. Behaviour is
 unchanged — read-only, live `DESIGN-SYSTEM.md`, localhost only, the same
 `gui`/`kill` lifecycle. The dashboard shows the file; writing it stays the CLI's.
 
-v0.3.0 M6 hands the word "update" to `apply` and gives the self-maintenance job
-its own verb, `upgrade`. `phyllum update` is now an exact alias of `phyllum
-apply` — same registry entry, same handler, same plan at `.phyllum/PRD.md`, same
-guarantee that planning runs nothing — and `update run` chains to `apply run` the
-way `system`'s scope words chain to `display`. Everything the old `update` did to
-the *install* — detect npm or pnpm, global or project; refuse gracefully with the
-exact command to type; re-sync the skill copy — moved to `phyllum upgrade`
-without one behavioural change, and `refs/upgrade.md` carries that contract while
-`refs/update.md` is now a one-page pointer at `apply`. The switch is **silent**:
-no redirect notice and no acknowledgement gate, because `apply` only ever writes
-a plan, so a muscle-memory `update` costs a reader a `.phyllum/PRD.md` and
-nothing else. Help and `menu` lead with `apply` and list `update` as its alias;
-finding `upgrade` is the docs' job, not a warning's.
+v0.4.0 M5 makes `update` **its own command**: the design-system editing verb.
+`phyllum update` no longer reaches `apply`, and `update run` no longer exists;
+`apply` keeps its own name, help and behaviour, untouched, and moving the
+*install* is still `upgrade`, which took that job in v0.3.0 M6. Empty `update` opens a menu — a component,
+or a token — carrying one 0.4.x breadcrumb line pointing at `apply` for anyone
+who typed it out of muscle memory. `update token` walks type → the full list of
+that section → pick one → a sentence describing the change, with the same
+argument hint every value question wears; the proposal shows old and new side by
+side before the acceptance gate, and the write is the one funnel, `.bak` first.
+A rename ripples in that same write — every component spec slot and every
+Backlog `TODO` line naming the old token — and the run says so before you
+accept. A new value re-runs convergence with the cross-format comparison, so an
+edit can never put two names on one value. `update component` lands in M6;
+`refs/update.md` carries the whole contract.
 
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest

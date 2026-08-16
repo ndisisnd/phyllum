@@ -9,12 +9,12 @@ phyllum apply --fresh  regenerate the plan from scratch
 phyllum apply run      execute the plan, on its own branch, one commit per phase
 ```
 
-**`update` is `apply`'s alias** (v0.3.0 §6). `phyllum update`, `phyllum update
---fresh` and `phyllum update run` are these three lines under a second word —
-same registry entry, same handler, same plan, byte for byte. The word changed
-hands because "update" is what people type when they mean *update my codebase
-from the design system*; moving the Phyllum install is `phyllum upgrade` now.
-`refs/update.md` records the rename and points back here.
+**`apply` stands alone under its own name** (v0.4.0 §6.1). It held `update` as an
+alias for one release; from v0.4.0 `update` is the design-system editing verb and
+reaches nothing here, and `update run` no longer exists. Nothing about `apply`
+changed with the alias: same name, same help, same three lines, same plan.
+Moving the Phyllum install is `phyllum upgrade`. `refs/update.md` carries the
+editing verb's contract.
 
 `apply` is the first Phyllum command that will ever change source code, so the
 crossing is controlled by design: **no source file changes without a reviewable

@@ -9,8 +9,8 @@ Phyllum writes exactly one file in a user's codebase: `DESIGN-SYSTEM.md`, plus a
 duplicate tokens, re-creating a component opens a revision. `assess` reads the codebase,
 `tokenise` reads a sentence, `create` reads intent, and `apply` plans getting the recorded
 system into the code — writing a reviewable PRD to `.phyllum/PRD.md` and executing none of
-it — and `update` is `apply`'s alias, so the word means "update my codebase from the design
-system"; moving the install is `upgrade`. `apply run` is the single exception to the write rule: it executes that plan on a
+it — and `update` is the editing verb, changing a token or component the design system
+already records; moving the install is `upgrade`. `apply run` is the single exception to the write rule: it executes that plan on a
 `phyllum/apply-<date>` branch of its own, one commit per phase, writing only the files the
 running phase's criteria name. Mechanical commands run in pure Node; the intelligent ones
 (`create`, `tokenise`) run natively inside a Claude Code session or shell out to the
@@ -40,7 +40,7 @@ These paths are repo-relative. Phyllum is published on npm as `phyllum`; the sou
 - [display](skill/refs/system.md): the terminal listing format; `system` is the same command under its older name, kept as a permanent alias
 - [version](skill/refs/version.md): the installed version, the on-demand npm registry check, and what happens offline
 - [upgrade](skill/refs/upgrade.md): moving the install to the latest published version — install detection (npm/pnpm, global/project), the graceful refusals, and the skill re-sync
-- [update](skill/refs/update.md): the rename — `update` is `apply`'s alias from v0.3.0, so `refs/apply.md` is its contract; `upgrade` took over moving the install
+- [update](skill/refs/update.md): the editing verb from v0.4.0 — the menu, the `component`/`token` chains, prose target-matching, the token flow, the rename ripple and the convergence re-check; it stopped being `apply`'s alias
 
 ## Optional
 

@@ -114,9 +114,10 @@ test('every alias pair behaves identically', async () => {
   );
   assert.deepEqual(pairs, [
     ['create', 'build'],
-    // v0.3.0 §6: `update` changed hands. It used to move the install; it now
-    // means "update my codebase from the design system", which is `apply`.
-    ['apply', 'update'],
+    // v0.4.0 §6.1: `apply` has no alias. `update` was one for exactly one
+    // release; it is its own command now — the design-system editing verb — so
+    // there is no pair to prove identical here, and `update-cli.test.js` proves
+    // the separation instead.
     ['tokenise', 'tokenize'],
     ['gui', 'dashboard'],
     // v0.2.1 §6.5.3: `display` is the primary read verb and `system` is its

@@ -394,108 +394,53 @@ test('a project that only Phyllum has written to is left exactly as it was', asy
   );
 });
 
+
 // ---------------------------------------------------------------------------
-// `update` — the alias (v0.3.0 §6, M6)
+// `apply` stands alone again (v0.4.0 §6.1, M5)
 // ---------------------------------------------------------------------------
 
 /**
- * The rename's whole promise in one word: *identical*.
+ * The un-aliasing, from `apply`'s side.
  *
- * `update` used to move the install and now means "update my codebase from the
- * design system", which is `apply`. The switch is silent — no redirect notice,
- * no acknowledgement gate — so nothing at all in the output tells the two words
- * apart, and these checks are what make that a fact rather than an intention.
+ * `update` held this command's second name for exactly one release. What is
+ * asserted here is only what `apply` promises: the word no longer reaches it,
+ * `update run` is not a spelling of `apply run`, and nothing about `apply`
+ * itself moved when the alias left. What `update` does *instead* is asserted in
+ * `update-cli.test.js`, where its own contract lives.
  */
-test('`update` resolves to `apply` — one entry, one handler, one page', async () => {
-  const command = resolveCommand('update');
-  assert.equal(command, resolveCommand('apply'), 'the same registry object, not a copy of it');
-  assert.equal(command.name, 'apply', 'help and menu lead with `apply`');
-  assert.ok(command.aliases.includes('update'), 'and list `update` as its alias');
+test('`apply` carries no alias, and `update` is a different command', async () => {
+  const apply = resolveCommand('apply');
+  assert.deepEqual(apply.aliases, [], '`apply` stands under its own name');
 
-  // `upgrade` is where the old behaviour went, and it is its own top-level entry.
-  const upgrade = resolveCommand('upgrade');
-  assert.ok(upgrade, '`upgrade` must resolve');
-  assert.equal(upgrade.name, 'upgrade');
-  assert.notEqual(upgrade, command, 'the two are separate commands, not aliases of each other');
+  const update = resolveCommand('update');
+  assert.ok(update, '`update` still resolves — as itself');
+  assert.notEqual(update, apply, 'two registry entries, two commands');
+  assert.equal(update.name, 'update');
 
   const a = await executeArgv(['help', 'apply'], {});
   const b = await executeArgv(['help', 'update'], {});
-  assert.equal(b.out, a.out, 'one command, one help page');
+  assert.notEqual(b.out, a.out, 'two commands, two help pages');
+  assert.ok(!/alias/i.test(a.out), '`apply`’s help claims no alias');
 });
 
-test('`update` and `apply` write byte-identical plans', async () => {
-  let viaApply = null;
-  await project(async (dir) => {
-    await executeArgv(['apply'], ctx(dir));
-    viaApply = readPrd(dir);
-  });
-
-  await project(async (dir) => {
-    const before = snapshotContents(dir);
-    const result = await executeArgv(['update'], ctx(dir));
-    const diff = diffSnapshots(before, snapshotContents(dir));
-
-    assert.equal(result.code, 0);
-    assert.equal(result.written, true);
-    assert.deepEqual(diff.added, [PRD_FILE], '`update` writes the plan and nothing else');
-    assert.deepEqual(diff.changed, []);
-    assert.deepEqual(diff.removed, []);
-    assert.equal(readPrd(dir), viaApply, 'the same plan, byte for byte');
-  });
-});
-
-test('`update` says nothing about having been redirected', async () => {
-  await project(async (dir) => {
-    const viaUpdate = await executeArgv(['update'], ctx(dir));
-    assert.ok(!/upgrade/i.test(viaUpdate.out), 'the silent switch prints no notice');
-    assert.ok(!/\balias\b|renamed|now means|used to/i.test(viaUpdate.out), 'and no acknowledgement gate');
-  });
-
-  // And the output is the same output, not merely a quiet one. The plan names
-  // the file it wrote, and each run gets its own sandbox, so the one thing that
-  // legitimately differs — the project directory — is normalised away.
-  const anonymise = (text, dir) => text.split(path.basename(dir)).join('<project>');
-  let viaApply = null;
-  await project(async (dir) => {
-    viaApply = anonymise((await executeArgv(['apply'], ctx(dir))).out, dir);
-  });
-  await project(async (dir) => {
-    assert.equal(anonymise((await executeArgv(['update'], ctx(dir))).out, dir), viaApply);
-  });
-});
-
-test('`update run` chains to `apply run`, refusal and all', async () => {
-  // With no plan written, `apply run` refuses and changes nothing. The alias
-  // reaches the same refusal, which is what proves the scope word chains rather
-  // than being re-parsed somewhere else.
-  let viaApply = null;
-  await project(async (dir) => {
-    viaApply = await executeArgv(['apply', 'run'], ctx(dir));
-  });
-  await project(async (dir) => {
-    const before = snapshotContents(dir);
-    const viaUpdate = await executeArgv(['update', 'run'], ctx(dir));
-    assert.equal(viaUpdate.out, viaApply.out);
-    assert.equal(viaUpdate.code, viaApply.code);
-    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
-      added: [],
-      changed: [],
-      removed: [],
+test('`phyllum update` writes no PRD, whatever follows it', async () => {
+  // The break's one safety claim: a muscle-memory `update` cannot leave the plan
+  // file behind, because the command that writes it is no longer reachable by
+  // that word. Proved by diffing the whole project directory, not by reading the
+  // output.
+  for (const args of [['update'], ['update', 'run'], ['update', '--fresh'], ['update', 'token']]) {
+    await project(async (dir) => {
+      const before = snapshotContents(dir);
+      await executeArgv(args, ctx(dir));
+      const diff = diffSnapshots(before, snapshotContents(dir));
+      assert.ok(!diff.added.includes(PRD_FILE), `${args.join(' ')} wrote ${PRD_FILE}`);
+      assert.deepEqual(diff.changed, [], `${args.join(' ')} changed a file`);
     });
-  });
+  }
 });
 
-test('`phyllum update` installs nothing and starts no process', async () => {
-  // The old `update` was the one command that ran a package manager. The new one
-  // must not be able to: the module that spawns one is not even on its path.
+test('`apply` never reaches the upgrade path or starts a process', () => {
   const apply = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'apply-command.js'), 'utf8');
   assert.ok(!/upgrade-command/.test(apply), '`apply` does not reach the upgrade path');
   assert.ok(!/child_process/.test(apply), 'and starts no process of its own');
-
-  await project(async (dir) => {
-    const before = snapshotContents(dir);
-    await executeArgv(['update'], ctx(dir));
-    const diff = diffSnapshots(before, snapshotContents(dir));
-    assert.deepEqual(diff.added, [PRD_FILE]);
-  });
 });

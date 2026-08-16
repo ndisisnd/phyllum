@@ -275,10 +275,14 @@ Three different things, and from 0.3.0 each has its own word:
   command converges, a rerun refreshes `DESIGN-SYSTEM.md` without duplicating what's
   already there; `init` on an existing file adds back only missing sections and never drops
   your content.
-- **Update your codebase from the design system — `phyllum update`** — this is what the word
-  means from 0.3.0 on: `update` is an alias of `apply`, so it writes the plan to
-  `.phyllum/PRD.md` and runs nothing, and `update run` is `apply run`. It used to move the
-  install; that job is `phyllum upgrade` now, and nothing about it changed but the word.
+- **Update your codebase from the design system — `phyllum apply`** — it writes the plan to
+  `.phyllum/PRD.md` and runs nothing; `apply run` executes it. In 0.3.0 only, `phyllum update`
+  was a second name for this; from 0.4.0 `apply` stands alone under its own name.
+- **Change what the design system records — `phyllum update`** — the editing verb from 0.4.0.
+  `phyllum update` opens a menu, `update token` walks type → list → pick → a sentence
+  describing the change, and prose straight in reads its target from the sentence. A rename
+  rewrites every spec slot and Backlog line naming the old token in the same write; nothing
+  is written until you accept.
 
 ## FAQ
 

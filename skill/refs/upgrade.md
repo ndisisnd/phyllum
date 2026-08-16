@@ -68,12 +68,13 @@ CLI and the skill can never be two different versions.
 Up to v0.2.3 this command was called `update`. Nothing about it changed in
 v0.3.0 except the word: the same detection, the same refusal table, the same
 re-sync. The word moved because it was answering the wrong question — "update"
-is what people type when they mean *update my codebase from the design system*,
-which is `apply`. So `update` became `apply`'s alias and the install-moving job
-took the verb that only ever meant one thing.
+is what people type when they mean *update what Phyllum recorded*, not *update
+Phyllum*. So `update` left and the install-moving job took the verb that only
+ever meant one thing. `update` spent v0.3.0 as `apply`'s alias and became its own
+editing command in v0.4.0 (`refs/update.md`); neither move touched anything here.
 
 The switch is silent: no redirect notice, no acknowledgement gate. A
-muscle-memory `phyllum update` now writes a plan to `.phyllum/PRD.md` and runs
-nothing, which is the harmless end of every possible surprise. Discovery of
-`upgrade` belongs to `help`, `menu`, the README and the release note, not to a
-warning printed on a command that did its job.
+muscle-memory `phyllum update` now opens the editing menu and writes nothing
+until an acceptance gate is passed, which is the harmless end of every possible
+surprise. Discovery of `upgrade` belongs to `help`, `menu`, the README and the
+release note, not to a warning printed on a command that did its job.
