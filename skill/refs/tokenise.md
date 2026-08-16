@@ -7,6 +7,7 @@ its own turn through the same protocol:
 ```
 phyllum tokenise "our brand blue #2563EB"
 phyllum tokenise "our overlay rgba(0, 0, 0, 0.5)"
+phyllum tokenise "hero backdrop linear-gradient(135deg, #2563EB, #10B981)"
 phyllum tokenise "16px spacing called space-md"
 phyllum tokenise "heading 24px bold 1.2"
 phyllum tokenise "#2563EB #10B981 #F59E0B"
@@ -36,7 +37,8 @@ There is no second copy of these rules in the code.
 Two facts, and one of them is optional:
 
 - **The value** — the concrete thing being named. A colour (`#2563EB`,
-  `rgba(37, 99, 235, 0.5)`, `rgb(37, 99, 235)`, `hsl(217, 91%, 60%)`), a
+  `rgba(37, 99, 235, 0.5)`, `rgb(37, 99, 235)`, `hsl(217, 91%, 60%)`,
+  `linear-gradient(135deg, #2563EB, #10B981)`), a
   length (`12px`, `1rem`), or a
   typography reading (a size, optionally a weight and a line-height). A sentence
   may hold several; each one is read the same way and queued in turn.
@@ -194,7 +196,7 @@ scales, exactly as it does today.
 
 | Pass | Token section | Value shapes | Properties |
 |------|---------------|--------------|------------|
-| colours | Colours | `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `hsl()`, `hsla()` | color, background, background-color, border, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, outline, outline-color, fill, stroke |
+| colours | Colours | `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `hsl()`, `hsla()`, `linear-gradient()`, `radial-gradient()`, `conic-gradient()`, `repeating-linear-gradient()`, `repeating-radial-gradient()`, `repeating-conic-gradient()` | color, background, background-color, border, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, outline, outline-color, fill, stroke |
 | numbers | Numbers | `px`, `rem` | (by role — see below) |
 | typography | Typography | font-size + font-weight + line-height in one rule | font, font-size, font-weight, line-height |
 
@@ -205,6 +207,38 @@ colour *underneath* the alpha: lightness and saturation come from the red, green
 and blue channels alone, so `rgba(0, 0, 0, 0.5)` is named as the black it is.
 Alpha is still part of what makes two colours the same colour — see the
 already-named section below.
+
+**A gradient is one colour value.** The six gradient shapes on the colours row —
+`linear-gradient()`, `radial-gradient()`, `conic-gradient()` and their
+`repeating-` forms — are read the way every other colour shape is read, in the
+picker's gradient branch and in any sentence that carries one. Three rules make
+that whole:
+
+- **Never split.** The brackets and commas inside a gradient are punctuation,
+  not delimiters. `linear-gradient(135deg, #2563EB, #10B981)` is one entry in a
+  batch sentence, exactly as `rgb(37, 99, 235)` is — the same masking rule, and
+  the words inside a gradient (`to`, `right`, `linear-gradient` itself) are not
+  read as role words or as names.
+- **Recorded verbatim.** The whole function is the value: stops, angle and
+  percentages exactly as typed. Phyllum never reorders stops or normalises an
+  angle, for the reason it never edits a shadow — the meaning is the whole list.
+- **Writes into Colours**, as an ordinary `token | value` row. A gradient is a
+  colour decision, and a fourth token section would change the shape of every
+  `DESIGN-SYSTEM.md` for no gain in what the file says.
+
+What a gradient does **not** reach is as much of the contract as what it does:
+
+- **Duplicate detection stays string-level** — case-folded and
+  whitespace-stripped, per the `other` row of the comparison table below. Two
+  gradients with reordered stops are two facts, not one; channel comparison is
+  for single colours.
+- **`create primitives` skips it.** `toHsl` cannot read a gradient, so the row
+  is not a ramp candidate — reported as skipped, never refused loudly.
+- **`assess` does not scan code for gradients.** Its compound story is shadows
+  and borders.
+- **Backlog reconciliation** pays off a `TODO: tokenise` entry for a gradient
+  only on an exact value match and a colour-role property, per the standing
+  guards.
 
 The numbers pass does not treat every length alike. A 12px corner radius and a
 12px padding are the same number and different facts, so each length carries a
@@ -340,6 +374,45 @@ and saturation are HSL percentages.
 | color-accent | — | — | 3 |
 | color-{n} | — | — | 4 |
 
+**Gradients.** The lightness/saturation scale cannot read a gradient — `toHsl`
+returns null for one, rightly — so a gradient is named off its own one-row
+scale, and a gradient row is not counted as a chromatic colour by the scale
+above. Ranking is by count: the first gradient the system names is `gradient-1`,
+the second `gradient-2`.
+
+<!-- phyllum:gradient-names -->
+
+| Name | Rank | Mark |
+|------|------|------|
+| gradient-{n} | — | gradient |
+
+Three readings come out of that table, and the `Mark` column is what ties them
+together:
+
+- **Every name Phyllum proposes for a gradient carries the mark word.** A reader
+  tells a gradient token from a solid one by name alone. Your own name is still
+  yours and still verbatim — Phyllum proposes, it does not correct.
+- **The fallback leads with it.** `gradient-{n}` already starts with the mark, so
+  the count scale satisfies the rule for free. Rows are read as the colour scale's
+  are: a row with a rank number claims that rank, and a row spelling `{n}` takes
+  every count above them.
+- **A library name takes it as a final suffix** — "our danger gradient" is
+  `danger-primary-gradient`. **Decided (2026-08-16): the mark is always the last
+  part of the name**, after every slot the library filled, so
+  `danger-primary-hover-gradient` and not `danger-gradient-primary-hover`. The
+  mark is a shape mark rather than a slot, and one fixed position means its place
+  never depends on which optional slots a sentence happened to signal. The
+  library's own slot tables (`refs/nomenclature.md`) are untouched by this: a
+  marked name is a well-formed library name with one word appended.
+
+**Decided (2026-08-16): the gradient scale is its own table** —
+`phyllum:gradient-names` — rather than a shape column bolted onto
+`phyllum:colour-names`. Every row of the colour scale is a lightness and a
+saturation test, and a gradient has neither; a shape column would put a row in
+that table that the table's own comparators cannot judge, and would make every
+existing row answer a question it was not written to answer. One table, one kind
+of judgement, is the shape the rest of the spec reader already parses.
+
 **Numbers.** Each role has a ladder, and a value is placed on it relative to
 what the system already names in that role. A system with no radius at all gets
 `rounded-md` — the centre rung, because one radius is neither large nor small. A
@@ -428,7 +501,7 @@ compared:
 | hex | `#rgb`, `#rrggbb`, `#rgba`, `#rrggbbaa` | channels |
 | rgb | `rgb()`, `rgba()` | channels |
 | hsl | `hsl()`, `hsla()` | channels |
-| other | anything else — a length, a compound, a value Phyllum cannot read | string |
+| other | anything else — a length, a compound, a gradient, a value Phyllum cannot read | string |
 
 **channels** is `rgba(r,g,b,a)`: red, green and blue as integers 0–255 and alpha
 as a number 0–1, which is the one spelling every colour shape above can be
