@@ -22,12 +22,29 @@ import test from 'node:test';
 import { parse } from '../../lib/design-system.js';
 import { slotWords } from '../../lib/nomenclature.js';
 import { readState } from '../../lib/state.js';
+import { askable, deriveRamp, primitiveOffers } from '../../lib/primitives.js';
 import {
+  SPEC_FILE,
+  comparedAs,
+  gradientFunctions,
+  gradientMark,
   nameSourceApplies,
   nameSourceFallback,
   roleSignalFor,
   roleSignalWords,
+  shapesFor,
+  valueComparisons,
 } from '../../lib/tokenise-spec.js';
+import {
+  alphaOf,
+  colourShape,
+  comparisonValue,
+  isGradientValue,
+  nameGradient,
+  normaliseValue,
+  toHsl,
+  withGradientMark,
+} from '../../lib/tokenise.js';
 import { runTokenise, resolveRole, unfinishedQueue } from '../../lib/tokenise-command.js';
 import {
   IMPLIED_LINE_HEIGHT,
@@ -197,7 +214,7 @@ test('a sentence with no value asks for it, then writes the completed token', as
     });
 
     assert.equal(code, 0);
-    assert.match(asked[0], /Give me the value/, 'the missing value is what it asks for');
+    assert.match(asked[0], /Write the value as/, 'the missing value is what it asks for');
     assert.ok(out.includes('#2563EB'));
     assert.ok(parse(read(dir)).tokens.colours.some((row) => row[1] === '#2563EB'));
   });
@@ -433,6 +450,139 @@ test('a length is only a duplicate of a length in the same role', () => {
   assert.equal(collapseDuplicates(candidates).length, 2, 'same number, different facts');
 });
 
+// ---------------------------------------------------------------------------
+// Cross-format convergence — one colour is one colour, however it is written
+// (v0.4.0 plan §3.1)
+// ---------------------------------------------------------------------------
+
+test('the comparison table is the contract, and the code reads it', () => {
+  const table = valueComparisons();
+  assert.deepEqual(Object.keys(table).sort(), ['hex', 'hsl', 'other', 'rgb']);
+  for (const shape of ['hex', 'rgb', 'hsl']) {
+    assert.equal(table[shape], 'channels', `${shape} compares by channels`);
+    assert.equal(comparedAs(shape), 'channels');
+  }
+  assert.equal(comparedAs('other'), 'string');
+  assert.equal(comparedAs('gradient'), 'string', 'a shape the table does not list is not folded');
+
+  assert.equal(colourShape('#2563EB'), 'hex');
+  assert.equal(colourShape('rgba(37, 99, 235, 1)'), 'rgb');
+  assert.equal(colourShape('hsl(217, 91%, 60%)'), 'hsl');
+  assert.equal(colourShape('12px'), 'other');
+  assert.ok(
+    fs.readFileSync(SPEC_FILE, 'utf8').includes('<!-- phyllum:value-comparison -->'),
+    'the table is marked for the parser',
+  );
+});
+
+test('every colour shape compares as one canonical channel form', () => {
+  const blue = comparisonValue('#2563EB');
+  assert.equal(blue, 'rgba(37,99,235,1)', 'the canonical form is the rgba channel tuple');
+  for (const spelling of ['#2563eb', '#2563EBFF', 'rgb(37, 99, 235)', 'rgba(37,99,235,1)']) {
+    assert.equal(comparisonValue(spelling), blue, `${spelling} is the same colour`);
+  }
+  assert.equal(comparisonValue('#ABC'), comparisonValue('rgb(170, 187, 204)'));
+  assert.equal(
+    comparisonValue('hsl(221.2, 83.2%, 53.3%)'),
+    comparisonValue('rgb(37, 99, 235)'),
+    'hsl converts to integer channels and compares there — no tolerance is applied',
+  );
+  assert.equal(comparisonValue('12px'), '12px', 'a value that is not a colour keeps the string form');
+});
+
+test('alpha is read, and two alphas are two facts', () => {
+  assert.equal(alphaOf('#2563EB'), 1, 'no alpha written is fully opaque');
+  assert.equal(alphaOf('#2563EBFF'), 1);
+  assert.equal(alphaOf('rgba(0, 0, 0, 0.5)'), 0.5);
+  assert.equal(alphaOf('hsla(217, 91%, 53%, 0.25)'), 0.25);
+  assert.notEqual(
+    comparisonValue('rgba(0, 0, 0, 0.5)'),
+    comparisonValue('rgba(0, 0, 0, 0.9)'),
+    'a half-opaque black and a nearly-opaque one are different tokens',
+  );
+  assert.notEqual(comparisonValue('#2563EB80'), comparisonValue('#2563EB'));
+});
+
+test('one colour written two ways is one queue entry', () => {
+  const parsed = parseProse('our overlay #2563EB and rgba(37, 99, 235, 1) again');
+  assert.equal(parsed.candidates.length, 1, 'the same colour in two formats is one value');
+  assert.equal(parsed.candidates[0].value, '#2563EB', 'and the first mention keeps its place');
+
+  const other = parseProse('our overlay rgb(37, 99, 235) and #2563EB again');
+  assert.equal(other.candidates.length, 1, 'convergence has no preferred direction');
+  assert.equal(other.candidates[0].value, 'rgb(37, 99, 235)');
+});
+
+test('alpha variants in one sentence do not collapse', () => {
+  const parsed = parseProse('rgba(0, 0, 0, 0.5) and rgba(0, 0, 0, 0.9)');
+  assert.equal(parsed.candidates.length, 2, 'differing alphas are differing facts');
+});
+
+test('a colour already named in another format trips the already-named check', () => {
+  const model = emptyModel();
+  model.tokens.colours.push(['color-primary', '#2563EB']);
+  for (const spelling of ['rgba(37, 99, 235, 1)', 'rgb(37, 99, 235)', 'hsl(221.2, 83.2%, 53.3%)']) {
+    assert.equal(
+      existingTokenFor({ pass: 'colours', value: spelling }, model).name,
+      'color-primary',
+      `${spelling} is the colour the system already names`,
+    );
+  }
+  assert.equal(
+    existingTokenFor({ pass: 'colours', value: 'rgba(37, 99, 235, 0.5)' }, model),
+    null,
+    'a different alpha is a different colour, and still nameable',
+  );
+
+  // And the other direction: the recorded value is the rgba one.
+  const inverted = emptyModel();
+  inverted.tokens.colours.push(['color-primary', 'rgba(37, 99, 235, 1)']);
+  assert.equal(existingTokenFor({ pass: 'colours', value: '#2563EB' }, inverted).name, 'color-primary');
+});
+
+test('a colour already named in another format is refused a second row', async () => {
+  await withProject(async (dir) => {
+    await runTokenise(args('our brand blue #2563EB'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'y',
+      confirm: async () => true,
+    });
+    const { out } = await runTokenise(args('our overlay rgba(37, 99, 235, 1)'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'y',
+      confirm: async () => true,
+    });
+    assert.match(out, /is already `color-primary`/, 'the same colour, said another way');
+    assert.equal(parse(read(dir)).tokens.colours.length, 1, 'and no second row was written');
+  });
+});
+
+test('the recorded value is byte-identical to what was typed, in every format', async () => {
+  const written = [
+    '#2563EB',
+    '#2563ebff',
+    'rgb(37, 99, 235)',
+    'rgba(0, 0, 0, 0.5)',
+    'hsl(221.2, 83.2%, 53.3%)',
+    'hsla(221.2, 83.2%, 53.3%, 0.25)',
+  ];
+  for (const value of written) {
+    await withProject(async (dir) => {
+      await runTokenise(args(`our colour ${value}`), {
+        cwd: dir,
+        env: {},
+        ask: async () => 'y',
+        confirm: async () => true,
+      });
+      const colours = parse(read(dir)).tokens.colours;
+      assert.equal(colours.length, 1, `${value} was written`);
+      assert.equal(colours[0][1], value, 'exactly as typed — Phyllum never converts a value');
+    });
+  }
+});
+
 test('the queue runs one question at a time, and each entry writes its own token', async () => {
   await withProject(async (dir) => {
     const asked = [];
@@ -638,5 +788,182 @@ test('a pipe in the sentence never reaches the table, and no provenance cell is 
       !read(dir).includes('| token | value | notes |'),
       'the Colours table has no notes column to record it in',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gradients — one new value shape in the colours pass (v0.4.0 plan §5)
+// ---------------------------------------------------------------------------
+
+const GRADIENTS = [
+  'linear-gradient(135deg, #2563EB, #10B981)',
+  'radial-gradient(circle at 50% 50%, #2563EB 0%, #10B981 100%)',
+  'conic-gradient(from 90deg, #2563EB, #10B981)',
+  'repeating-linear-gradient(45deg, #2563EB 0 10px, #10B981 10px 20px)',
+  'repeating-radial-gradient(circle, #2563EB 0 10px, #10B981 10px 20px)',
+  'repeating-conic-gradient(from 0deg, #2563EB 0deg 10deg, #10B981 10deg 20deg)',
+];
+
+test('the gradient shapes are the passes table\'s, and there are six of them', () => {
+  const shapes = shapesFor('colours');
+  const functions = gradientFunctions();
+  assert.deepEqual(
+    [...functions].sort(),
+    [
+      'conic-gradient',
+      'linear-gradient',
+      'radial-gradient',
+      'repeating-conic-gradient',
+      'repeating-linear-gradient',
+      'repeating-radial-gradient',
+    ],
+    'six shapes, read off the colours row rather than restated in the code',
+  );
+  for (const name of functions) {
+    assert.ok(shapes.includes(`${name}()`), `${name} is written on the passes table`);
+  }
+});
+
+test('each of the six gradient shapes reads as one colours-pass value', () => {
+  for (const gradient of GRADIENTS) {
+    const read = parseProse(`hero backdrop ${gradient}`);
+    assert.equal(read.candidates.length, 1, `${gradient} is one value, not its stops`);
+    const [candidate] = read.candidates;
+    assert.equal(candidate.pass, 'colours', 'a gradient is a colours-pass value');
+    assert.equal(candidate.value, gradient, 'recorded verbatim, byte for byte as typed');
+    assert.ok(isGradientValue(gradient), 'and is recognised whole');
+  }
+});
+
+test('the commas and brackets inside a gradient never split a batch sentence', () => {
+  const gradient = 'linear-gradient(135deg, rgba(37, 99, 235, 0.8), #10B981)';
+  const read = parseProse(`hero ${gradient} and our brand blue #2563EB`);
+  assert.deepEqual(
+    read.candidates.map((candidate) => candidate.value),
+    [gradient, '#2563EB'],
+    'two entries: one gradient and one colour, in sentence order',
+  );
+
+  const inside = `${gradient} `.indexOf(',');
+  const segments = splitSegments(`hero ${gradient} and #2563EB`);
+  for (const segment of segments) {
+    assert.ok(
+      segment.start <= 'hero '.length || segment.start >= 'hero '.length + gradient.length,
+      'no segment starts inside the gradient',
+    );
+  }
+  assert.ok(inside > 0, 'the gradient really does carry a comma');
+});
+
+test('the words inside a gradient are not read as names, roles or weights', () => {
+  const read = parseProse('linear-gradient(to right, #2563EB, #10B981)');
+  assert.equal(read.candidates.length, 1);
+  assert.equal(read.name, null, '`linear-gradient` is not the name the user typed');
+  assert.equal(read.candidates[0].nameFromProse, false);
+  assert.equal(read.typographic, false, 'nothing inside the value moves it out of colours');
+
+  const named = parseProse('linear-gradient(to right, #2563EB, #10B981) called hero-wash');
+  assert.equal(named.candidates.length, 1);
+  assert.equal(named.candidates[0].name, 'hero-wash', 'a real name still binds');
+});
+
+test('gradient-{n} ranks by count, and every proposed gradient name carries the mark', () => {
+  const mark = gradientMark();
+  assert.equal(mark, 'gradient', 'the mark word the table ships');
+  assert.equal(nameGradient(1), 'gradient-1');
+  assert.equal(nameGradient(2), 'gradient-2');
+
+  const model = emptyModel();
+  const candidate = { pass: 'colours', value: GRADIENTS[0], context: 'hero backdrop' };
+  const first = suggestName(candidate, model);
+  assert.equal(first.name, 'gradient-1', 'the first gradient in an empty system');
+
+  model.tokens.colours.push([first.name, GRADIENTS[0]]);
+  const second = suggestName({ ...candidate, value: GRADIENTS[1] }, model);
+  assert.equal(second.name, 'gradient-2', 'ranked by how many gradients are already named');
+
+  // The library, when the sentence signals a family — the mark rides last.
+  const fromLibrary = suggestName(
+    { pass: 'colours', value: GRADIENTS[0], context: 'our danger gradient' },
+    emptyModel(),
+  );
+  assert.equal(fromLibrary.name, 'danger-primary-gradient');
+  assert.equal(fromLibrary.source, 'nomenclature');
+
+  const withState = suggestName(
+    { pass: 'colours', value: GRADIENTS[0], context: 'our danger gradient on hover' },
+    emptyModel(),
+  );
+  assert.equal(withState.name, 'danger-primary-hover-gradient', 'the mark is always the last part');
+
+  for (const proposed of [first.name, second.name, fromLibrary.name, withState.name]) {
+    assert.ok(proposed.split('-').includes(mark), `${proposed} carries the word ${mark}`);
+  }
+  assert.equal(withGradientMark('danger-primary-gradient'), 'danger-primary-gradient', 'never twice');
+});
+
+test('a gradient does not move a solid colour along the chromatic scale', () => {
+  const model = emptyModel();
+  model.tokens.colours.push(['gradient-1', GRADIENTS[0]]);
+  const suggestion = suggestName({ pass: 'colours', value: '#2563EB', context: 'our brand blue' }, model);
+  assert.equal(suggestion.name, 'color-primary', 'the first solid colour is still the first');
+});
+
+test('gradient duplicate detection stays string-level, never channel-level', () => {
+  assert.equal(comparedAs(colourShape(GRADIENTS[0])), 'string', 'the `other` row owns a gradient');
+  assert.equal(comparisonValue(GRADIENTS[0]), normaliseValue(GRADIENTS[0]));
+
+  const spaced = 'linear-gradient(135deg,#2563EB,#10B981)';
+  assert.equal(
+    collapseDuplicates([
+      { pass: 'colours', value: GRADIENTS[0] },
+      { pass: 'colours', value: spaced.toUpperCase() },
+    ]).length,
+    1,
+    'case-folded and whitespace-stripped is one value',
+  );
+
+  const reordered = 'linear-gradient(135deg, #10B981, #2563EB)';
+  assert.equal(
+    collapseDuplicates([
+      { pass: 'colours', value: GRADIENTS[0] },
+      { pass: 'colours', value: reordered },
+    ]).length,
+    2,
+    'reordered stops are two facts — no equivalence beyond the string',
+  );
+
+  const model = emptyModel();
+  model.tokens.colours.push(['hero-wash', GRADIENTS[0]]);
+  assert.equal(existingTokenFor({ pass: 'colours', value: spaced }, model)?.name, 'hero-wash');
+  assert.equal(existingTokenFor({ pass: 'colours', value: reordered }, model), null);
+});
+
+test('create primitives skips a gradient, as it skips every value toHsl cannot read', () => {
+  for (const gradient of GRADIENTS) {
+    assert.equal(toHsl(gradient), null, 'a gradient has no lightness to read');
+    assert.equal(deriveRamp('hero-wash', gradient), null, 'so there is no ramp to derive');
+  }
+  const model = emptyModel();
+  model.tokens.colours.push(['hero-wash', GRADIENTS[0]]);
+  const offer = primitiveOffers(model).find((item) => item.base === 'hero-wash');
+  assert.equal(offer.status, 'unreadable', 'reported as skipped, never asked about');
+  assert.ok(!askable(primitiveOffers(model)).some((item) => item.base === 'hero-wash'));
+});
+
+test('a gradient lands in Colours as an ordinary token | value row, verbatim', async () => {
+  await withProject(async (dir) => {
+    await runTokenise(args(`hero backdrop ${GRADIENTS[0]}`), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'y',
+      confirm: async () => true,
+    });
+    const model = parse(read(dir));
+    const row = model.tokens.colours.find((item) => item[1] === GRADIENTS[0]);
+    assert.ok(row, 'the gradient is in the Colours table, byte for byte as typed');
+    assert.equal(row.length, 2, 'Colours is token | value');
+    assert.ok(row[0].split('-').includes(gradientMark()), 'and its name says it is a gradient');
+    assert.equal(model.tokens.primitives.length, 0, 'no ramp was derived from it');
   });
 });

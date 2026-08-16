@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-17
+
+### [6] — 0.4.0: `tokenise` meets you halfway, and `update` changes hands again
+
+- `lib/tokenise.js`, `lib/tokenise-spec.js`, `skill/refs/tokenise.md`: Changed — rgba is first-class: any value the colour reader can read is compared **by its channels**, alpha included, so `rgba(37, 99, 235, 1)` and `#2563EB` are one colour and can never be named twice, while `rgba(0,0,0,0.5)` and `rgba(0,0,0,0.9)` stay two facts; the recorded value is still byte-identical to what was typed
+- `lib/tokenise.js`, `lib/tokenise-prose.js`, `skill/refs/tokenise.md`: Added — gradients are a colours-pass value: the six `*-gradient()` shapes read as one value each, commas inside never splitting a batch sentence, recorded verbatim into Colours as `token | value`, named off a new `phyllum:gradient-names` scale whose mark word every proposed gradient name carries
+- `lib/tokenise-command.js`, `lib/tokenise-spec.js`, `skill/refs/tokenise.md`: Added — the kind picker an empty `tokenise` opens after the resume offer (colour / typography / border radius / spacing / something else), the solid-or-gradient fork under colour, and the prose each pick builds for the existing parser; plus the argument hint every value question now wears, read from its table row rather than spelled in the renderer
+- `gui/index.html`, `skill/refs/gui.md`: Changed — colour tokens render as cards in a responsive grid: a rounded swatch on top, the name and then the value beneath it, gradients painted as the swatch fill, near-white swatches still bordered, primitives ramps still nine-step strips
+- `lib/update-command.js`, `lib/update-spec.js`, `lib/registry.js`, `skill/refs/update.md`, `skill/refs/apply.md`: Changed — **breaking**: `update` stops aliasing `apply` and becomes the design-system editing verb; `update run` is gone, `apply` carries no alias at all, and the empty-run menu prints one 0.4.x breadcrumb pointing at `apply`
+- `lib/update-command.js`, `skill/refs/update.md`: Added — `update token` (type → the full list of that section → pick → prose), the rename ripple over every referencing spec slot and every Backlog `TODO` line in one write, and the convergence re-check that stops a new value colliding with a token the system already names
+- `lib/update-command.js`, `skill/refs/update.md`: Added — `update component`: the recorded components with the archetype each spec block records, and the change landing as a revision through `create`'s own machinery, so what the sentence names changes and every other slot stays byte-identical
+- `lib/update-command.js`: Fixed — a rename could put two values under one name: renaming onto a name the system already uses, or renaming a token whose name sits on two rows, is now surfaced and stopped, because a ripple that cannot tell which row a reference meant would hand the picked row every reference the other one owned
+- `lib/update-command.js`: Fixed — a hand-mangled token row with no name or no value was listed and pickable, so a proposal reading `value undefined` could reach the acceptance gate; such a row is left out of the list now and the omission is said out loud
+- `lib/tokenise-command.js`, `lib/update-spec.js`: Fixed — the `update token` type question threw a raw `TypeError` on any free-text answer, which made the one question that promises prose the only one that refused it; the type rows carry the cell the picker reads, and the picker reads every cell defensively
+- `lib/tokenise-spec.js`, `lib/update-spec.js`, `lib/assess-report.js`: Fixed — the tables this release added were read without tolerance, so a hand-edited row with a blank key cell became a numbered menu option resolving to nothing, a question silently missing its hint, or cross-format comparison switched off with no message anywhere; every one of them drops the row and says so, and the notice names its file as well as its table
+- `lib/tokenise-command.js`, `lib/update-command.js`: Changed — a dropped contract row is reported before the run starts, the way `assess` has reported one since v0.2.1 M6
+- `evals/assertions/fault-inputs.test.js`: Added — the v0.4.0 sweep: twelve hostile contract rows across `refs/tokenise.md` and `refs/update.md`, a hand-mangled `DESIGN-SYSTEM.md` met by both `update` flows, the two rename refusals, sixteen picker runs against an answer stream that is at EOF, garbage, `null` or out of range, and the card renderer met by seven hostile gradient values
+- `evals/assertions/assess-scan.test.js`: Added — an `assess` run against an rgba-recorded colour still reports it as covered, with the cross-format limit stated rather than left to be discovered
+- `evals/baseline.json`: Changed — re-recorded as `release: v0.4.0`, 19 evals at 1.000, no threshold lowered
+- `package.json`: version → 0.4.0
+- `README.md`, `llms.txt`, `skill/SKILL.md`, `evals/run.md`, `RELEASES.md`: docs updated for the 0.4.0 surface, including every remaining claim that `update` was `apply`'s alias
+
 ## 2026-08-15
 
 ### [5] — 0.3.0: the vocabulary grows up, and the hardening sweep that closed the release

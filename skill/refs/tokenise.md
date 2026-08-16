@@ -6,6 +6,8 @@ its own turn through the same protocol:
 
 ```
 phyllum tokenise "our brand blue #2563EB"
+phyllum tokenise "our overlay rgba(0, 0, 0, 0.5)"
+phyllum tokenise "hero backdrop linear-gradient(135deg, #2563EB, #10B981)"
 phyllum tokenise "16px spacing called space-md"
 phyllum tokenise "heading 24px bold 1.2"
 phyllum tokenise "#2563EB #10B981 #F59E0B"
@@ -35,7 +37,9 @@ There is no second copy of these rules in the code.
 Two facts, and one of them is optional:
 
 - **The value** — the concrete thing being named. A colour (`#2563EB`,
-  `rgb(37, 99, 235)`, `hsl(217, 91%, 60%)`), a length (`12px`, `1rem`), or a
+  `rgba(37, 99, 235, 0.5)`, `rgb(37, 99, 235)`, `hsl(217, 91%, 60%)`,
+  `linear-gradient(135deg, #2563EB, #10B981)`), a
+  length (`12px`, `1rem`), or a
   typography reading (a size, optionally a weight and a line-height). A sentence
   may hold several; each one is read the same way and queued in turn.
 - **The name** — if the sentence gives one, it is used verbatim. If it doesn't,
@@ -120,9 +124,10 @@ mode, it is a form, and a form is the thing this command exists not to be.
 | resume | `.phyllum/session.json` | the whole queue is held in the session file, so an interrupted run picks up where it stood |
 
 Duplicates are compared the way the already-named check compares them:
-case-folded, whitespace-stripped, `#abc` expanded to `#aabbcc`, and a length only
-against a length in the same role. Convergence applies *inside* a run as well as
-between runs.
+case-folded, whitespace-stripped, `#abc` expanded to `#aabbcc`, a colour by its
+channels whatever format it is written in, and a length only against a length in
+the same role. So "our brand blue #2563EB and rgba(37, 99, 235, 1) again" is one
+entry, not two. Convergence applies *inside* a run as well as between runs.
 
 Ordering is not decoration. The ranked colour scale counts what the system
 already names, and a token accepted earlier in the same run is something the
@@ -185,15 +190,196 @@ scales, exactly as it does today.
 
 ---
 
+## With nothing to read — the kind picker
+
+`phyllum tokenise` with no sentence at all is not an error and not a wall. The
+run does two things, in this order and never the other one:
+
+1. **The resume offer, first, always.** A queue cut short is picked up where it
+   stood — the values are already read, and asking for them again is asking for
+   a sentence that was already typed.
+2. **The kind picker**, when there is no queue to resume or the offer is
+   declined. It asks *what kind* of token is being recorded, and then asks the
+   one follow-up that kind needs.
+
+The picker builds prose. Everything downstream of it — pass detection, the
+naming scales, the already-named check, the confirmation, the acceptance gate,
+the one write funnel — is the path a typed sentence has always walked, and the
+picker reaches it by assembling the sentence the user did not type.
+
+```
+What are you tokenising?
+  1. a colour
+  2. typography
+  3. a border radius
+  4. spacing
+  5. something else
+(or just describe it — "our brand blue #2563EB" — or "skip")
+```
+
+<!-- phyllum:picker -->
+
+| Pick | Prints as | Follow-up | Builds |
+|------|-----------|-----------|--------|
+| `colour` | a colour | `colour-fork` | — |
+| `typography` | typography | `typography` | `type <answer>` |
+| `radius` | a border radius | `radius` | `<answer> radius` |
+| `spacing` | spacing | `spacing` | `<answer> spacing` |
+| `other` | something else | `free-text` | `<answer>` |
+
+The **Builds** column is the whole of what the picker does to an answer:
+`<answer>` is what the user typed, and the word beside it is the one the pick
+already answered. `8px` picked under *a border radius* becomes `8px radius`, so
+the "what does this apply to?" question never fires — a question already
+answered is a question not worth asking twice. The added word is dropped when
+the answer already carries a word that signals the same thing, so `8px radius`
+answered at that question stays `8px radius` and never becomes `8px radius
+radius`. Row order is the printed order, and the number a user types is the
+row's place in this table.
+
+**The first four rows are the three passes plus the two commonest number
+roles.** The fifth, `something else`, falls to the free-text question — so
+border widths, shadows and compounds keep a numbered path in, and the named
+rows stay the ones a first-time user reaches for.
+
+**How an answer is read**, in this order: a number inside the range picks the
+row in that place; a row's own word picks that row, so `1`, `colour` and
+`a colour` are one answer; a skip word — the `skip` row of the review table
+above, and an empty answer — ends the run writing nothing; and **anything else
+is a sentence**, parsed exactly as an argument would be. The skip words are read
+from that one table rather than restated here, so the word that skips a
+proposal is the word that skips the picker.
+
+Free text is honoured at **every** step, not only the first: a user who answers
+the picker, the fork or a value question with a whole sentence gets that
+sentence parsed as if it had been the argument. The picker is a ramp for the
+empty-handed, not a gate for anyone. And a skip at any depth writes nothing and
+ends the run — no dead ends, no forced march.
+
+**Non-interactive runs keep the older behaviour.** With no way to ask — a pipe,
+CI, `--no-input` — the run prints the usage block and exits `1`. A picker with
+nobody to pick is a wall, and a wall is what this section exists to remove.
+
+### The fork under colour: solid or gradient
+
+Picking *a colour* asks one more question before the value:
+
+```
+A solid colour, or a gradient?
+  1. solid — one value (#2563EB, rgba(…), hsl(…))
+  2. gradient — a CSS gradient (linear-gradient(…), radial-gradient(…))
+(or just describe it — "our brand blue #2563EB" — or "skip")
+```
+
+<!-- phyllum:colour-fork -->
+
+| Fork | Prints as | Follow-up | Builds |
+|------|-----------|-----------|--------|
+| `solid` | solid — one value (#2563EB, rgba(…), hsl(…)) | `colour-solid` | `<answer>` |
+| `gradient` | gradient — a CSS gradient (linear-gradient(…), radial-gradient(…)) | `colour-gradient` | `<answer>` |
+
+Both forks build the answer unchanged, because a colour value is
+self-identifying once it exists: a pasted `linear-gradient(…)` reads as a
+gradient wherever it appears. The fork lives here, and nowhere in sentence
+parsing, precisely because it is only needed when there is no value yet to look
+at. The escape line is on this question too — decided with the fork, because a
+question that can be answered in prose and cannot be escaped would be the one
+dead end in the flow.
+
+### Argument hints — every value question shows its shape
+
+A question that asks for a value also says what a valid answer looks like, in
+brackets, in a fixed order. The hint is **copy, not grammar**: the parser
+accepts everything it always accepted, and a hint understates on purpose —
+`hsl()` still works where the hint says rgba — rather than listing every shape
+and burying the common case. The optional part, `[name]`, is answered or left
+off freely.
+
+<!-- phyllum:value-questions -->
+
+| Question | Asks | Hint | Example |
+|----------|------|------|---------|
+| `colour-solid` | Write your colour as | `[HEX code / rgba value] [name]` | `#2563EB brand-blue` |
+| `colour-gradient` | Write your gradient as | `[linear-gradient(…) / radial-gradient(…)] [name]` | `linear-gradient(135deg, #2563EB, #10B981) hero-backdrop` |
+| `typography` | Write your reading as | `[size] [weight] [line-height] [name]` | `24px bold 1.2` |
+| `radius` | Write your value as | `[px / rem value] [name]` | `8px rounded-card` |
+| `spacing` | Write your value as | `[px / rem value] [name]` | `16px space-md` |
+| `missing-value` | Write the value as | `[HEX code / rgba value / px / rem value] [name]` | `#2563EB` |
+
+One question is composed from one row, in a fixed order — the ask, the hint, an
+example, the escape:
+
+```
+<Asks> <Hint> — e.g. "<Example>". (or "skip")
+```
+
+so the `colour-solid` row prints as
+`Write your colour as [HEX code / rgba value] [name] — e.g. "#2563EB brand-blue". (or "skip")`.
+
+Two readings come out of the table's shape:
+
+- **`radius` and `spacing` are two rows with one hint.** The shape of the answer
+  is the same and the example is not, because an example is the fastest way to
+  say which question is being asked.
+- **The `missing-value` row is the same rule, one step earlier.** A thin
+  sentence — "add a token for our brand blue" — opens the missing-value
+  question, and that question wears the hint its row declares, after the lead
+  sentence naming what is being asked about. It cannot know whether a colour or
+  a length is coming, so its hint carries both.
+
+Hint copy for the `update` flows is not here; those rows land with those flows.
+
+---
+
 ## The three passes
 
 <!-- phyllum:passes -->
 
 | Pass | Token section | Value shapes | Properties |
 |------|---------------|--------------|------------|
-| colours | Colours | `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `hsl()`, `hsla()` | color, background, background-color, border, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, outline, outline-color, fill, stroke |
+| colours | Colours | `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `rgba()`, `hsl()`, `hsla()`, `linear-gradient()`, `radial-gradient()`, `conic-gradient()`, `repeating-linear-gradient()`, `repeating-radial-gradient()`, `repeating-conic-gradient()` | color, background, background-color, border, border-color, border-top-color, border-right-color, border-bottom-color, border-left-color, outline, outline-color, fill, stroke |
 | numbers | Numbers | `px`, `rem` | (by role — see below) |
 | typography | Typography | font-size + font-weight + line-height in one rule | font, font-size, font-weight, line-height |
+
+**Alpha is recorded, never edited.** A `#rrggbbaa` hex and an `rgba()` alpha
+survive into the written row exactly as typed — Phyllum does not drop the alpha,
+round it, or rewrite the colour into another format. The naming scale reads the
+colour *underneath* the alpha: lightness and saturation come from the red, green
+and blue channels alone, so `rgba(0, 0, 0, 0.5)` is named as the black it is.
+Alpha is still part of what makes two colours the same colour — see the
+already-named section below.
+
+**A gradient is one colour value.** The six gradient shapes on the colours row —
+`linear-gradient()`, `radial-gradient()`, `conic-gradient()` and their
+`repeating-` forms — are read the way every other colour shape is read, in the
+picker's gradient branch and in any sentence that carries one. Three rules make
+that whole:
+
+- **Never split.** The brackets and commas inside a gradient are punctuation,
+  not delimiters. `linear-gradient(135deg, #2563EB, #10B981)` is one entry in a
+  batch sentence, exactly as `rgb(37, 99, 235)` is — the same masking rule, and
+  the words inside a gradient (`to`, `right`, `linear-gradient` itself) are not
+  read as role words or as names.
+- **Recorded verbatim.** The whole function is the value: stops, angle and
+  percentages exactly as typed. Phyllum never reorders stops or normalises an
+  angle, for the reason it never edits a shadow — the meaning is the whole list.
+- **Writes into Colours**, as an ordinary `token | value` row. A gradient is a
+  colour decision, and a fourth token section would change the shape of every
+  `DESIGN-SYSTEM.md` for no gain in what the file says.
+
+What a gradient does **not** reach is as much of the contract as what it does:
+
+- **Duplicate detection stays string-level** — case-folded and
+  whitespace-stripped, per the `other` row of the comparison table below. Two
+  gradients with reordered stops are two facts, not one; channel comparison is
+  for single colours.
+- **`create primitives` skips it.** `toHsl` cannot read a gradient, so the row
+  is not a ramp candidate — reported as skipped, never refused loudly.
+- **`assess` does not scan code for gradients.** Its compound story is shadows
+  and borders.
+- **Backlog reconciliation** pays off a `TODO: tokenise` entry for a gradient
+  only on an exact value match and a colour-role property, per the standing
+  guards.
 
 The numbers pass does not treat every length alike. A 12px corner radius and a
 12px padding are the same number and different facts, so each length carries a
@@ -329,6 +515,45 @@ and saturation are HSL percentages.
 | color-accent | — | — | 3 |
 | color-{n} | — | — | 4 |
 
+**Gradients.** The lightness/saturation scale cannot read a gradient — `toHsl`
+returns null for one, rightly — so a gradient is named off its own one-row
+scale, and a gradient row is not counted as a chromatic colour by the scale
+above. Ranking is by count: the first gradient the system names is `gradient-1`,
+the second `gradient-2`.
+
+<!-- phyllum:gradient-names -->
+
+| Name | Rank | Mark |
+|------|------|------|
+| gradient-{n} | — | gradient |
+
+Three readings come out of that table, and the `Mark` column is what ties them
+together:
+
+- **Every name Phyllum proposes for a gradient carries the mark word.** A reader
+  tells a gradient token from a solid one by name alone. Your own name is still
+  yours and still verbatim — Phyllum proposes, it does not correct.
+- **The fallback leads with it.** `gradient-{n}` already starts with the mark, so
+  the count scale satisfies the rule for free. Rows are read as the colour scale's
+  are: a row with a rank number claims that rank, and a row spelling `{n}` takes
+  every count above them.
+- **A library name takes it as a final suffix** — "our danger gradient" is
+  `danger-primary-gradient`. **Decided (2026-08-16): the mark is always the last
+  part of the name**, after every slot the library filled, so
+  `danger-primary-hover-gradient` and not `danger-gradient-primary-hover`. The
+  mark is a shape mark rather than a slot, and one fixed position means its place
+  never depends on which optional slots a sentence happened to signal. The
+  library's own slot tables (`refs/nomenclature.md`) are untouched by this: a
+  marked name is a well-formed library name with one word appended.
+
+**Decided (2026-08-16): the gradient scale is its own table** —
+`phyllum:gradient-names` — rather than a shape column bolted onto
+`phyllum:colour-names`. Every row of the colour scale is a lightness and a
+saturation test, and a gradient has neither; a shape column would put a row in
+that table that the table's own comparators cannot judge, and would make every
+existing row answer a question it was not written to answer. One table, one kind
+of judgement, is the shape the rest of the spec reader already parses.
+
 **Numbers.** Each role has a ladder, and a value is placed on it relative to
 what the system already names in that role. A system with no radius at all gets
 `rounded-md` — the centre rung, because one radius is neither large nor small. A
@@ -405,6 +630,38 @@ If the value in your sentence is already the value of a token, `tokenise` says
 which token names it and stops. It does not write a second row, and it does not
 rename the one you have — that is your edit to make. Values are compared
 normalised: case-folded, whitespace-stripped, `#abc` expanded to `#aabbcc`.
+
+**A colour is compared by its channels, not by its spelling.** Any colour shape
+the passes table lists is read into one canonical comparison form before it is
+compared:
+
+<!-- phyllum:value-comparison -->
+
+| Shape | Written as | Compared as |
+|-------|------------|-------------|
+| hex | `#rgb`, `#rrggbb`, `#rgba`, `#rrggbbaa` | channels |
+| rgb | `rgb()`, `rgba()` | channels |
+| hsl | `hsl()`, `hsla()` | channels |
+| other | anything else — a length, a compound, a gradient, a value Phyllum cannot read | string |
+
+**channels** is `rgba(r,g,b,a)`: red, green and blue as integers 0–255 and alpha
+as a number 0–1, which is the one spelling every colour shape above can be
+written in. **string** is the normalised string described just above. So `rgba(37, 99, 235)` is the `#2563EB` the system already names, in either
+direction, and a sentence carrying both spells one colour and gets one queue
+entry.
+
+Three rules keep that honest:
+
+- **Alpha counts.** `rgba(0, 0, 0, 0.5)` and `rgba(0, 0, 0, 0.9)` are different
+  facts and get different tokens. A colour that writes no alpha is fully opaque,
+  so `#2563EB`, `#2563EBFF` and `rgba(37, 99, 235, 1)` are one colour.
+- **No tolerance.** Two spellings either land on the same channels or they do
+  not. Colours that are merely *near* each other are the clustering table's
+  business (`refs/assess.md`), and a tolerance here would collapse two colours a
+  reader can tell apart into one name.
+- **Comparison only.** The value written into `DESIGN-SYSTEM.md` is byte for
+  byte what you typed, in the format you typed it. Phyllum never converts a
+  value it records.
 
 ---
 

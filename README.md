@@ -28,14 +28,15 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.3.0 -->
+<!-- mkpub:release 0.4.0 -->
 > [!NOTE]
-> **🚀 New in 0.3.0 · Batch tokenise, primitive ramps, and a naming vocabulary**
+> **🚀 New in 0.4.0 · A guided `tokenise`, gradients, colour cards, and an editing verb**
 >
-> One `tokenise` sentence can now carry several values, name suggestions draw on a
-> standard vocabulary, and `create primitives` lays down the colour ramps your tokens
-> sit on. `update` now updates your codebase from the design system; updating Phyllum
-> itself is `phyllum upgrade`.
+> `phyllum tokenise` with nothing now asks what kind of token you are recording, every
+> value question shows the shape its answer takes, and gradients are a colour value
+> Phyllum can name. `rgba()` is first-class — one colour written two ways is one colour.
+> The dashboard's colours are cards in a grid. And `phyllum update` is its own command
+> now: the way to change what the design system already records.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
@@ -72,8 +73,9 @@ The commands:
 |---------|--------------|
 | `create` | Craft a component from prose, an image you point at, or a pick from what your code repeats; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
-| `apply` | Plan applying the design system to the codebase; `apply run` executes the plan (`update` is the same command, kept as an alias) |
-| `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values are queued and asked about one at a time |
+| `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
+| `update` | Change what the design system already records — `update token` walks type → list → pick → a sentence, `update component` revises a recorded component |
+| `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values are queued and asked about one at a time; with nothing at all it asks what kind of token you are recording |
 | `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
 | `kill` | Stop the dashboard server `gui` started |
@@ -205,12 +207,36 @@ disk. A backup that cannot be written stops the edit rather than proceeding
 without it.
 
 `tokenise` names the values in a sentence: `phyllum tokenise "our brand blue #2563EB"`.
+Any colour format works — `phyllum tokenise "our overlay rgba(0, 0, 0, 0.5)"`, `hsl()`,
+`#rrggbbaa` — and the value is recorded exactly as you typed it, while **one colour
+written two ways is one colour**: `rgba(37, 99, 235)` and `#2563EB` are compared by their
+channels, so the same blue can never be named twice. Alpha is part of the fact, so
+`rgba(0,0,0,0.5)` and `rgba(0,0,0,0.9)` stay two different colours.
 A sentence carrying several — `phyllum tokenise "#2563EB #10B981 #F59E0B"` — becomes a
 queue, walked one question at a time in the order you said them, and a value you skip
 costs only itself. If the sentence names a token, that name is used; if not, Phyllum
 suggests one — from the nomenclature vocabulary when your words say what a colour is for,
 from the naming scales otherwise — and confirms it with you. It does not read your code —
 that's `assess`.
+
+**Gradients are colours too.** `phyllum tokenise "hero backdrop linear-gradient(135deg,
+#2563EB, #10B981)"` names it, and so do `radial-gradient()`, `conic-gradient()` and their
+`repeating-` forms. The whole function is the value — stops, angle and percentages exactly
+as typed, never reordered — and it lands in the Colours table as an ordinary
+`token | value` row. Every name Phyllum proposes for one carries the word `gradient`, so a
+reader tells a gradient token from a solid one by name alone; with nothing else to go on
+the fallback is `gradient-1`, `gradient-2`, and so on.
+
+**`phyllum tokenise` with nothing to read is a guided start.** After the offer to resume an
+unfinished queue, it asks what kind of token you are recording — a colour, typography, a
+border radius, spacing, or something else — and then asks the one follow-up that kind
+needs. Picking *a colour* asks one more: a solid colour, or a gradient? Each pick
+pre-answers a question the parser would have asked, so `8px` under *a border radius* is
+never asked what it applies to. Free text works at every step: type the whole sentence at
+any question and it is read exactly as if it had been the argument, and a skip anywhere
+writes nothing and ends the run. Every question that asks for a value **shows the shape its
+answer takes** — `Write your colour as [HEX code / rgba value] [name]` — the same one line
+across the picker, the missing-value question and `update`'s prose asks.
 
 `apply` is the other direction: it takes the design system you have built and plans how to
 get it into your code. Raw values become the tokens that already name them; ad-hoc patterns
@@ -243,10 +269,14 @@ records where it stopped in the plan; the next `apply run` resumes from there. N
 ever rolled back. You get a status report every five minutes while it works.
 
 `gui` opens a local dashboard onto the same file, and it **shows the values rather than
-printing them**: every colour token is a filled swatch of that colour, with a border where
-a near-white would otherwise vanish against the page; a primitives ramp is a nine-step
-strip; typography tokens render as live specimens in their own size, weight and
-line-height; and numbers render as measured bars. The page is styled along Carbon Design
+printing them**. Colour tokens are **cards in a responsive grid**: a large rounded swatch
+on top, the token name beneath it, and the value on its own line under that — a border on
+the swatch where a near-white would otherwise vanish against the page, and a gradient
+painted as the swatch fill. A primitives ramp keeps its nine-step strip, because a ramp
+reads as one thing rather than as nine cards; typography tokens render as live specimens in
+their own size, weight and line-height; and numbers render as measured bars. Only a value
+the page recognises as a colour or a gradient is ever painted — anything else is shown as
+text on an unfilled swatch, so a hand-edited file can never write CSS into the page. The page is styled along Carbon Design
 System lines — flat tiles, sharp corners, a disciplined type ramp — but it takes no
 dependency on Carbon or anything else: the stylesheet is hand-written in the one file and
 the page fetches nothing from the network. It stays read-only, on localhost only. Writing
@@ -257,7 +287,7 @@ corrupt `DESIGN-SYSTEM.md`.
 
 ## How to update
 
-Three different things, and from 0.3.0 each has its own word:
+Four different things, and from 0.4.0 each has its own word:
 
 - **Update Phyllum itself — `phyllum upgrade`** — `phyllum version` tells you whether you
   are current, showing both your version and the latest published one. `phyllum upgrade`
@@ -272,10 +302,21 @@ Three different things, and from 0.3.0 each has its own word:
   command converges, a rerun refreshes `DESIGN-SYSTEM.md` without duplicating what's
   already there; `init` on an existing file adds back only missing sections and never drops
   your content.
-- **Update your codebase from the design system — `phyllum update`** — this is what the word
-  means from 0.3.0 on: `update` is an alias of `apply`, so it writes the plan to
-  `.phyllum/PRD.md` and runs nothing, and `update run` is `apply run`. It used to move the
-  install; that job is `phyllum upgrade` now, and nothing about it changed but the word.
+- **Update your codebase from the design system — `phyllum apply`** — it writes the plan to
+  `.phyllum/PRD.md` and runs nothing; `apply run` executes it. In 0.3.0 only, `phyllum update`
+  was a second name for this; from 0.4.0 `apply` stands alone under its own name.
+- **Change what the design system records — `phyllum update`** — the editing verb from 0.4.0,
+  and the first sanctioned way to change a recorded thing without hand-editing the file.
+  `phyllum update` opens a menu; `update token` walks type → the full list of that section →
+  pick one → a sentence describing the change; `update component` lists the recorded
+  components with their archetypes and lands your change as a **revision**, so what the
+  sentence names changes and every slot it does not name stays exactly as recorded. Prose
+  straight in — `phyllum update "make color-primary #1D4ED8"` — reads its target from the
+  sentence, and asks rather than guessing when the sentence could mean two things. A rename
+  rewrites every spec slot and every Backlog line naming the old token in the same write,
+  and says so first; a new value is re-checked against every colour you already name, so an
+  edit can never put two names on one value. Nothing is written until you accept, and the
+  `.bak` is taken before the write, exactly as everywhere else.
 
 ## FAQ
 

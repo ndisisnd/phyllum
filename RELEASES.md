@@ -2,6 +2,31 @@
 
 What's new for you, release by release.
 
+## v0.4.0 — 2026-08-17
+
+> `tokenise` stops needing you to know the sentence. Run it with nothing and it asks what kind of token you are recording, then asks the one thing that kind needs — and every question that wants a value now shows you the shape the answer takes. Gradients are colours Phyllum can name. `rgba()` finally counts as the same colour as the hex you already recorded. Your colours show up in the dashboard as cards you can actually look at. And there is a new verb for the thing there was never a good way to do: changing what your design system already says.
+
+### ✨ New
+- **`phyllum update` changes what is recorded.** Until now every command added something, read something, or pushed something outward, and the only way to change a recorded token or component was to edit `DESIGN-SYSTEM.md` by hand. `phyllum update` opens a menu; `update token` walks you type → the full list → pick one → a sentence describing the change; `update component` lists what you have recorded and revises the one you pick. You can also say it straight out — `phyllum update "make color-primary #1D4ED8"` — and Phyllum asks rather than guessing when a sentence could mean two things.
+- **Renaming a token now takes its references with it.** Rename `color-primary` and every component slot and every backlog line naming it is rewritten in the same save, and you are told the count before you accept. Nothing is left pointing at a name that no longer exists.
+- **`phyllum tokenise` with nothing is a guided start.** It offers to pick up an unfinished run first, as ever, then asks: a colour, typography, a border radius, spacing, or something else? Pick a colour and it asks one more thing — solid, or a gradient? You can still type the whole sentence at any question and it is read exactly as if you had typed it as the argument, and you can skip out at any point without anything being written.
+- **Gradients are colours Phyllum can name.** `phyllum tokenise "hero backdrop linear-gradient(135deg, #2563EB, #10B981)"` records it exactly as you wrote it — stops, angle and all, never reordered — in the Colours table with everything else. Every name Phyllum suggests for a gradient has the word `gradient` in it, so you can tell one from a solid colour by name alone.
+- **Every question that wants a value shows its shape.** `Write your colour as [HEX code / rgba value] [name]`. One line, the same everywhere it asks — the picker, a sentence missing its value, and `update`'s change question.
+
+### 📈 Improved
+- **`rgba()` is a first-class colour.** Paste what your CSS inspector gave you and it lands. More to the point, Phyllum now knows `rgba(37, 99, 235)` is the `#2563EB` you already recorded, so you cannot end up with the same blue named twice. Transparency counts as part of the colour, so a 50% black and a 90% black stay two different things — and, as always, the value is saved exactly the way you typed it.
+- **Your colours are cards now.** The dashboard lays them out in a grid: a large rounded swatch, the token name underneath, and the value under that. Gradients paint themselves. Near-white swatches keep their border so they don't disappear. Primitive ramps still read as one nine-step strip, because a ramp is one thing.
+
+### 🐛 Fixed
+- A design-system file that has been hand-edited into a half-finished row — a token with no value, or a value with no token — is no longer offered to you as something to edit. It is left out of the list and Phyllum tells you how many rows it left out, instead of asking you to accept a change to nothing.
+- Renaming a token can no longer quietly create two tokens with the same name, or hand one token every reference that belonged to another. Both cases now stop with an explanation and change nothing.
+- Answering `update token`'s "what kind of token?" question with a sentence instead of a number no longer fails with a technical error.
+
+### ⚠️ Breaking
+- **`phyllum update` no longer means `phyllum apply`.** In 0.3.0 `update` was a second name for applying your design system to your code; from 0.4.0 it is its own command for editing the design system itself. **Applying to your code is `phyllum apply`**, under its own name, unchanged in every other respect — and for this release the `update` menu prints a one-line pointer to it for anyone who reaches for the old word. `update run` no longer exists; that is `apply run`. Updating your Phyllum install is still `phyllum upgrade`.
+
+Update with `phyllum upgrade`.
+
 ## v0.3.0 — 2026-08-15
 
 > Naming gets a vocabulary. One sentence can now carry several values, and each one is queued and asked about in turn. Phyllum ships a standard set of token names, so a suggestion can say what a colour is *for* and not only what it looks like. A new `create primitives` lays down the colour ramps your tokens sit on. `create` learns ten more component types plus one that follows no rules at all, the dashboard shows your colours instead of listing them, and `update` now means what most people expect it to.

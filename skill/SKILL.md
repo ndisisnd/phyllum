@@ -55,8 +55,9 @@ above holds unchanged for every other command.
 | `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
 | `create` | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
-| `apply` | `update` | Plan applying the design system to the codebase; `apply run` executes the plan; `update` / `update run` are the same command |
-| `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB" — several values become a queue, asked one at a time |
+| `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
+| `update` | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lists the recorded components and revises the one you pick |
+| `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values become a queue, asked one at a time; with no sentence it asks what kind of token you are recording |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
 | `display` | `system` | Print the design system to the terminal |
@@ -86,12 +87,12 @@ reads the design system *and* the codebase, and writes only its own plan.
 | `create` | `refs/create.md` — modes A/B/C, prose parsing rules, the fifteen archetype contracts, custom mode (no contract, and the marker that says so), follow-up loop, acceptance and the write step, plus `create primitives`: the two ramp behaviours, the derivation, naming and the `Primitives` subsection |
 | `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering, the mapping table, the token and component suggestion tracks |
 | `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
-| `tokenise` | `refs/tokenise.md` — how a sentence is read, the batch queue and its splitting grammar, the three passes, the naming sources (the nomenclature library first, the scales as fallback), the follow-up loop when a value or a name is missing, acceptance |
-| `gui` | `refs/gui.md` — server contract, view specs |
+| `tokenise` | `refs/tokenise.md` — how a sentence is read, the batch queue and its splitting grammar, the three passes, colour shapes including the six gradients and how each is compared, the kind picker an empty run opens with its solid/gradient fork and the prose each pick builds, the argument hint every value question wears, the naming sources (the nomenclature library first, the scales as fallback, `gradient-{n}` for gradients), the follow-up loop when a value or a name is missing, acceptance |
+| `gui` | `refs/gui.md` — server contract, view specs, the colour-card anatomy and its grid |
 | `display` | `refs/system.md` — listing format; `system` is the same command under its older name |
 | `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |
 | `upgrade` | `refs/upgrade.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
-| `update` | `refs/update.md` — one page: `update` is `apply`'s alias, and `refs/apply.md` is the contract |
+| `update` | `refs/update.md` — the grammar (menu, chains, prose), the menu copy and its 0.4.x `apply` breadcrumb, the token flow with its type rows and argument hints, prose target-matching, the rename ripple, the convergence re-check, the never-list |
 | `init` | `refs/init.md` — the walkthrough, step by step |
 
 One reference file belongs to no command: `refs/nomenclature.md` is a shared
@@ -265,19 +266,116 @@ page fetches nothing, so it renders with no network at all. Behaviour is
 unchanged — read-only, live `DESIGN-SYSTEM.md`, localhost only, the same
 `gui`/`kill` lifecycle. The dashboard shows the file; writing it stays the CLI's.
 
-v0.3.0 M6 hands the word "update" to `apply` and gives the self-maintenance job
-its own verb, `upgrade`. `phyllum update` is now an exact alias of `phyllum
-apply` — same registry entry, same handler, same plan at `.phyllum/PRD.md`, same
-guarantee that planning runs nothing — and `update run` chains to `apply run` the
-way `system`'s scope words chain to `display`. Everything the old `update` did to
-the *install* — detect npm or pnpm, global or project; refuse gracefully with the
-exact command to type; re-sync the skill copy — moved to `phyllum upgrade`
-without one behavioural change, and `refs/upgrade.md` carries that contract while
-`refs/update.md` is now a one-page pointer at `apply`. The switch is **silent**:
-no redirect notice and no acknowledgement gate, because `apply` only ever writes
-a plan, so a muscle-memory `update` costs a reader a `.phyllum/PRD.md` and
-nothing else. Help and `menu` lead with `apply` and list `update` as its alias;
-finding `upgrade` is the docs' job, not a warning's.
+v0.4.0 M1 makes **rgba first-class**. The colours pass has read `rgb()`, `rgba()`,
+`hsl()` and `hsla()` since the value-shape table was written; what this milestone
+changes is everything around the parser that still assumed hex. Every prompt,
+example and doc that said "a colour like #2563EB" gains an rgba one, so a user
+pasting out of devtools knows the paste will land. And the comparison that
+matters converges: `normaliseValue` compared strings, so `rgba(37, 99, 235, 1)`
+and `#2563EB` were two colours and one blue could be named twice — the exact
+thing convergence exists to prevent. Any value the colour reader can read now
+compares **by its channels**, alpha included, so `rgba(0,0,0,0.5)` and
+`rgba(0,0,0,0.9)` stay two facts. `phyllum:value-comparison` in
+`refs/tokenise.md` is where a shape says how it is compared; a shape the table
+does not list keeps the older string reading, so an unknown value is never folded
+into a colour it might not be. Comparison only — the **recorded** value stays
+exactly as typed, never-correct rule.
+
+v0.4.0 M2 makes a **gradient** a value the colours pass recognises: the six
+shapes (`linear-`, `radial-`, `conic-gradient()` and their `repeating-` forms),
+each read as one value wherever a colour is read, with the commas and brackets
+inside never splitting a batch sentence. The whole function is the value — stops,
+angle, percentages, exactly as typed, never reordered — and it lands in **Colours**
+as an ordinary `token | value` row, because a gradient is a colour decision and a
+fourth section would change every `DESIGN-SYSTEM.md`'s shape for no gain. Naming
+has its own scale, `phyllum:gradient-names`, rather than a shape column on the
+colour scale: every row of the colour scale is a lightness and a saturation test
+and a gradient has neither. Every name Phyllum proposes for a gradient carries the
+mark word `gradient` — a library-derived name takes it as its last part, and the
+fallback `gradient-{n}` leads with it. What gradients do not touch is as much of
+the contract: duplicate detection stays string-level, `create primitives` skips
+them as it skips every value `toHsl` cannot read, and `assess` does not learn to
+scan for them this release.
+
+v0.4.0 M3 gives the **empty run** somewhere to go. `phyllum tokenise` with
+nothing keeps its resume offer first, always, and then replaces the bare
+free-text question with a numbered picker: a colour, typography, a border radius,
+spacing, or something else. Each pick asks the one follow-up that kind needs and
+hands the **assembled sentence** to the parser a typed sentence would have
+reached — so the picker builds prose and no protocol lives in it. `8px` picked
+under *a border radius* becomes `8px radius`, and the "what does this apply to?"
+question never fires, because a question already answered is not worth asking
+twice. Picking *a colour* asks one more: solid, or a gradient. Free text is
+honoured at every step, a skip at any depth writes nothing, and a `--no-input`
+run with nobody to ask still prints usage and exits — a picker with nobody to
+pick is a wall. The same milestone lands **argument hints**: every question that
+asks for a value shows the shape its answer takes, in brackets, in a fixed order
+— `Write your colour as [HEX code / rgba value] [name]`. The hint text lives in
+`phyllum:value-questions` beside the question it decorates, so the skill, the CLI
+and the assertions read one source; a hint understates on purpose rather than
+listing every shape and burying the common case.
+
+v0.4.0 M4 turns the dashboard's colours into **cards in a grid**. Each colour
+token is a card: a large filled swatch with rounded corners on top, and beneath
+it — not on it — the token name, then the value on its own line. That supersedes
+v0.3.0's "value and name sit on the swatch" rule; the bordered variant for
+near-white swatches stays, since a white swatch off the page background still
+needs an edge. The cards lay out in a responsive grid rather than one token per
+row, and a gradient paints itself as the swatch fill for free. Primitives ramps
+keep their nine-step strips inside the `Primitives` subsection — a ramp reads as
+one thing, so the card grid is for the semantic Colours table. The card chrome
+uses the page's own palette and type ramp; the rounded corner is the one recorded
+departure from the Carbon direction. Only a value the page recognises as a hex
+literal or one of the six gradient shapes is ever inlined into a `style`
+attribute, so a hand-edited value carrying CSS or markup renders as text on an
+unfilled swatch. Behaviour is unchanged: read-only, live `DESIGN-SYSTEM.md`,
+localhost only, zero dependencies, no network fetch.
+
+v0.4.0 M5 makes `update` **its own command**: the design-system editing verb.
+`phyllum update` no longer reaches `apply`, and `update run` no longer exists;
+`apply` keeps its own name, help and behaviour, untouched, and moving the
+*install* is still `upgrade`, which took that job in v0.3.0 M6. Empty `update` opens a menu — a component,
+or a token — carrying one 0.4.x breadcrumb line pointing at `apply` for anyone
+who typed it out of muscle memory. `update token` walks type → the full list of
+that section → pick one → a sentence describing the change, with the same
+argument hint every value question wears; the proposal shows old and new side by
+side before the acceptance gate, and the write is the one funnel, `.bak` first.
+A rename ripples in that same write — every component spec slot and every
+Backlog `TODO` line naming the old token — and the run says so before you
+accept. A new value re-runs convergence with the cross-format comparison, so an
+edit can never put two names on one value. `refs/update.md` carries the whole
+contract, and §6.5 is the never-list: no codebase, no `.phyllum/PRD.md`, nothing
+written before the gate or outside the one funnel, no guessed target, no changed
+slot the prose never mentioned, no invented or corrected value, and no deletion —
+removal is a different verb and a different risk.
+
+v0.4.0 M6 adds the menu's other row. `update component` prints the recorded
+components with the archetype each spec block **records** — never inferred, so an
+entry with no spec block prints none and is answered with `create` rather than
+revised out of a guess — takes a pick and a sentence, and lands the change as a
+**revision**. The revision is `create`'s own: the same draft extraction reads the
+sentence, the same carry-over keeps every slot the sentence never mentioned
+byte-identical, the same token resolution names a raw value the system already
+holds, and the same acceptance path is the only way to the file. `update
+component` is a second door into that machinery rather than a second copy of it;
+the only thing it owns is the conversation that gets a target and a sentence in
+front of it. A slot named without a value is a question, a skipped question is a
+`TODO`, and a custom keeps its marker through the revision.
+
+v0.4.0 M7 closes the release: the docs sweep the un-aliasing made larger than
+usual, the 0.4.0 baseline, and a hardening sweep over the surfaces this release
+added. The **contract tables** grew from one tolerant file to three, so
+`refs/tokenise.md`'s new tables and all of `refs/update.md` now drop an unreadable
+row instead of taking the row's meaning silently — and the notice names its file
+as well as its table, because a message naming the wrong file is worse than none.
+A **rename** is now checked the way a value change already was: renaming onto a
+name the system already uses, or renaming a token whose name sits on two rows, is
+surfaced and stopped rather than written, because a ripple that cannot tell which
+row a reference meant would hand the picked row every reference the other owned.
+A **token row with no name or no value** is left out of the list and the omission
+is said, so no proposal about nothing reaches the acceptance gate. And the type
+question in `update token` no longer throws on a free-text answer — the one
+question that promised prose was the one that refused it.
 
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest
@@ -290,7 +388,10 @@ package manager gets a graceful refusal naming the exact command to run instead.
 
 v0.2.0 M2 reworks `tokenise` into a **prose-only** command: one sentence in, one
 named token out. It no longer reads the codebase — scanning becomes `assess`'s
-job — so `phyllum tokenise "our brand blue #2563EB"` is the whole input. A name
+job — so `phyllum tokenise "our brand blue #2563EB"` is the whole input, and any
+colour format is as good as hex: `phyllum tokenise "our overlay rgba(0, 0, 0,
+0.5)"` walks the identical path, records the value exactly as pasted, and is
+recognised as the same colour a `#2563EB`-style spelling of it would be. A name
 in the sentence is used verbatim; without one, Phyllum suggests a name off the
 scales in `refs/tokenise.md` and confirms it. A sentence with no value ("add a
 token for our brand blue") opens a follow-up question asking for the value, the

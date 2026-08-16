@@ -27,10 +27,15 @@ import {
   passes,
   proseHints,
   proseWeights,
+  argumentHint,
+  colourForkOptions,
+  pickerOptions,
   queueRule,
   readingSeparators,
   readingSplits,
   reloadSpec,
+  valueQuestionFor,
+  valueQuestions,
   roleSignalFor,
   roleSignalWords,
   roles,
@@ -39,6 +44,14 @@ import {
   splitterOpens,
   weightForWord,
 } from '../../lib/tokenise-spec.js';
+import {
+  buildProse,
+  missingValueQuestion,
+  renderColourFork,
+  renderPicker,
+  resolvePick,
+  valueQuestion,
+} from '../../lib/tokenise-command.js';
 import {
   FIXTURES,
   PACKAGE_ROOT,
@@ -290,9 +303,229 @@ test('bare tokenise with a terminal asks what to name rather than scanning', asy
       },
       confirm: async () => true,
     });
-    assert.match(asked[0], /What should I name\?/);
+    // The picker opens the run now, and free text at it is a whole sentence —
+    // the ramp never becomes a gate for a user who knows the grammar.
+    assert.match(asked[0], /What are you tokenising\?/);
     assert.ok(out.includes('#0D9488'));
     assert.ok(out.includes('Wrote'));
+  }, EMPTY_FIXTURE);
+});
+
+// ---------------------------------------------------------------------------
+// With nothing to read — the kind picker (v0.4.0 plan §4)
+// ---------------------------------------------------------------------------
+
+/** An empty `tokenise` run that answers its questions in order, then accepts. */
+function pickerRun(dir, answers) {
+  const asked = [];
+  const queue = [...answers];
+  return {
+    asked,
+    result: run('tokenise', dir, {
+      ask: async (question) => {
+        asked.push(question);
+        return queue.length > 0 ? queue.shift() : 'y';
+      },
+      confirm: async () => true,
+    }),
+  };
+}
+
+test('the kind picker is the table in refs/tokenise.md, printed', () => {
+  const rows = pickerOptions();
+  assert.deepEqual(
+    rows.map((row) => row.pick),
+    ['colour', 'typography', 'radius', 'spacing', 'other'],
+    'the three passes, the two commonest number roles, and the escape row',
+  );
+
+  const printed = renderPicker().split('\n');
+  assert.equal(printed[0], 'What are you tokenising?');
+  rows.forEach((row, index) => {
+    assert.equal(printed[index + 1], `  ${index + 1}. ${row.printsAs}`, 'numbered in table order');
+  });
+  assert.match(printed.at(-1), /just describe it/, 'and the escape line closes it');
+  assert.match(printed.at(-1), /"skip"/);
+
+  // `something else` is the row that keeps compounds on a numbered path.
+  assert.equal(rows.at(-1).followUp, 'free-text');
+});
+
+test('the colour fork is its own table, and both rows name a value question', () => {
+  const rows = colourForkOptions();
+  assert.deepEqual(
+    rows.map((row) => row.pick),
+    ['solid', 'gradient'],
+  );
+  const printed = renderColourFork().split('\n');
+  assert.equal(printed[0], 'A solid colour, or a gradient?');
+  rows.forEach((row, index) => {
+    assert.equal(printed[index + 1], `  ${index + 1}. ${row.printsAs}`);
+    assert.ok(valueQuestionFor(row.followUp), `${row.pick} points at a question with no row`);
+  });
+  assert.match(printed.at(-1), /"skip"/, 'the fork is escapable too');
+});
+
+test('every value question renders the bracketed hint its ref row declares', () => {
+  const rows = valueQuestions();
+  assert.ok(rows.length > 0);
+  for (const row of rows) {
+    assert.match(row.hint, /^\[.+\]/, `${row.question}'s hint is not in brackets`);
+    assert.ok(row.hint.includes('[name]'), `${row.question} never says a name may ride along`);
+
+    const printed = valueQuestion(row.question);
+    assert.ok(printed.includes(row.hint), `${row.question} does not print its own hint`);
+    assert.ok(printed.startsWith(row.asks), `${row.question} does not open with its own ask`);
+    assert.ok(printed.includes(row.example), `${row.question} drops its example`);
+    assert.ok(printed.includes('(or "skip")'), `${row.question} has no way out`);
+    assert.equal(argumentHint(row.question), row.hint);
+  }
+
+  // Every follow-up a picker row names is a question that exists.
+  for (const row of [...pickerOptions(), ...colourForkOptions()]) {
+    if (row.followUp === 'colour-fork' || row.followUp === 'free-text') continue;
+    assert.ok(valueQuestionFor(row.followUp), `${row.pick} points at ${row.followUp}, which has no row`);
+  }
+});
+
+test('the missing-value question wears the same hint, after its lead sentence', () => {
+  const row = valueQuestionFor('missing-value');
+  const asked = missingValueQuestion({ name: 'brand-blue', input: 'add a token' });
+  assert.match(asked, /^What is `brand-blue`\?/, 'it says what it is asking about first');
+  assert.ok(asked.includes(row.hint), 'and then wears the hint its row declares');
+});
+
+test('a border radius pick builds prose, and the role question never fires', async () => {
+  await withProject(async (dir) => {
+    const { asked, result } = pickerRun(dir, ['3', '8px']);
+    const { code } = await result;
+    assert.equal(code, 0);
+    assert.match(asked[0], /What are you tokenising\?/);
+    assert.match(asked[1], /Write your value as \[px \/ rem value\] \[name\]/);
+    assert.ok(
+      !asked.some((question) => /apply to\?/.test(question)),
+      'the pick already answered what it applies to',
+    );
+
+    const model = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(model.includes('8px'));
+    assert.ok(model.includes('corner radius'), 'and it landed in the radius role');
+  }, EMPTY_FIXTURE);
+});
+
+test('a spacing pick lands in the spacing role, name and all', async () => {
+  await withProject(async (dir) => {
+    const { asked, result } = pickerRun(dir, ['4', '16px called space-md']);
+    await result;
+    assert.ok(!asked.some((question) => /apply to\?/.test(question)));
+
+    const model = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(model.includes('space-md'), 'a name rides along in the answer');
+    assert.ok(model.includes('spacing'));
+  }, EMPTY_FIXTURE);
+});
+
+test('a typography pick reads as one reading, not as a bare length', async () => {
+  await withProject(async (dir) => {
+    const { asked, result } = pickerRun(dir, ['2', '24px bold 1.2']);
+    await result;
+    assert.match(asked[1], /Write your reading as \[size\] \[weight\] \[line-height\] \[name\]/);
+
+    const model = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    const typography = model.slice(model.indexOf('### Typography'));
+    assert.ok(typography.includes('24px'), 'the reading is in Typography, not Numbers');
+    assert.ok(typography.includes('700') && typography.includes('1.2'));
+  }, EMPTY_FIXTURE);
+});
+
+test('the colour pick forks before the value, and solid walks the old path', async () => {
+  await withProject(async (dir) => {
+    const { asked, result } = pickerRun(dir, ['1', '1', '#0D9488']);
+    await result;
+    assert.match(asked[1], /A solid colour, or a gradient\?/);
+    assert.match(asked[2], /Write your colour as \[HEX code \/ rgba value\] \[name\]/);
+
+    const model = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(model.includes('#0D9488'));
+  }, EMPTY_FIXTURE);
+});
+
+test('the gradient branch records the gradient verbatim and never asks about stops', async () => {
+  await withProject(async (dir) => {
+    const gradient = 'linear-gradient(135deg, #2563EB, #10B981)';
+    const { asked, result } = pickerRun(dir, ['1', '2', gradient]);
+    await result;
+    assert.match(asked[2], /Write your gradient as/);
+
+    const model = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
+    assert.ok(model.includes(gradient), 'stops and angle exactly as typed');
+    assert.ok(/gradient-\d/.test(model), 'and the name carries the mark word');
+  }, EMPTY_FIXTURE);
+});
+
+test('free text at any picker step is parsed as a whole sentence', async () => {
+  // At the picker itself.
+  await withProject(async (dir) => {
+    const { result } = pickerRun(dir, ['our brand teal #0D9488']);
+    await result;
+    assert.ok(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8').includes('#0D9488'));
+  }, EMPTY_FIXTURE);
+
+  // And one step deeper, at the fork.
+  await withProject(async (dir) => {
+    const { result } = pickerRun(dir, ['1', 'our brand teal #0D9488']);
+    await result;
+    assert.ok(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8').includes('#0D9488'));
+  }, EMPTY_FIXTURE);
+});
+
+test('a pick answers to its own word as readily as to its number', () => {
+  assert.equal(resolvePick('3').row.pick, 'radius');
+  assert.equal(resolvePick('a border radius').row.pick, 'radius', 'the printed label');
+  assert.equal(resolvePick('radius').row.pick, 'radius', 'and the label without its article');
+  assert.equal(resolvePick('colour').row.pick, 'colour');
+  assert.equal(resolvePick('9').action, 'prose', 'a number off the end is not a pick');
+  assert.equal(resolvePick('skip').action, 'skip');
+  assert.equal(resolvePick('').action, 'skip', 'and so is answering nothing');
+  assert.deepEqual(resolvePick('our brand blue #2563EB'), {
+    action: 'prose',
+    prose: 'our brand blue #2563EB',
+  });
+});
+
+test('the added role word is dropped when the answer already said it', () => {
+  assert.equal(buildProse('<answer> radius', '8px'), '8px radius');
+  assert.equal(buildProse('<answer> radius', '8px radius'), '8px radius', 'never said twice');
+  assert.equal(buildProse('<answer> spacing', '16px padding'), '16px padding');
+  assert.equal(buildProse('type <answer>', '24px'), 'type 24px');
+  assert.equal(buildProse('<answer>', '#2563EB'), '#2563EB', 'a colour is built unchanged');
+});
+
+test('skip at any picker depth writes nothing at all', async () => {
+  for (const answers of [['skip'], ['1', 'skip'], ['1', '1', 'skip'], ['3', 'skip'], ['5', 'skip']]) {
+    await withProject(async (dir) => {
+      const before = snapshotContents(dir);
+      const { result } = pickerRun(dir, answers);
+      const { out, code } = await result;
+      assert.equal(code, 0);
+      assert.ok(out.includes('Nothing has been written'), `${answers.join(' → ')} wrote a notice`);
+      assert.deepEqual(
+        diffSnapshots(before, snapshotContents(dir)).changed,
+        [],
+        `${answers.join(' → ')} changed a file`,
+      );
+    }, EMPTY_FIXTURE);
+  }
+});
+
+test('a non-interactive empty run still prints usage and exits 1', async () => {
+  await withProject(async (dir) => {
+    const before = snapshotContents(dir);
+    const { out, code } = await run('tokenise', dir);
+    assert.equal(code, 1, 'a picker with nobody to pick is a wall, so it is not opened');
+    assert.ok(out.includes('names the values in a sentence, one question at a time'));
+    assert.ok(!out.includes('What are you tokenising?'), 'and no question is printed to nobody');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, []);
   }, EMPTY_FIXTURE);
 });
 

@@ -38,7 +38,9 @@ import { dataBlocks, gitignoreMatcher, isDataFile, resolveProperty } from '../..
 import {
   applyAcceptance,
   clusterSightings,
+  comparisonValue,
   deltaE,
+  knownValues,
   ladderNames,
   normaliseValue,
   proposeTokens,
@@ -756,4 +758,72 @@ test('the scan reports how many files it read, so the number is never implied', 
     assert.ok(result.values.dataFiles < result.values.files);
     assert.equal(result.summary.filesRead, result.values.files);
   });
+});
+
+// ---------------------------------------------------------------------------
+// An rgba-recorded colour, met by `assess` (v0.4.0 M1, locked in M7)
+// ---------------------------------------------------------------------------
+
+/**
+ * M1 made the *already-named* check compare colours by channel, so a sentence
+ * carrying `rgba(37, 99, 235)` no longer names a colour `#2563EB` already holds.
+ * `lib/assess.js` did not change with it: its coverage check still asks
+ * `knownValues(model).colours.has(normaliseValue(row.value))` — the string
+ * reading.
+ *
+ * That is deliberate and it works, because `knownValues` stores **both** forms
+ * of every recorded colour: the normalised literal for the readers that compare
+ * strings, and the channel form for the ones that do not. So a design system
+ * that records a colour in `rgba()` still covers the same colour written in
+ * `rgba()` in the codebase, whatever the spacing or the case — which is the case
+ * a user actually hits, because a value pasted from devtools is pasted into both
+ * places.
+ *
+ * What is *not* claimed here is cross-format coverage — a codebase writing
+ * `#2563EB` against a design system recording `rgba(37, 99, 235, 1)`. That is
+ * out of scope for v0.4.0 (plan §10 territory: `assess`'s convergence is not this
+ * release's subject), and the assertion below says so rather than leaving the
+ * boundary to be discovered. Both halves are locked so neither can move by
+ * accident.
+ */
+test('an rgba-recorded colour is still covered when the codebase writes rgba', async () => {
+  await withTempDir(async (dir) => {
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'src', 'app.css'),
+      [
+        '.overlay { background-color: rgba(0, 0, 0, 0.5); }',
+        '.overlay-tight { background-color: rgba(0,0,0,0.5); }',
+        '.shout { color: RGBA(0, 0, 0, 0.5); }',
+      ].join('\n'),
+    );
+
+    const model = parse(readFixture(POPULATED_FIXTURE));
+    model.tokens.colours.push(['color-overlay', 'rgba(0, 0, 0, 0.5)']);
+
+    const { covered, uncovered } = assessValues(dir, model);
+    const overlay = covered.find((row) => row.token === 'color-overlay');
+    assert.ok(overlay, 'the recorded rgba colour is coverage, not a fresh proposal');
+    assert.ok(
+      !uncovered.some((row) => /rgba\(\s*0/i.test(String(row.value))),
+      'and no spelling of it is proposed again',
+    );
+  });
+});
+
+test('knownValues holds both readings of a colour, which is why that works', () => {
+  const model = { tokens: { colours: [['color-overlay', 'rgba(0, 0, 0, 0.5)']], numbers: [], typography: [] } };
+  const known = knownValues(model);
+
+  // The string reading `assess` asks with, for every spelling a stylesheet uses.
+  for (const spelling of ['rgba(0, 0, 0, 0.5)', 'rgba(0,0,0,0.5)', 'RGBA(0, 0, 0, 0.5)']) {
+    assert.ok(known.colours.has(normaliseValue(spelling)), `${spelling} is covered`);
+  }
+
+  // And the boundary, stated rather than left to be found: the same colour
+  // written as hex is *not* covered by the string reading. `comparisonValue`
+  // sees it, and `tokenise`'s already-named check uses that — `assess` does not,
+  // and making it do so is a change to `assess`'s convergence, not to this one.
+  assert.equal(known.colours.has(normaliseValue('#000000')), false, 'the documented limit');
+  assert.equal(known.colours.has(comparisonValue('rgba(0, 0, 0, 0.5)')), true, 'the widened one');
 });
