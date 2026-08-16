@@ -214,7 +214,7 @@ test('a sentence with no value asks for it, then writes the completed token', as
     });
 
     assert.equal(code, 0);
-    assert.match(asked[0], /Give me the value/, 'the missing value is what it asks for');
+    assert.match(asked[0], /Write the value as/, 'the missing value is what it asks for');
     assert.ok(out.includes('#2563EB'));
     assert.ok(parse(read(dir)).tokens.colours.some((row) => row[1] === '#2563EB'));
   });
