@@ -6,7 +6,7 @@
  * asserting here.
  *
  *   - **The number has to be trustworthy.** A score is in [0, 1], it is built
- *     from weights that live in `refs/assess.md` rather than in the code, and
+ *     from weights that live in `refs/assess/similarity.md` rather than in the code, and
  *     the same two things score the same on every run. A similarity report is
  *     only usable if `0.813` means one thing, so determinism is asserted
  *     directly rather than assumed from the absence of a model call.
@@ -33,6 +33,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { assess } from '../../lib/assess.js';
+import { readRef } from '../../lib/refs.js';
 import {
   assessSimilarity,
   blockName,
@@ -91,7 +92,7 @@ const pairOf = (rows, a, b) =>
 // ---------------------------------------------------------------------------
 
 test('every weight, band and cap is read from the table, not restated in code', () => {
-  const spec = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'assess.md'), 'utf8');
+  const spec = readRef('assess');
   for (const marker of [
     '<!-- phyllum:similarity-rules -->',
     '<!-- phyllum:similarity-weights -->',

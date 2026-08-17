@@ -28,15 +28,16 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.4.0 -->
+<!-- mkpub:release 0.5.0 -->
 > [!NOTE]
-> **🚀 New in 0.4.0 · A guided `tokenise`, gradients, colour cards, and an editing verb**
+> **🚀 New in 0.5.0 · Removal gets a verb, and a safety rail first**
 >
-> `phyllum tokenise` with nothing now asks what kind of token you are recording, every
-> value question shows the shape its answer takes, and gradients are a colour value
-> Phyllum can name. `rgba()` is first-class — one colour written two ways is one colour.
-> The dashboard's colours are cards in a grid. And `phyllum update` is its own command
-> now: the way to change what the design system already records.
+> `phyllum delete` takes one recorded component away, behind the loudest gate in the
+> product: a breaking-change warning, a refusal while your codebase is still using the
+> component, and then your acceptance *plus* the component's name typed back before
+> anything is written. It can refuse on evidence because every component now records
+> whether it is **applied** — adopted in your code right now — derived by `phyllum apply`
+> from a read of the codebase, never set by hand.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
@@ -60,7 +61,10 @@ Three ideas govern every command:
   session state, settings, and `apply`'s plan — and, on `init`, the skill install. Two
   things are allowed past that line, and only when you ask for them by name: `assess
   --json <path>` writes the `.json` file you typed, and `apply run` edits source, from a
-  plan you have read, on a branch of its own, one phase at a time.
+  plan you have read, on a branch of its own, one phase at a time. From 0.5.0 `phyllum
+  apply` also writes one line back into `DESIGN-SYSTEM.md` — the `applied:` line of each
+  component's spec block, and nothing else in the file — because that line is a reading
+  of your codebase that only `apply` is in a position to take.
 
 Two rules outrank being helpful. Phyllum never invents a value — a slot nobody filled is
 a question or a `TODO`, never a plausible guess. And it never corrects a value — four
@@ -75,6 +79,7 @@ The commands:
 | `assess` | Read the codebase, map the raw styling already in it, and suggest tokens and components |
 | `apply` | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `update` | Change what the design system already records — `update token` walks type → list → pick → a sentence, `update component` revises a recorded component |
+| `delete` | Remove one recorded component — a breaking-change warning, a refusal while the codebase is still using it, and the component's name typed back on top of the acceptance gate before anything is written |
 | `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values are queued and asked about one at a time; with nothing at all it asks what kind of token you are recording |
 | `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
@@ -252,6 +257,17 @@ names, a length named for a different role, a component whose spec still says `T
 `apply` any time and it resumes — your ticks, your completed phases and your notes survive,
 while the change list is re-derived from scratch.
 
+`apply` writes one other thing, and it is a line rather than a file. Since 0.5.0 every
+recorded component's spec block carries **`applied: true`** or **`applied: false`**: is
+this component adopted in your codebase right now? It is *derived, never declared* —
+nothing lets you set it, and a hand-edit of it is overwritten the next time `apply` looks,
+because the line is a reading of your code rather than an opinion about it. The evidence
+is the one `apply` was already collecting: a place in your markup that already *is* the
+component. **No `applied:` line at all means `apply` has never run**, which is not the
+same as `false`, and a design system written before 0.5.0 reads exactly as it did. The
+write touches that one line per component and nothing else in the file, `.bak` first, and
+a run that changes no line writes nothing at all.
+
 `phyllum apply run` executes that plan — the one command that writes to your source files.
 It re-checks the harness first: if your project has one, Phyllum hands the plan over with
 precise instructions rather than driving somebody else's agent harness itself. With none
@@ -276,18 +292,48 @@ painted as the swatch fill. A primitives ramp keeps its nine-step strip, because
 reads as one thing rather than as nine cards; typography tokens render as live specimens in
 their own size, weight and line-height; and numbers render as measured bars. Only a value
 the page recognises as a colour or a gradient is ever painted — anything else is shown as
-text on an unfilled swatch, so a hand-edited file can never write CSS into the page. The page is styled along Carbon Design
+text on an unfilled swatch, so a hand-edited file can never write CSS into the page.
+
+Clicking a component in the Library view **draws the component**, above the spec and code
+the panel already showed. The drawing is a projection of the recorded spec — never the
+stored React code run in the page — so what you see is what the file says: one element per
+archetype, its inline styles built slot by slot, token names resolved against your own
+token tables. A slot recorded as `TODO`, a token name nothing holds, or a value the page
+cannot classify contributes nothing and is listed underneath as an **unrendered slot**,
+because a preview that invented a background would break the no-invented-values rule in
+the one place you would believe it. Components sharing a base name — `Button/Primary`,
+`Button/Ghost` — get a **variant toggle**, and a spec recording states gets a second
+toggle for `hover`, `disabled` and the rest; a state's slots overlay the base rather than
+replacing it. A component with no variant siblings shows no toggle. The page is styled along Carbon Design
 System lines — flat tiles, sharp corners, a disciplined type ramp — but it takes no
 dependency on Carbon or anything else: the stylesheet is hand-written in the one file and
 the page fetches nothing from the network. It stays read-only, on localhost only. Writing
 is the CLI's job.
+
+`delete` is the one destructive verb, and it is built as the inverse of `create`'s ease.
+Deleting a component can break things — code generated from it stays in your codebase and
+stops matching anything your design system records — so every step slows down. `phyllum
+delete` lists what you have recorded, with each component's archetype and whether it is
+applied, and takes a pick; `phyllum delete Button/Primary` pre-answers that, and a name
+nothing matches lists and asks rather than failing. Then the **breaking-change warning**,
+always, before any question about proceeding. Then the **in-use check**: if the component
+is adopted in your code, `delete` refuses, names the evidence it saw, and tells you the
+way out — remove the usage, re-run `phyllum apply` so the reading catches up, then delete.
+There is no flag, option or `--force` past that refusal. Only then the proposal, showing
+exactly what goes — the entry and the backlog lines naming it, and nothing else — your
+acceptance, and then **one more question: type the component's name back**. A `y` proves
+agreement; a typed name proves you are looking at the right target, which is why `--yes`
+and a non-interactive run can never satisfy it. The write is one save with the `.bak`
+taken first, and the report names that `.bak` as your undo. `delete token` is reserved and
+refused with its reason: removing a token ripples through every component slot and backlog
+line naming it, which is a different risk and its own release.
 
 Writes are atomic — Phyllum writes a temp file and renames it, so a crashed run can't
 corrupt `DESIGN-SYSTEM.md`.
 
 ## How to update
 
-Four different things, and from 0.4.0 each has its own word:
+Five different things, and each has its own word:
 
 - **Update Phyllum itself — `phyllum upgrade`** — `phyllum version` tells you whether you
   are current, showing both your version and the latest published one. `phyllum upgrade`
@@ -317,6 +363,11 @@ Four different things, and from 0.4.0 each has its own word:
   and says so first; a new value is re-checked against every colour you already name, so an
   edit can never put two names on one value. Nothing is written until you accept, and the
   `.bak` is taken before the write, exactly as everywhere else.
+- **Remove what the design system records — `phyllum delete`** — the removal verb from
+  0.5.0, and the counterpart to the line above: `update` changes a recorded thing and
+  reaches no deletion at all, `delete` removes one and reaches no edit. One component per
+  run, behind a breaking-change warning, an in-use refusal and two confirmations. Removing
+  a token is deliberately not offered.
 
 ## FAQ
 
@@ -343,8 +394,10 @@ No. It reads. The modules that do the scanning contain no write call at all, and
 suite diffs the entire directory around every scan and fails if one byte moved.
 
 **Does `apply` change my code?**
-`phyllum apply` does not. It writes a plan to `.phyllum/PRD.md` and nothing else — the test
-suite diffs the whole project directory around every run and fails on a single other file.
+`phyllum apply` does not. It writes a plan to `.phyllum/PRD.md`, plus the one derived
+`applied:` line in each component's spec block, and nothing else — the test suite diffs
+the whole project directory around every run and fails on a single other file, and diffs
+`DESIGN-SYSTEM.md` line by line to prove no other line of it moved.
 `phyllum apply run` is the one command allowed to write source, and only from that plan:
 only on a `phyllum/apply-<date>` branch of its own, only the files the running phase's
 criteria name, one commit per phase, stopping and reporting rather than pressing on when a

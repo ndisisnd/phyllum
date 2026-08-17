@@ -63,7 +63,7 @@ Phyllum cannot read.
 ## What the eval does not grade
 
 Determinism across reruns, the exact wording of the report, the weights and
-bands being read from `refs/assess.md` rather than restated in code, the caps
+bands being read from `refs/assess/` rather than restated in code, the caps
 actually binding on a project bigger than the caps, and the read-only proof
 around the whole pass. Those are assertions, in
 `evals/assertions/assess-similarity.test.js`.

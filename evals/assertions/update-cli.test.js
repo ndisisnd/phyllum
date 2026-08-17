@@ -1,7 +1,7 @@
 /**
  * Assertions for `update` — the design-system editing verb (v0.4.0 plan §6, M5).
  *
- * The contract lives in `skill/refs/update.md`; the command parses it; these
+ * The contract lives in `skill/refs/update/`; the command parses it; these
  * checks assert it. Everything asserted here is deterministic — the copy, the
  * grammar, what is listed, what a rename drags with it, what a collision stops,
  * and above all *when* the one write happens. The conversational ends (the menu

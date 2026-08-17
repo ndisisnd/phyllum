@@ -61,7 +61,7 @@ test('assess is registered as built, with no alias, and points at its reference 
   assert.deepEqual(command.aliases, [], 'one name, because there is no second spelling of it');
 
   const skill = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'SKILL.md'), 'utf8');
-  assert.ok(skill.includes('refs/assess.md'), 'SKILL.md routes assess to its own reference file');
+  assert.ok(skill.includes('refs/assess/'), 'SKILL.md routes assess to its own reference folder');
   assert.ok(skill.includes('| `assess` |'), 'and lists it in the command table');
 });
 

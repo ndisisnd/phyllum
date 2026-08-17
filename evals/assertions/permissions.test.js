@@ -402,10 +402,16 @@ test('nothing on the assess path can reach the write funnel', () => {
 /**
  * `apply` plans a change to source code (v0.2.0 §6.5.1), which makes it the
  * command with the most to prove. It proves it by the shape of the code: the
- * derivation module cannot write at all, and the command module's only write is
- * the plan itself — one funnel call, one path, and that path is inside the
- * `.phyllum/**` exception the permission model already had. No new write target
- * was opened to ship the first write-to-code command.
+ * derivation module cannot write at all, and the command module's writes are
+ * exactly two, both named, both through the funnel.
+ *
+ * The second one is v0.5.0 §3.2's amendment — the `applied:` lines — and the
+ * claim moves rather than disappearing. `apply` still opens **no new write
+ * target**: `DESIGN-SYSTEM.md` was always the one file Phyllum may write, and
+ * `.phyllum/PRD.md` was always inside the state exception. What is new is which
+ * command writes the design system, and the one module allowed to is
+ * `lib/applied.js`, whose only write is that file and whose only edit is that
+ * line — asserted byte for byte in `applied.test.js`.
  */
 test('the apply path can plan a codebase change without being able to make one', () => {
   const derivation = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'prd.js'), 'utf8');
@@ -424,10 +430,35 @@ test('the apply path can plan a codebase change without being able to make one',
   for (const raw of ['writeFileSync', 'appendFileSync', 'renameSync', 'rmSync', 'createWriteStream', 'mkdirSync']) {
     assert.ok(!command.includes(raw), `apply-command.js must not call ${raw} — the funnel is the only way in`);
   }
-  // Exactly one write, and it is the plan.
+  // Exactly two writes: the plan, and the flags — in that order, because the
+  // plan is the artefact the user consents to.
   const calls = command.match(/write[A-Z][A-Za-z]*\(/g) ?? [];
-  assert.deepEqual([...new Set(calls)], ['writePrd('], 'the plan is the only thing `apply` writes');
-  assert.ok(!command.includes('writeDesignSystem'), '`apply` does not touch the design system either');
+  assert.deepEqual(
+    [...new Set(calls)],
+    ['writePrd(', 'writeAppliedFlags('],
+    '`apply` writes the plan and the `applied:` lines, and nothing else',
+  );
+  assert.ok(
+    !command.includes('writeDesignSystem'),
+    '`apply` does not reach the design-system writer itself — the flag module owns that call',
+  );
+
+  // And the flag module is as narrow as the amendment says: one write, one file,
+  // and no way to render the file afresh over somebody's own text.
+  const applied = fs.readFileSync(path.join(PACKAGE_ROOT, 'lib', 'applied.js'), 'utf8');
+  for (const raw of ['writeFileSync', 'appendFileSync', 'renameSync', 'rmSync', 'createWriteStream']) {
+    assert.ok(!applied.includes(raw), `applied.js must not call ${raw} — the funnel is the only way in`);
+  }
+  const flagCalls = applied.match(/write[A-Z][A-Za-z]*\(/g) ?? [];
+  assert.deepEqual(
+    [...new Set(flagCalls)].filter((call) => call !== 'writeAppliedFlags('),
+    ['writeDesignSystem('],
+    'the flag module writes the design system, through the funnel, and nothing else',
+  );
+  assert.ok(
+    !/\brender\(/.test(applied),
+    'and it edits lines rather than re-rendering the file — a re-render would rewrite prose nobody asked it to touch',
+  );
 
   // And the plan's path is the existing exception, not a new one.
   assert.ok(isAllowedPath('.phyllum/PRD.md'));

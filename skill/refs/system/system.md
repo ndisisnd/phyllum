@@ -27,8 +27,9 @@ Tokens
     highlight-small  12px  700  1.3
 
 Components (1)
-  Button/Primary
+  Button/Primary — applied
     name: Button/Primary
+    applied: true
     properties:
       radius: rounded-md
     [jsx block: 12 lines — see DESIGN-SYSTEM.md]
@@ -40,6 +41,21 @@ Backlog (1)
 Token rows are printed exactly as they appear in the file's tables. A component
 prints its YAML spec in full; generated code blocks are summarised by language
 and line count, because the file itself is the place to read code.
+
+## The `applied` reading (v0.5.0 §3.4)
+
+A component's name line carries its adoption reading when the spec block has one.
+
+<!-- phyllum:applied-listing -->
+
+| Spec block | Name line reads | Why |
+|------------|-----------------|-----|
+| `applied: true` | `Button/Primary — applied` | the codebase is using it right now |
+| `applied: false` | `Button/Primary — not applied` | `phyllum apply` looked and found no site |
+| no `applied:` line | `Button/Primary` — nothing added | `apply` has never run here, and silence is the honest reading of absence |
+
+`display` derives nothing and writes nothing, here as everywhere: it prints the
+flag the file carries. `phyllum apply` is what puts one there.
 
 ## Scope argument
 

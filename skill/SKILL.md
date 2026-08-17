@@ -29,6 +29,7 @@ directory around every command and fails on anything not in this list:
 | Path | When |
 |------|------|
 | `DESIGN-SYSTEM.md` | any command, after the user accepts a change |
+| `DESIGN-SYSTEM.md`, the `applied:` lines only | `apply` and `apply run`, with no question asked — a derived reading of the codebase, scoped to the `applied:` line of each component's spec block and nothing else in the file (v0.5.0 §3.2; `refs/apply/apply.md`) |
 | `DESIGN-SYSTEM.md.bak` | the same write, one step earlier — the pre-edit copy the funnel always takes (v0.2.1 §6.5.2) |
 | `.phyllum/**` | session state, `apply`'s plan at `.phyllum/PRD.md`, and `assess --json`'s default output; gitignored |
 | `.claude/skills/phyllum/**` | `init` — the skill install; and `upgrade`, which re-syncs that same copy |
@@ -43,8 +44,9 @@ Exactly one command is allowed past that line, and only through a gate:
 `apply run` (v0.2.0 M7) rewrites source styling to use tokens — but only from a
 plan the user has read at `.phyllum/PRD.md`, only on a `phyllum/apply-<date>`
 branch, only the files the running phase's criteria name, and only one phase per
-commit. `phyllum apply` writes that plan and changes nothing else, so the rule
-above holds unchanged for every other command.
+commit. `phyllum apply` writes that plan, plus the one derived `applied:` line per
+component (v0.5.0 §3.2), and changes nothing else — so the rule above holds
+unchanged for every other command.
 
 ## Commands
 
@@ -57,6 +59,7 @@ above holds unchanged for every other command.
 | `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
 | `update` | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lists the recorded components and revises the one you pick |
+| `delete` | — | Remove one component the design system records: the list, a breaking-change warning, a hard block when the codebase is using it, then the acceptance gate **and** the component's name typed back before the one write |
 | `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values become a queue, asked one at a time; with no sentence it asks what kind of token you are recording |
 | `gui` | `dashboard` | Local server plus HTML dashboard |
 | `kill` | — | Stop the running GUI server |
@@ -73,32 +76,48 @@ create, never a component named "help". A quoted `"help"` means the word.
 Scope words (`tokens` / `components` / `all`) are only meaningful on `display`
 (and its alias `system`) and `gui`, and default to `all`. `assess` reserves its own three words in
 argument position — `tokens` / `components` / `update` — for its chained modes,
-`create` reserves one, `primitives`, and `apply` reserves one: `run`.
+`create` reserves one, `primitives`, and `apply` reserves one: `run`. `delete`
+reserves one too, `token`, and reserves it in order to **refuse** it: removing a
+token ripples through every component slot and Backlog line naming it, which is
+a different risk and its own release.
 
 Which command reads what is the whole division of labour, and it is worth stating
 plainly: `assess` reads your codebase, `tokenise` reads the sentence you typed,
 `create` reads your intent. All three write only `DESIGN-SYSTEM.md`. `apply`
-reads the design system *and* the codebase, and writes only its own plan.
+reads the design system *and* the codebase, and writes its own plan plus the one
+derived `applied:` line per component (v0.5.0 §3.2) — nothing else. `delete`
+reads the design system, and reads the codebase only to answer one question:
+is this component in use right now?
 
 ## Reference files — load only what the current command needs
 
-| Command | Reference |
-|---------|-----------|
-| `create` | `refs/create.md` — modes A/B/C, prose parsing rules, the fifteen archetype contracts, custom mode (no contract, and the marker that says so), follow-up loop, acceptance and the write step, plus `create primitives`: the two ramp behaviours, the derivation, naming and the `Primitives` subsection |
-| `assess` | `refs/assess.md` — the pipeline, what is scanned, the language-agnostic sweep, React-only component detection, clustering, the mapping table, the token and component suggestion tracks |
-| `apply` | `refs/apply.md` — harness detection and its precedence, how changes are derived per literal, phase grouping, the PRD's exact section and marker contract, resume vs `--fresh`, and what `apply run` will do |
-| `tokenise` | `refs/tokenise.md` — how a sentence is read, the batch queue and its splitting grammar, the three passes, colour shapes including the six gradients and how each is compared, the kind picker an empty run opens with its solid/gradient fork and the prose each pick builds, the argument hint every value question wears, the naming sources (the nomenclature library first, the scales as fallback, `gradient-{n}` for gradients), the follow-up loop when a value or a name is missing, acceptance |
-| `gui` | `refs/gui.md` — server contract, view specs, the colour-card anatomy and its grid |
-| `display` | `refs/system.md` — listing format; `system` is the same command under its older name |
-| `version` | `refs/version.md` — what is reported, the on-demand registry rule, offline behaviour |
-| `upgrade` | `refs/upgrade.md` — install detection, the four supported cases, graceful refusals, skill re-sync |
-| `update` | `refs/update.md` — the grammar (menu, chains, prose), the menu copy and its 0.4.x `apply` breadcrumb, the token flow with its type rows and argument hints, prose target-matching, the rename ripple, the convergence re-check, the never-list |
-| `init` | `refs/init.md` — the walkthrough, step by step |
+Every protocol's reference is a **folder**, split into per-topic files (v0.4.1).
+Load the one file the moment needs, not the folder: a `create` conversation in
+prose mode never has to read the image-tracing rules, and a `tokenise` run that
+already has a value never has to read the kind picker. The file named after the
+protocol — `refs/create/create.md` — is the frame: what the command is for, and
+what it must never do. Everything else is a topic.
 
-One reference file belongs to no command: `refs/nomenclature.md` is a shared
-library — the standard token-naming vocabulary (slots, strict word lists, slot
-order) and the shipped primitive grey ramp with its derivation scale. Load it
-only when a naming or ramp question comes up; nothing in it runs on its own.
+| Command | Reference folder | Load which file |
+|---------|------------------|-----------------|
+| `create` | `refs/create/` | `create.md` the three input modes and Mode A's prose parsing · `archetypes.md` the fifteen contracts, slot vocabulary, labelled defaults, extrapolation · `image.md` Mode B tracing, the result shape, confidence bars, refusals · `pick.md` Mode C and candidate detection · `custom.md` create without a contract, and the marker that says so · `primitives.md` `create primitives`: the two ramp behaviours, derivation, naming, the `Primitives` subsection · `acceptance.md` the follow-up loop, acceptance, the write step, spec block shape, the never-list |
+| `assess` | `refs/assess/` | `assess.md` the pipeline and the split commitment · `scan.md` what is scanned, the language-agnostic sweep, the fourth bucket, compounds · `severity.md` frequency decides, and which rule a finding belongs to · `hygiene.md` collisions and unused · `similarity.md` the three readings, the score, the bands, the caps · `consistency.md` naming-convention drift and prop mismatches · `extras.md` the six smaller checks · `report.md` the findings table, the drift score, the verdict · `detection.md` React-only component detection and clustering · `map.md` the mapping table and the two suggestion tracks · `modes.md` chained modes, `--json`, backups, rerunnable, the never-list |
+| `apply` | `refs/apply/` | `apply.md` the frame, the permission rule with its exceptions, and the `applied:` write amendment · `plan.md` harness detection and its precedence, deriving changes per literal, deriving the `applied` flag and when it flips, phase grouping, the two writes · `prd-format.md` the PRD's exact sections, header fields, markers, per-phase verification · `run.md` resume vs `--fresh`, what `apply run` does step by step, status reports, `.phyllum/config.json` |
+| `tokenise` | `refs/tokenise/` | `tokenise.md` the frame and the never-list · `prose.md` what a sentence is read for, and the words that carry meaning · `readings.md` several values in one sentence, the queue, the splitting grammar · `picker.md` the kind picker an empty run opens, its solid/gradient fork, and the argument hint every value question wears · `passes.md` the three passes, roles, compounds · `naming.md` the naming sources and every scale, colours and gradients included · `confirmation.md` the review actions, and a value the system already names with how each shape is compared · `acceptance.md` what gets written, and where |
+| `gui` | `refs/gui/` | `gui.md` the three views, the look and feel, lifecycle and permissions · `cards.md` showing the values, the swatch thresholds, the colour-card anatomy and its grid · `component-preview.md` the Library panel's rendered component: spec-projection, the projection map and its gate, unrendered slots, the variant and states toggles · `server.md` the server contract, the JSON API, the parse contract |
+| `display` | `refs/system/` | `system.md` the listing format; `system` is the same command under its older name |
+| `version` | `refs/version/` | `version.md` what is reported, the on-demand registry rule, offline behaviour |
+| `upgrade` | `refs/upgrade/` | `upgrade.md` install detection, the four supported cases, graceful refusals, skill re-sync |
+| `update` | `refs/update/` | `update.md` the frame, the menu copy with its 0.4.x `apply` breadcrumb, the never-list · `grammar.md` menu, chains and prose, and reading a target out of prose · `token.md` `update token`: the type rows, the argument hints, the rename ripple, the convergence re-check · `component.md` `update component`: the recorded archetype, the pick, the revision |
+| `delete` | `refs/delete/` | `delete.md` the frame, the grammar with its reserved-and-refused `token`, the never-list, and what `delete` leaves for `apply` to clean up · `flow.md` the six steps, the copy contract, the in-use rule with its flag-or-live-check split, the double confirmation and the one write |
+| `init` | `refs/init/` | `init.md` the walkthrough, step by step |
+
+One reference belongs to no command and is the one that is still a flat file:
+`refs/nomenclature.md` is a shared library — the standard token-naming
+vocabulary (slots, strict word lists, slot order) and the shipped primitive grey
+ramp with its derivation scale. It is loaded **whole**, which is why it is not
+split. Load it only when a naming or ramp question comes up; nothing in it runs
+on its own.
 
 ## The file format
 
@@ -113,7 +132,11 @@ Its skeleton is fixed and every section is always present, even when empty:
    nested `#### Primitives` subsection, in the same columns, for the ramps
    `create primitives` writes; it appears only when there are ramps.
 3. **Components** — one `###` heading per component, holding a fenced YAML spec
-   block followed by a generated code block.
+   block followed by a generated code block. Since v0.5.0 the spec block also
+   carries `applied: true` / `applied: false` once `apply` has derived it — a
+   reading of the codebase, never a setting. No `applied:` line means `apply`
+   has never run, which is not the same as `false`, and a file whose components
+   carry no flag reads exactly as it did before.
 4. **Backlog** — auto-maintained list of `TODO: tokenise` raw values and skipped
    contract slots, so the debt is visible at the bottom of the file.
 
@@ -238,7 +261,7 @@ v0.3.0 M4 widens `create`'s vocabulary and gives it a way out of it. The
 archetype table grows from five contracts to **fifteen** — Toggle, Checkbox,
 Radio, Select, Tooltip, Toast, Tabs, Link, Avatar and Progress join, each with
 its own mandatory slots, states, labelled defaults and candidate signals, all in
-`refs/create.md` as rows rather than code. And the picker gains a last row:
+`refs/create/archetypes.md` as rows rather than code. And the picker gains a last row:
 **custom**, a component that follows no contract. A custom has no mandatory
 slots, no mandatory states and no gap list — it records exactly the slots the
 user describes and is complete when they say so. Prose that matches no archetype
@@ -254,7 +277,7 @@ v0.3.0 M5 is a presentation release for the dashboard: it **shows the values**
 instead of printing them. Every colour token renders as a filled swatch of its
 own colour, with a bordered variant where a near-white would vanish against the
 page and a label that flips to dark ink once the fill is light enough — both
-thresholds are rows in `refs/gui.md`, not constants in the page. A primitives
+thresholds are rows in `refs/gui/cards.md`, not constants in the page. A primitives
 ramp renders as a nine-step strip, which is where the `Primitives` subsection
 pays off visually. Typography tokens render as live specimens in their own size,
 weight and line-height; numbers render as bars measured against the largest value
@@ -276,7 +299,7 @@ and `#2563EB` were two colours and one blue could be named twice — the exact
 thing convergence exists to prevent. Any value the colour reader can read now
 compares **by its channels**, alpha included, so `rgba(0,0,0,0.5)` and
 `rgba(0,0,0,0.9)` stay two facts. `phyllum:value-comparison` in
-`refs/tokenise.md` is where a shape says how it is compared; a shape the table
+`refs/tokenise/confirmation.md` is where a shape says how it is compared; a shape the table
 does not list keeps the older string reading, so an unknown value is never folded
 into a colour it might not be. Comparison only — the **recorded** value stays
 exactly as typed, never-correct rule.
@@ -343,11 +366,12 @@ side before the acceptance gate, and the write is the one funnel, `.bak` first.
 A rename ripples in that same write — every component spec slot and every
 Backlog `TODO` line naming the old token — and the run says so before you
 accept. A new value re-runs convergence with the cross-format comparison, so an
-edit can never put two names on one value. `refs/update.md` carries the whole
+edit can never put two names on one value. `refs/update/` carries the whole
 contract, and §6.5 is the never-list: no codebase, no `.phyllum/PRD.md`, nothing
 written before the gate or outside the one funnel, no guessed target, no changed
 slot the prose never mentioned, no invented or corrected value, and no deletion —
-removal is a different verb and a different risk.
+removal is `phyllum delete` (v0.5.0 M2), a different verb carrying a different
+risk, and `update` still reaches none of it.
 
 v0.4.0 M6 adds the menu's other row. `update component` prints the recorded
 components with the archetype each spec block **records** — never inferred, so an
@@ -365,7 +389,7 @@ front of it. A slot named without a value is a question, a skipped question is a
 v0.4.0 M7 closes the release: the docs sweep the un-aliasing made larger than
 usual, the 0.4.0 baseline, and a hardening sweep over the surfaces this release
 added. The **contract tables** grew from one tolerant file to three, so
-`refs/tokenise.md`'s new tables and all of `refs/update.md` now drop an unreadable
+the `tokenise` reference's new tables and all of `refs/update/` now drop an unreadable
 row instead of taking the row's meaning silently — and the notice names its file
 as well as its table, because a message naming the wrong file is worse than none.
 A **rename** is now checked the way a value change already was: renaming onto a
@@ -376,6 +400,149 @@ A **token row with no name or no value** is left out of the list and the omissio
 is said, so no proposal about nothing reaches the acceptance gate. And the type
 question in `update token` no longer throws on a free-text answer — the one
 question that promised prose was the one that refused it.
+
+v0.4.1 M1 turns every protocol's reference into a **folder**. `refs/assess.md` was
+1,068 lines and `refs/create.md` and `refs/tokenise.md` were around 750 each, so a
+command that needed the naming scales loaded the image-tracing rules too. Each
+reference is now a folder of per-topic files — the file named after the protocol is
+the **frame** (what the command is for, what it must never do) and everything else is
+a topic a moment can need alone, with no file split below the loading unit. The
+reference table above re-points per command and carries a one-line topical index, which
+is where the lazy loading actually happens: the session reads `refs/tokenise/naming.md`
+rather than the protocol. `refs/nomenclature.md` stays flat, because a shared library
+loaded whole is not lazy about anything. Nothing else moved: **marker names are still
+globally unique across the whole tree**, so a marker still identifies one table in one
+file, and `lib/refs.js` is the one module that knows where a protocol's files are and
+which file a marker lives in — the tolerant-table notice from v0.4.0 M7 names the real
+file rather than assuming the protocol's. The CLI is not lazy and never was; it reads a
+protocol's folder whole on first use and caches it, so every contract means exactly what
+it meant when the file was flat. A pure re-shelving: no command surface, no behaviour,
+and no recorded contract changed.
+
+v0.4.1 M2 makes the dashboard **draw the component**. Clicking an entry in the Library
+view has always shown a spec block and a code block; the panel's first section is now
+the component itself, with the labelled `yaml` and `jsx` blocks unchanged beneath it.
+The drawing is a **spec-projection, never code execution** — the stored block is React
+source, and running it would need a JSX transform (a dependency, a build step or a CDN
+fetch, all three on the page's never-list) on content out of a file a person hand-edits.
+So `/system` now carries each component's parsed slots — `archetype`, `custom`,
+`properties`, `states`, read by `parseSpecBlock`, the same reader `create`, `update` and
+`assess` use — beside the raw block, and the page projects those slots onto **one**
+element per archetype, named by the new "preview element" column of `phyllum:contracts`
+in `refs/create/archetypes.md`; a `custom` has no contract and no row, so it is drawn as
+a generic box from whatever slots it carries. Every value passes the **shape gate** the
+colour cards have used since v0.4.0 M4, widened from fills to every property, before it
+reaches a `style` attribute. What cannot be drawn is said rather than approximated: a
+`TODO` slot, a token name no table holds, a value the gate refused, and a property that
+is a second box rather than a declaration are all printed underneath as **unrendered
+slots** with their reason, because a preview that silently invented a background would
+break the no-invented-values rule in the one place a user would believe it. Two toggle
+rows sit with the preview. Entries sharing a base name — the part before the last `/` —
+group into a **variant toggle** that swaps the rendered spec in place, and a component
+with no siblings shows no toggle at all. A spec's recorded `states:` become a second
+toggle whose slots **overlay** the base, so `hover` reads as the component with its hover
+slots applied rather than as a second component. Read-only, live `DESIGN-SYSTEM.md`,
+localhost only, zero dependencies, no network fetch and no new server route.
+
+v0.4.1 M3 closes the release: the docs sweep, the 0.4.1 baseline, and a hardening
+sweep over the two surfaces this release added. **The reference tree became a
+tree**, so `lib/refs.js` turns a protocol name into files on disk — and a folder
+that is missing, is not a folder or cannot be read used to arrive as a raw
+`ENOENT` naming Phyllum's own install path, which is the shape v0.2.1 M6 ruled
+out. It is a named `RefsError` now, caught at the same dispatch boundary as a
+damaged `nomenclature.md` and answered with the folder and `phyllum upgrade`. A
+protocol name that is not a plain folder name is **refused rather than
+resolved**, because `refs/../..` walked out of the tree and came back with files
+that were not references at all, and a traversal that returns files looks like a
+success. **The archetype table grew a column** and a second reader, and it was
+the last shipped contract table with no tolerance in it: one hand-mangled row
+took every caller down with a `TypeError`. It drops the row and names its file
+as well as its table now, which is v0.4.0 M7's argument applied to the fourth
+file — while a row that merely predates the preview-element column stays, its
+element reading as `null` rather than as a guess, because a table one column
+short is still a table. And in the preview, a spec recording a state called
+**`default`** offered that state twice on the toggle and applied it never; it is
+one option now, and the recorded slots are drawn, because the copy that did
+nothing was the one the file actually recorded. A typography token whose row is
+not three readings is reported unresolved rather than throwing mid-panel.
+
+v0.5.0 M1 teaches a component to know whether it is **used**. Once `phyllum
+apply` has run, every recorded component's spec block carries `applied: true` or
+`applied: false`: is this component adopted in this codebase right now? The
+reading is **derived, never declared** — no command sets it, no question offers
+it, and a hand-edit of it is overwritten by the next derivation, because the
+flag is a reading of the codebase rather than an opinion about it. The evidence
+is `apply`'s own and is not written twice: `alreadyAdopted`, the predicate the
+adoption pass already skips on, is the one predicate, so a flag and a plan can
+never disagree about what "already this component" means. It is an *identity*
+test rather than a judgement — no archetype is graded — which is why it reads
+the same on any stack and reads a `custom` component too. **No flag at all means
+`apply` has never run here**, and absence is never `false`; that one distinction
+is what `delete`'s in-use block rests on. Two writers exist and they agree:
+`apply` re-derives every flag on every run, and a completed `Adopt <Component>`
+phase of `apply run` flips that one component to `true` in the same breath as
+the PRD tick. The write is the release's one recorded exception to "`apply`
+writes only its plan", and it is recorded loudly rather than slipped in — the
+permission table above carries the row, `refs/apply/apply.md` names its exact
+scope, and the assertion that diffs the project around every `apply` run still
+fails on any other change. It is **surgical**: only the `applied:` line of each
+spec block moves, through the one funnel, `.bak` first, and a run that changes
+no line writes nothing at all. `display`, `system`, the GUI and the JSON print
+the reading when there is one and nothing when there is not, so every file
+written before v0.5.0 reads exactly as it did.
+
+v0.5.0 M2 builds the verb the never-list has pointed at since v0.4.0:
+**`delete`** removes one recorded component, behind the loudest gate in the
+product. The flow is six steps and only the last one writes. It lists every
+`### <name>` in Components with the archetype its spec block records and its
+`applied` reading, and takes a pick — `phyllum delete <name>` pre-answers that,
+and an unknown name lists and asks rather than failing. Then a
+**breaking-change warning prints, always**, before any question about
+proceeding: code generated from the component stays in the codebase and stops
+matching anything recorded. Then the **in-use block**, which reads the
+`applied: true` flag when there is one and runs a **live** adoption check when
+there is not — absence of a flag means `apply` has never run, never "not in
+use" — and refuses with the evidence and the way out, at exit 0, because a
+refusal honoured is not an error. There is no flag, option or `--force` past
+that block. Then the acceptance gate shows exactly what goes, the entry and its
+Backlog lines and nothing else; and then a **second confirmation** asks for the
+component's **name, typed back**, because a `y` proves agreement while a typed
+name proves the user is looking at the right target. `--yes` and a
+non-interactive run never satisfy it, so a `delete` with nobody to ask refuses
+and says why. The write is the one funnel — `.bak` first, atomic — and it is
+**surgical**: the entry, its blocks and its Backlog lines go in one write, every
+other byte of the file is the file the user had, and a Backlog line naming a
+second recorded component is left alone. Removing the last component leaves the
+section's "no components yet" note rather than a bare heading, and the report
+names the `.bak` as the undo. `delete token` is **reserved and refused** with
+its reason (a token's removal ripples through every slot and Backlog line naming
+it), and `.phyllum/PRD.md` is not edited — the next `phyllum apply` drops the
+criteria whose component has vanished and reports how many, which the report
+says out loud when a PRD exists. The whole contract is `refs/delete/`, and
+`delete` (v0.5.0 M2) is the only destructive verb Phyllum has.
+
+v0.5.0 M3 closes the release: the docs sweep, the 0.5.0 baseline, and a hardening
+sweep over the two surfaces this release added. Both of them are new *readings*
+of a file a person hand-edits, which is where this sweep has always found the
+holes. **The `applied:` line** is the first spec-block key read as a decision
+rather than as text, and the decision it feeds is the one destructive verb's
+in-use block — so `applied: maybe` was being read as `applied: false`, which is
+the silent yes the whole release is built to refuse. Only `true` and `false` are
+readable now; anything else is unreadable, unreadable is not `false`, and the
+block goes and reads the codebase instead, saying out loud which line it could
+not read. **Two components under one name** was the same fault wearing a
+different coat: the flag came from the *last* block of that name while the
+deletion took the *first* block's lines, so the reading and the bytes were about
+different entries. A duplicated name now carries no reading at all, and `delete`
+says the name does not identify one entry rather than picking one. And
+**`refs/delete/`** is the fifth tolerant contract folder — v0.4.0 M7 made three,
+v0.4.1 M3 made four — so a hand-mangled row is dropped with a notice naming its
+file as well as its table, asserted here rather than assumed from the shape of
+the code. The eval suite grows for the first time since v0.2.1 M5: `delete-flow`
+was pinned and unscored through M2 on purpose and is scored now, because
+`delete` is the first *gated* flow in the product and what rots in a gated flow
+is the order it speaks in. Twenty evals, every one at 1.000, no threshold
+lowered.
 
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest
@@ -393,7 +560,7 @@ colour format is as good as hex: `phyllum tokenise "our overlay rgba(0, 0, 0,
 0.5)"` walks the identical path, records the value exactly as pasted, and is
 recognised as the same colour a `#2563EB`-style spelling of it would be. A name
 in the sentence is used verbatim; without one, Phyllum suggests a name off the
-scales in `refs/tokenise.md` and confirms it. A sentence with no value ("add a
+scales in `refs/tokenise/naming.md` and confirms it. A sentence with no value ("add a
 token for our brand blue") opens a follow-up question asking for the value, the
 way `create` asks about a gap, and the token is written only once the answer
 completes it — never a dead-end error. A length whose meaning the sentence does
@@ -430,7 +597,7 @@ token track is `tokenise`'s review with codebase evidence behind each proposal,
 and the component track hands a candidate to `create`'s pick mode, which seeds a
 name and an archetype and never a value. The fourth bucket is where `assess`
 refuses to guess — a value whose property it could not read is asked about, and an
-unanswered question leaves the value unnamed. `refs/assess.md` is the contract.
+unanswered question leaves the value unnamed. `refs/assess/map.md` is the contract.
 
 v0.2.0 M5 wires `assess`'s **chained modes** — one scan, read four ways, with no
 second implementation of the review behind any of them. `assess tokens` walks the
@@ -488,10 +655,10 @@ agent, and the report says which criteria went which way. A phase commits only
 when its own criteria verify by reading the file, its diff touches only the files
 those criteria name, and the host project's own suite is green. A failing phase
 stops the run and records why in the PRD; completed phases stay committed and
-nothing is ever rolled back. `refs/apply.md` is the contract for both halves.
+nothing is ever rolled back. `refs/apply/` is the contract for both halves.
 
 v0.2.1 M1 teaches `assess` to **judge** rather than only inventory. Two changes,
-both in `refs/assess.md` as tables rather than as constants in the code. Every
+both in `refs/assess/severity.md` as tables rather than as constants in the code. Every
 finding now carries a **severity** decided by one number — how often the value is
 written across the whole codebase: three times or more is systematic drift and is
 proposed as a token; once or twice looks like a deliberate exception, so it is
@@ -546,7 +713,7 @@ across elements that no component was ever extracted from. Above 0.8 is a
 signature as the survivor; 0.5 to 0.8 is a **pattern similarity**, reported as a
 warning with nothing suggested; below 0.5 nothing is reported, because two
 things sharing one word are not evidence. The weights, the bands and the caps
-are all rows in `refs/assess.md`. Two properties make the number worth printing:
+are all rows in `refs/assess/similarity.md`. Two properties make the number worth printing:
 it is **deterministic** — no model call, explicit sort order, the same codebase
 scoring byte-identically on every run — and the comparison is **bounded**, so
 the report states the caps it ran under rather than truncating in silence. A

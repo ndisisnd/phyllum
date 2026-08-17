@@ -22,17 +22,17 @@ test('every path in the plan §7.2 layout exists', () => {
     'package.json',
     'bin/phyllum.js',
     'skill/SKILL.md',
-    'skill/refs/create.md',
-    'skill/refs/assess.md',
-    'skill/refs/apply.md',
-    'skill/refs/tokenise.md',
+    'skill/refs/create/create.md',
+    'skill/refs/assess/assess.md',
+    'skill/refs/apply/apply.md',
+    'skill/refs/tokenise/tokenise.md',
     'skill/refs/nomenclature.md',
-    'skill/refs/gui.md',
-    'skill/refs/system.md',
-    'skill/refs/version.md',
-    'skill/refs/update.md',
-    'skill/refs/upgrade.md',
-    'skill/refs/init.md',
+    'skill/refs/gui/gui.md',
+    'skill/refs/system/system.md',
+    'skill/refs/version/version.md',
+    'skill/refs/update/update.md',
+    'skill/refs/upgrade/upgrade.md',
+    'skill/refs/init/init.md',
     'server/serve.py',
     'gui/index.html',
     'templates/DESIGN-SYSTEM.md',
@@ -55,8 +55,11 @@ test('package.json declares the bin, ESM, and no runtime dependencies', () => {
 test('the skill ships a reference file for every subskill with one', () => {
   const files = skillFiles();
   assert.ok(files.includes('SKILL.md'));
-  for (const name of ['create', 'assess', 'apply', 'tokenise', 'gui', 'system', 'version', 'update', 'upgrade', 'init']) {
-    assert.ok(files.includes(`refs/${name}.md`), `missing refs/${name}.md`);
+  for (const name of ['create', 'assess', 'apply', 'tokenise', 'gui', 'system', 'version', 'update', 'delete', 'upgrade', 'init']) {
+    assert.ok(
+      files.includes(`refs/${name}/${name}.md`),
+      `missing refs/${name}/${name}.md`,
+    );
   }
 });
 

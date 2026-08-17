@@ -22,15 +22,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { designSystemReadError, executeArgv, nomenclatureFailureNotice } from '../../lib/execute.js';
+import { designSystemReadError, executeArgv, nomenclatureFailureNotice, refsFailureNotice } from '../../lib/execute.js';
 import { configProblem, readApplyConfig } from '../../lib/apply-config.js';
 import { MAX_SOURCE_BYTES, MAX_TEXT_BYTES, readTextFile } from '../../lib/scan-text.js';
 import { scanCandidates } from '../../lib/candidates.js';
 import { assessValues } from '../../lib/assess.js';
 import { emptyModel } from '../../lib/design-system.js';
 import { PRD_FILE, STATE_DIR } from '../../lib/write.js';
-import { ASSESS_SPEC_FILE, SPEC_FILE, parseSpec } from '../../lib/tokenise-spec.js';
-import { UPDATE_SPEC_FILE, parseUpdateSpec } from '../../lib/update-spec.js';
+import { parseSpec, readAssessSpecText, readSpecText } from '../../lib/tokenise-spec.js';
+import { parseUpdateSpec, readUpdateSpecText } from '../../lib/update-spec.js';
+import { MARKERS, parseContracts, readContractText } from '../../lib/archetypes.js';
+import { appliedNotices, readAppliedFlags } from '../../lib/applied.js';
+import { componentRanges } from '../../lib/delete-command.js';
+import {
+  DELETE_MARKERS,
+  parseDeleteSpec,
+  readDeleteSpecText,
+} from '../../lib/delete-spec.js';
+import { RefsError, refFiles } from '../../lib/refs.js';
 import { renderSpecNotices } from '../../lib/assess-report.js';
 import { NOMENCLATURE_FILE, NomenclatureError, parseNomenclature, reloadNomenclature } from '../../lib/nomenclature.js';
 import { isResumableCandidate, renderDroppedNotice, unfinishedQueue } from '../../lib/tokenise-command.js';
@@ -459,7 +468,7 @@ test('a hostile file already at the target is replaced whole, never merged into'
 // ---------------------------------------------------------------------------
 
 /**
- * `refs/assess.md` is installed into a project's `.claude/skills/`, and tuning
+ * `refs/assess/` is installed into a project's `.claude/skills/`, and tuning
  * a severity or moving a similarity band is the thing those tables exist for.
  * So a hand-edited table is an expected input, and a *broken* hand-edited table
  * is an expected malformed input — which before M6 took the whole CLI down with
@@ -467,12 +476,12 @@ test('a hostile file already at the target is replaced whole, never merged into'
  *
  * The sweep feeds `parseSpec` a doctored copy of the real reference files
  * rather than overwriting the ones the package ships: a test that edits
- * `skill/refs/assess.md` in place is one crash away from leaving the repository
+ * `skill/refs/assess/` in place is one crash away from leaving the repository
  * itself broken, which is a worse failure than the one being tested for.
  */
 
-const specText = () => fs.readFileSync(SPEC_FILE, 'utf8');
-const assessSpecText = () => fs.readFileSync(ASSESS_SPEC_FILE, 'utf8');
+const specText = () => readSpecText();
+const assessSpecText = () => readAssessSpecText();
 
 /** Replace the first data row under `marker` with one of your own. */
 function withRow(text, marker, row) {
@@ -540,32 +549,32 @@ test('a hostile row never reaches a user as a stack trace', async () => {
 
 test('the notice reads as a sentence, and says the assessment ran anyway', () => {
   assert.deepEqual(renderSpecNotices([]), [], 'silence when there is nothing to say');
-  const lines = renderSpecNotices(['refs/assess.md phyllum:severity: ignored an unreadable row (…) — why']);
+  const lines = renderSpecNotices(['refs/assess/severity.md phyllum:severity: ignored an unreadable row (…) — why']);
   assert.match(lines[0], /One rule was skipped/);
   assert.match(lines[0], /ran without them/, 'the finding is still trustworthy, minus that rule');
-  assert.match(lines.at(-1), /refs\/assess\.md/, 'and it names the file to fix');
+  assert.match(lines.at(-1), /refs\/assess\/severity\.md/, 'and it names the file to fix');
   assert.match(renderSpecNotices(['a', 'b'])[0], /2 rules were skipped/);
 });
 
 /**
  * Which file to fix is read off the notices, not assumed (v0.4.0 M7).
  *
- * Until this release every tolerant table lived in `refs/assess.md`, so naming
- * that file in the closing line was safe. `refs/tokenise.md` and
- * `refs/update.md` have tolerant tables now, and a closing line sending a reader
+ * Until v0.4.0 every tolerant table lived in the `assess` reference, so naming
+ * that file in the closing line was safe. `refs/tokenise/` and
+ * `refs/update/` have tolerant tables now, and a closing line sending a reader
  * to the wrong file is worse than one sending them nowhere.
  */
 test('the notice names the file its rows came from, whichever file that is', () => {
-  const one = renderSpecNotices(['refs/tokenise.md phyllum:picker: ignored an unreadable row (…) — why']);
-  assert.match(one.at(-1), /refs\/tokenise\.md/);
-  assert.doesNotMatch(one.at(-1), /refs\/assess\.md/, 'and never a file it did not hear from');
+  const one = renderSpecNotices(['refs/tokenise/picker.md phyllum:picker: ignored an unreadable row (…) — why']);
+  assert.match(one.at(-1), /refs\/tokenise\/picker\.md/);
+  assert.doesNotMatch(one.at(-1), /refs\/assess\//, 'and never a file it did not hear from');
 
   const two = renderSpecNotices([
-    'refs/tokenise.md phyllum:picker: ignored an unreadable row (…) — why',
-    'refs/update.md phyllum:update-verbs: ignored an unreadable row (…) — why',
+    'refs/tokenise/picker.md phyllum:picker: ignored an unreadable row (…) — why',
+    'refs/update/token.md phyllum:update-verbs: ignored an unreadable row (…) — why',
   ]);
-  assert.match(two.at(-1), /refs\/tokenise\.md/);
-  assert.match(two.at(-1), /refs\/update\.md/, 'both files, when both are involved');
+  assert.match(two.at(-1), /refs\/tokenise\/picker\.md/);
+  assert.match(two.at(-1), /refs\/update\/token\.md/, 'both files, when both are involved');
 
   // The header says what still ran, and the caller says what that was: an
   // `update` run is not "the assessment above".
@@ -587,6 +596,25 @@ function swatchContract() {
   return new Function(
     `${text.slice(start, end)}\nreturn { SWATCH, CARD, isColourValue, isGradientValue, isFillValue, cardHtml,` +
       ' swatchHtml, rampGroups, rampHtml };',
+  )();
+}
+
+/**
+ * The dashboard's preview region, evaluated (v0.4.1 §4). `gui-preview.test.js`
+ * lifts the same region to check what it draws; this file lifts it to check what
+ * it does with a spec nobody meant to write.
+ */
+function previewContract() {
+  const text = fs.readFileSync(path.join(PACKAGE_ROOT, 'gui', 'index.html'), 'utf8');
+  const region = (name) => {
+    const start = text.indexOf(`// --- phyllum:${name}`);
+    const end = text.indexOf(`// --- end phyllum:${name}`);
+    assert.ok(start !== -1 && end > start, `the page marks its ${name} region`);
+    return text.slice(start, end);
+  };
+  return new Function(
+    `${region('swatch-contract')}\n${region('preview-contract')}\nreturn { PREVIEW, UNRENDERED,` +
+      ' previewStates, projectSlot, projectSpec, previewPanelHtml };',
   )();
 }
 
@@ -847,9 +875,9 @@ test('renderLibrary answers a payload that is not a design system', () => {
 // v0.4.0 M7 — the surfaces this release added, swept on the same axis
 //
 // Three new things read something they did not write. The **contract tables**
-// grew from one tolerant file to three: `refs/tokenise.md` gained the picker,
+// grew from one tolerant file to three: `refs/tokenise/` gained the picker,
 // the fork, the argument hints, the gradient scale and the comparison table, and
-// `refs/update.md` arrived whole. The **design system itself** became something
+// `refs/update/` arrived whole. The **design system itself** became something
 // a command edits rather than only appends to, which makes a hand-mangled file
 // an input to a write rather than to a read. And a **rename** became a thing
 // Phyllum does on purpose, which means it became a thing Phyllum can do wrongly.
@@ -868,9 +896,9 @@ test('renderLibrary answers a payload that is not a design system', () => {
 
 // --- the v0.4.0 contract tables ---------------------------------------------
 
-const updateSpecText = () => fs.readFileSync(UPDATE_SPEC_FILE, 'utf8');
+const updateSpecText = () => readUpdateSpecText();
 
-/** One hostile row per table `refs/tokenise.md` gained, and where it lands. */
+/** One hostile row per table the `tokenise` reference gained, and where it lands. */
 const HOSTILE_TOKENISE = [
   ['<!-- phyllum:picker -->', '|  | a colour | `colour-fork` | — |', 'picker'],
   ['<!-- phyllum:colour-fork -->', '| `solid` | solid | | `<answer>` |', 'colourFork'],
@@ -888,7 +916,7 @@ for (const [marker, row, key] of HOSTILE_TOKENISE) {
     assert.deepEqual(clean.ignored, [], 'the shipped tables have nothing to report');
     assert.equal(broken.ignored.length, 1, `${name}: exactly the one bad row`);
     assert.match(broken.ignored[0], new RegExp(name), 'the notice names the table');
-    assert.match(broken.ignored[0], /refs\/tokenise\.md/, 'and the file it is in');
+    assert.match(broken.ignored[0], /refs\/tokenise\/[\w-]+\.md/, 'and the file it is in');
     assert.match(broken.ignored[0], /ignored an unreadable row/);
 
     const count = (value) => (Array.isArray(value) ? value.length : Object.keys(value).length);
@@ -896,7 +924,7 @@ for (const [marker, row, key] of HOSTILE_TOKENISE) {
   });
 }
 
-/** One hostile row per `refs/update.md` table, and where it lands. */
+/** One hostile row per `update` reference table, and where it lands. */
 const HOSTILE_UPDATE = [
   ['<!-- phyllum:update-copy -->', '|  | What are you updating? |', 'copy'],
   ['<!-- phyllum:update-grammar -->', '|  | the menu | — | — |', 'grammar'],
@@ -916,7 +944,7 @@ for (const [marker, row, key] of HOSTILE_UPDATE) {
     assert.deepEqual(clean.ignored, [], 'the shipped tables have nothing to report');
     assert.equal(broken.ignored.length, 1, `${name}: exactly the one bad row`);
     assert.match(broken.ignored[0], new RegExp(name), 'the notice names the table');
-    assert.match(broken.ignored[0], /refs\/update\.md/, 'and the file it is in');
+    assert.match(broken.ignored[0], /refs\/update\/[\w-]+\.md/, 'and the file it is in');
 
     // A rename or verb row carries several spellings, so dropping one row drops
     // at least one phrase — never all of them, and never none.
@@ -1203,4 +1231,379 @@ test('a hostile gradient value never escapes the card renderer', () => {
   }
   // And the honest gradient still fills, so the gate is a gate and not a wall.
   assert.equal(isGradientValue('linear-gradient(135deg, #2563EB, #10B981)'), true);
+});
+
+// ---------------------------------------------------------------------------
+// v0.4.1 M3 — the surfaces this release added, swept on the same axis
+//
+// Two new reading surfaces arrived in v0.4.1, and each one moved a failure to a
+// place the earlier sweeps never looked.
+//
+// **The reference tree became a tree.** A protocol's reference used to be one
+// file at a path this code composed; it is a folder now, and `lib/refs.js` is
+// the one module that turns a protocol name into files on disk. That makes a
+// missing folder, and a protocol name that is not a name at all, two new ways to
+// fail — and the first one failed as a raw `ENOENT` naming Phyllum's own install
+// path, which is the exact shape v0.2.1 M6 ruled out.
+//
+// **The archetype table grew a column.** The `phyllum:contracts` table is now
+// read by the dashboard as well as by `create`, and it was the last shipped
+// contract table with no tolerance at all: one hand-mangled row took every
+// caller of it down with a `TypeError`. v0.4.0 M7 made three files tolerant on
+// exactly this argument, and this is the fourth.
+//
+// **A state named `default`.** The preview's base reading is called `default`,
+// and a spec is free to record a state under that name. The toggle offered it
+// twice and applied it never — a picker option that silently does nothing, which
+// is the "no question about nothing" rule wearing different clothes.
+// ---------------------------------------------------------------------------
+
+// --- the reference tree -----------------------------------------------------
+
+test('a reference folder that is not there is named, not an ENOENT trace', () => {
+  for (const protocol of ['nope', 'tokenize', 'apply-run']) {
+    let error = null;
+    try {
+      refFiles(protocol);
+    } catch (thrown) {
+      error = thrown;
+    }
+    assert.ok(error instanceof RefsError, `${protocol}: raised ${error?.name ?? 'nothing'}`);
+    assert.match(error.message, new RegExp(`refs/${protocol}/`), 'the message names the folder');
+    assert.ok(!/ENOENT|scandir/.test(error.message), `${protocol}: a raw errno leaked`);
+    assert.ok(!error.message.includes(PACKAGE_ROOT), `${protocol}: Phyllum's own path leaked`);
+
+    // And what the terminal says about it, at the boundary that catches it.
+    const notice = refsFailureNotice('create', error);
+    assert.match(notice, /phyllum upgrade/, `${protocol}: the notice names the fix`);
+    assert.ok(!/at Object\.|at Module\.|at file:/.test(notice), `${protocol}: a stack trace leaked`);
+    assert.ok(notice.endsWith('\n'), `${protocol}: the notice is a page, not a fragment`);
+  }
+});
+
+test('a protocol name that is a path is refused rather than followed', () => {
+  // `refs/<protocol>/` composes a path, so a protocol name carrying a separator
+  // reads a folder that is not a reference folder at all — `../..` walked out of
+  // the tree entirely and came back with the repository's own Markdown.
+  for (const hostile of ['..', '../..', 'gui/../create', 'gui/cards.md', '', '.']) {
+    assert.throws(
+      () => refFiles(hostile),
+      RefsError,
+      `${JSON.stringify(hostile)} is not a protocol name`,
+    );
+  }
+  // And the real ones still resolve, so the guard is a gate and not a wall.
+  assert.ok(refFiles('gui').length > 1);
+});
+
+// --- the archetype contracts table ------------------------------------------
+
+test('a hostile row in phyllum:contracts is dropped, and said out loud', () => {
+  const shipped = readContractText();
+  const clean = parseContracts(shipped);
+  assert.deepEqual(clean.ignored, [], 'the shipped tables have nothing to report');
+
+  // A nameless row is unreadable and says so — the notice names the table, the
+  // file it is in, and the cells it could not read.
+  const nameless = parseContracts(withRow(shipped, MARKERS.contracts, '|  | `btn` | background | hover | `button` |'));
+  assert.equal(nameless.ignored.length, 1, 'exactly the one bad row');
+  assert.match(nameless.ignored[0], /phyllum:contracts/, 'the notice names the table');
+  assert.match(nameless.ignored[0], /refs\/create\/archetypes\.md/, 'and the file it is in');
+  assert.match(nameless.ignored[0], /ignored an unreadable row/);
+  assert.equal(nameless.archetypes.length, clean.archetypes.length - 1, 'one row fewer, not zero rows');
+  for (const entry of nameless.archetypes) {
+    assert.notEqual(entry.name, '', 'a contract about nothing is not a contract');
+  }
+
+  // A row that predates the preview column is *readable*, not unreadable, so it
+  // stays — and its element reads as `null` rather than as a guess. That is the
+  // tolerant contract's other half: a table one column short is still a table.
+  const columnless = parseContracts(withRow(shipped, MARKERS.contracts, '| Sidebar | `sidebar` | background | — |'));
+  assert.deepEqual(columnless.ignored, [], 'a row that predates the column is readable, not unreadable');
+  assert.equal(columnless.archetypes.length, clean.archetypes.length, 'no row was lost to a short row');
+  assert.equal(columnless.archetypes[0].name, 'Sidebar');
+  assert.equal(columnless.archetypes[0].previewElement, null, 'and its element is null, not a guess');
+});
+
+test('a hostile contracts row never reaches a user as a stack trace', () => {
+  // Every caller of the table — `create`'s contract lookup, the extrapolation
+  // `assess` runs, the dashboard's preview element — reads the same parse, so
+  // one unreadable row must cost one row and nothing else.
+  const broken = parseContracts(
+    withRow(readContractText(), MARKERS.contracts, '|  |  |  |  |  |'),
+  );
+  assert.ok(broken.archetypes.every((entry) => entry.key !== ''));
+  assert.ok(broken.vocabulary.length > 0, 'the other tables in the file are untouched');
+  assert.ok(broken.defaults.length > 0);
+});
+
+// --- the preview's base state -----------------------------------------------
+
+test('a state recorded as `default` is one option, and it is applied', () => {
+  const { previewStates, projectSpec, previewPanelHtml } = previewContract();
+  const spec = {
+    name: 'Button/Primary',
+    archetype: 'button',
+    properties: { background: '#FFFFFF' },
+    states: { default: { background: '#000000' }, hover: { background: '#111111' } },
+  };
+  const tokens = { values: {}, typography: {} };
+
+  assert.deepEqual(
+    previewStates(spec),
+    ['default', 'hover'],
+    'the base reading and a state of the same name are one option, not two',
+  );
+
+  // The file records what `default` looks like, so the file wins: the recorded
+  // state is drawn rather than being offered and then ignored.
+  assert.equal(projectSpec(spec, tokens, 'default').style, 'background:#000000');
+  assert.equal(projectSpec(spec, tokens, 'hover').style, 'background:#111111');
+
+  const panel = previewPanelHtml([spec], 0, tokens, 'default');
+  assert.equal(
+    (panel.match(/data-preview-state="default"/g) ?? []).length,
+    1,
+    'the toggle offers `default` once',
+  );
+
+  // A spec with no `default` state is untouched by any of it.
+  const plain = { name: 'B/P', archetype: 'button', properties: { background: '#FFFFFF' }, states: {} };
+  assert.deepEqual(previewStates(plain), ['default']);
+  assert.equal(projectSpec(plain, tokens, 'default').style, 'background:#FFFFFF');
+});
+
+test('a typography row that is not three readings is unresolved, not a throw', () => {
+  // `previewTokens` builds every typography row as three strings, so this is the
+  // shape nobody should be able to hand the projection — which is exactly the
+  // reason it is checked. Every other reader on this page guards its input
+  // whether or not the shape can reach it, and one that does not is the one that
+  // takes the panel down.
+  const { projectSlot } = previewContract();
+  const HOSTILE_ROWS = ['a sentence', 42, {}, true];
+  for (const row of HOSTILE_ROWS) {
+    const projected = projectSlot('font', 'type-body', { values: {}, typography: { 'type-body': row } });
+    assert.deepEqual(projected.declarations, [], `${JSON.stringify(row)}: nothing was drawn from it`);
+    assert.equal(projected.reason, 'unresolved', `${JSON.stringify(row)}: and the panel says so`);
+  }
+  // The honest row still projects, so the guard is a gate and not a wall.
+  const good = projectSlot('font', 'type-body', {
+    values: {},
+    typography: { 'type-body': ['16px', '400', '1.5'] },
+  });
+  assert.equal(good.reason, null);
+  assert.deepEqual(good.declarations, [
+    ['font-size', '16px'],
+    ['font-weight', '400'],
+    ['line-height', '1.5'],
+  ]);
+});
+
+// ---------------------------------------------------------------------------
+// v0.5.0 M3 — the surfaces this release added, swept on the same axis
+//
+// Two of them, and both are new *readings* of a file a person hand-edits, which
+// is where this sweep has always found the holes.
+//
+// **The `applied:` line.** It is the first spec-block key whose value is read as
+// a decision rather than as text, and the decision it feeds is `delete`'s in-use
+// block. So the one reading that must never be invented is the reading of a line
+// nobody can vouch for: `applied: maybe` is not `false`, and two components under
+// one name do not have one flag between them. Absence and unreadability both
+// mean "there is nothing to trust here", and the way out of both is the live
+// check the block already runs — never a silent yes to the one destructive verb.
+//
+// **`refs/delete/`.** The fifth tolerant contract folder. v0.4.0 M7 made three
+// files drop an unreadable row with a notice naming its file as well as its
+// table, v0.4.1 M3 made it four, and this is the fifth — asserted here rather
+// than assumed from the shape of the code.
+// ---------------------------------------------------------------------------
+
+// --- the `applied:` line ----------------------------------------------------
+
+/** A design system whose one component's flag is whatever the case says. */
+const withFlag = (flag, name = 'Button/Primary') => `# Design System
+
+## Tokens
+
+### Colours
+
+| token | value |
+| --- | --- |
+| color-primary | #2563EB |
+
+### Numbers
+
+| token | value | applies to |
+| --- | --- | --- |
+
+### Typography
+
+| token | size | weight | line-height |
+| --- | --- | --- | --- |
+
+## Components
+
+### ${name}
+
+\`\`\`yaml
+name: ${name}
+archetype: button
+${flag === null ? '' : `applied: ${flag}\n`}properties:
+  background: color-primary
+\`\`\`
+
+\`\`\`jsx
+export function ButtonPrimary({ children }) {
+  return <button className="button-primary">{children}</button>;
+}
+\`\`\`
+
+## Backlog
+
+- _Nothing outstanding._
+`;
+
+test('a hand-mangled `applied:` line is unreadable, and unreadable is not `false`', () => {
+  // `false` is a *finding*: `apply` looked at the codebase and saw nothing. A
+  // line nobody can read is not a finding, and reading it as one hands `delete`
+  // the silent yes the whole release is built to refuse.
+  for (const mangled of ['maybe', 'yes', 'TRUE-ish', '', 'nope', '1', 'null']) {
+    const flags = readAppliedFlags(withFlag(mangled));
+    assert.equal(
+      flags.get('Button/Primary'),
+      null,
+      `\`applied: ${mangled}\` was read as a decision`,
+    );
+  }
+  // The two readable spellings still read, so the guard is a gate and not a wall.
+  assert.equal(readAppliedFlags(withFlag('true')).get('Button/Primary'), true);
+  assert.equal(readAppliedFlags(withFlag('false')).get('Button/Primary'), false);
+  assert.equal(readAppliedFlags(withFlag(' True ')).get('Button/Primary'), true);
+  assert.equal(readAppliedFlags(withFlag(null)).get('Button/Primary'), null, 'and absence still reads as absence');
+});
+
+test('an unreadable flag is said out loud, naming the file and the component', () => {
+  const notices = appliedNotices(withFlag('maybe'));
+  assert.equal(notices.length, 1, 'exactly the one line nobody can read');
+  assert.match(notices[0], /DESIGN-SYSTEM\.md/, 'the notice names the file');
+  assert.match(notices[0], /Button\/Primary/, 'and the component whose line it is');
+  assert.match(notices[0], /maybe/, 'and what it actually says');
+  assert.match(notices[0], /phyllum apply/, 'and the one command that can put it right');
+  assert.deepEqual(appliedNotices(withFlag('true')), [], 'a readable file has nothing to report');
+  assert.deepEqual(appliedNotices(withFlag(null)), [], 'and neither has a file with no flag at all');
+});
+
+test('`delete` reads the codebase rather than trusting a flag it cannot read', async () => {
+  // The component is used right here, in this file. A run that believed
+  // `applied: maybe` meant `false` would open the acceptance gate on it.
+  await withTempDir(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), withFlag('maybe'));
+    fs.mkdirSync(path.join(dir, 'src'));
+    fs.writeFileSync(
+      path.join(dir, 'src', 'Toolbar.jsx'),
+      'export function Toolbar() {\n  return <ButtonPrimary>Save</ButtonPrimary>;\n}\n',
+    );
+    const before = snapshotContents(dir);
+
+    const gates = [];
+    const result = await executeArgv(['delete', 'Button/Primary'], {
+      cwd: dir,
+      today: '2026-08-17',
+      ask: async () => 'Button/Primary',
+      confirm: async (question) => {
+        gates.push(question);
+        return true;
+      },
+    });
+
+    assert.match(result.out, /in use in this codebase right now/, 'the run refused');
+    assert.match(result.out, /the codebase was read now/, 'and it refused on evidence it went and got');
+    assert.deepEqual(gates, [], 'no acceptance gate was ever opened');
+    assert.equal(result.code, 0, 'a refusal honoured is not an error');
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] });
+    // And the unreadable line was named before the flow asked anything.
+    assert.match(result.out, /DESIGN-SYSTEM\.md/);
+    assert.match(result.out, /maybe/);
+  });
+});
+
+test('two components under one name have no flag between them, and are not deleted', async () => {
+  // A duplicated `### <name>` used to read one flag — the *last* block's — while
+  // the deletion took the *first* block's lines. The reading and the bytes were
+  // about different entries, which is the one thing a destructive verb may never
+  // let happen quietly.
+  const doubled = withFlag('true').replace(
+    '## Backlog',
+    withFlag('false').split('## Components\n')[1].split('## Backlog')[0] + '## Backlog',
+  );
+  assert.equal(componentRanges(doubled).length, 2, 'the fixture really does hold two of them');
+
+  assert.equal(
+    readAppliedFlags(doubled).get('Button/Primary'),
+    null,
+    'one name over two blocks is not one reading',
+  );
+  const notices = appliedNotices(doubled);
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /Button\/Primary/, 'the notice names the component');
+  assert.match(notices[0], /DESIGN-SYSTEM\.md/, 'and the file it is duplicated in');
+  assert.match(notices[0], /twice|two/, 'and says what is wrong with it');
+
+  await withTempDir(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), doubled);
+    const before = snapshotContents(dir);
+    const gates = [];
+    const result = await executeArgv(['delete', 'Button/Primary'], {
+      cwd: dir,
+      today: '2026-08-17',
+      ask: async () => 'Button/Primary',
+      confirm: async (question) => {
+        gates.push(question);
+        return true;
+      },
+    });
+    assert.match(result.out, /twice|two entries/, 'the run says the name is ambiguous');
+    assert.match(result.out, /Nothing has been written/);
+    assert.deepEqual(gates, [], 'and it never reached the gate');
+    assert.equal(result.code, 0);
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] });
+  });
+});
+
+// --- refs/delete/, the fifth tolerant folder --------------------------------
+
+test('a hostile row in the `delete` tables is dropped, and said out loud', () => {
+  const shipped = readDeleteSpecText();
+  assert.deepEqual(parseDeleteSpec(shipped).ignored, [], 'the shipped refs/delete/ has nothing to report');
+
+  const cases = [
+    ['delete-copy', DELETE_MARKERS.copy, '|  | a line with no name |', /refs\/delete\/flow\.md/],
+    ['delete-copy', DELETE_MARKERS.copy, '| `warning` |  |', /refs\/delete\/flow\.md/],
+    ['delete-grammar', DELETE_MARKERS.grammar, '|  | opens nothing | — | no |', /refs\/delete\/delete\.md/],
+    ['delete-flow', DELETE_MARKERS.flow, '|  | a step with no number | no |', /refs\/delete\/flow\.md/],
+  ];
+  for (const [table, marker, row, file] of cases) {
+    const broken = parseDeleteSpec(withRow(shipped, marker, row));
+    assert.equal(broken.ignored.length, 1, `${table}: exactly the one bad row`);
+    assert.match(broken.ignored[0], new RegExp(table), `${table}: the notice names the table`);
+    assert.match(broken.ignored[0], file, `${table}: and the file it is in`);
+    assert.match(broken.ignored[0], /ignored an unreadable row/, table);
+    // One bad row costs one row, and the other tables in the folder still read.
+    assert.ok(Object.keys(broken.copy).length > 0, `${table}: the copy table survived`);
+    assert.ok(broken.grammar.length > 0, `${table}: the grammar survived`);
+    assert.ok(broken.flow.length > 0, `${table}: the flow survived`);
+  }
+});
+
+test('a dropped `delete` row reaches the user as a notice, never as a stack trace', async () => {
+  // The notices print before the flow asks anything, exactly as `tokenise` and
+  // `update` have printed theirs since v0.4.0 M7.
+  const notices = renderSpecNotices(
+    ['skill/refs/delete/flow.md phyllum:delete-copy: ignored an unreadable row (| |) — the line cell is empty'],
+    { ran: 'this run' },
+  );
+  assert.ok(notices.length > 0, 'a dropped row is said');
+  assert.match(notices.join('\n'), /refs\/delete\/flow\.md/);
+  assert.ok(!/at Object\.|at Module\./.test(notices.join('\n')));
 });

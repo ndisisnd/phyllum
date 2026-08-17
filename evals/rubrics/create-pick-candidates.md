@@ -49,5 +49,5 @@ the questions asked and their order, one for what was proposed, and one for
 nothing being proposed that was never asked about.
 
 **Threshold: 1.0.** Every case here has one correct answer that follows from the
-signals table in `skill/refs/create.md`; there is no judgement to be generous
+signals table in `skill/refs/create/`; there is no judgement to be generous
 about.

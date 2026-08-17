@@ -391,8 +391,22 @@ test('a successful upgrade re-syncs the skill copy init installed', async () => 
     const written = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8');
     assert.equal(written, fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'SKILL.md'), 'utf8'));
     for (const rel of expected) {
-      assert.ok(fs.existsSync(path.join(skillDir, ...rel.split('/'))), `${rel} was not re-synced`);
+      const installed = path.join(skillDir, ...rel.split('/'));
+      assert.ok(fs.existsSync(installed), `${rel} was not re-synced`);
+      // The reference tree is a folder per protocol as of v0.4.1, so the
+      // re-sync has to reach into the folders and put the *source* copy back —
+      // a stale per-topic file left behind is exactly the CLI/skill version
+      // split this step exists to prevent.
+      assert.equal(
+        fs.readFileSync(installed, 'utf8'),
+        fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', ...rel.split('/')), 'utf8'),
+        `${rel} was re-synced to something other than the source`,
+      );
     }
+    assert.ok(
+      expected.filter((rel) => rel.split('/').length > 2).length > 30,
+      'the nested reference folders are part of what is re-synced',
+    );
 
     // Only the skill copy changed: no design system was invented, nothing else touched.
     const diff = diffSnapshots(before, snapshotContents(dir));

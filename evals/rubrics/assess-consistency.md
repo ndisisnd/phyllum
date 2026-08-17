@@ -76,7 +76,7 @@ are the ordinary projects that must produce nothing at all; and
 ## What the eval does not grade
 
 Determinism across reruns, the exact wording of the report, the conventions and
-severities being read from `refs/assess.md` rather than restated in code, the
+severities being read from `refs/assess/` rather than restated in code, the
 caps binding on a project bigger than the caps, the fold that keeps a registered
 component's class spelling from being reported as drift against itself, and the
 read-only proof around the whole pass. Those are assertions, in

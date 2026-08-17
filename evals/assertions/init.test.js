@@ -17,6 +17,7 @@ import { instantiateTemplate, packageVersion, skillFiles } from '../../lib/templ
 import { GITIGNORE_LINE, GITIGNORE_LINES } from '../../lib/write.js';
 import {
   FIXTURES,
+  PACKAGE_ROOT,
   USER_EDITED_FIXTURE,
   copyDir,
   diffSnapshots,
@@ -55,6 +56,24 @@ test('init copies every skill file into .claude/skills/phyllum/', async () => {
     assert.deepEqual(installed, skillFiles().sort());
     assert.ok(installed.includes('SKILL.md'));
     assert.ok(installed.some((rel) => rel.startsWith('refs/')));
+
+    // The reference tree is a folder per protocol as of v0.4.1, so "every skill
+    // file" now means a nested walk. A copier that stopped at the top level
+    // would still pass the list check above if the list stopped there too, so
+    // the depth is asserted on the installed copy itself.
+    const nested = installed.filter((rel) => rel.split('/').length > 2);
+    assert.ok(nested.length > 30, `only ${nested.length} nested files were installed`);
+    assert.ok(nested.includes('refs/tokenise/passes.md'), 'a per-topic file made it in');
+
+    // And the copy is the source, byte for byte — an install that silently
+    // reformatted a contract table would be a behaviour change per file.
+    for (const rel of installed) {
+      assert.equal(
+        fs.readFileSync(path.join(dir, '.claude/skills/phyllum', ...rel.split('/')), 'utf8'),
+        fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', ...rel.split('/')), 'utf8'),
+        `${rel} was not installed byte for byte`,
+      );
+    }
   });
 });
 

@@ -63,7 +63,7 @@
         --gap: 2rem;
 
         /* colour cards (v0.4.0 §5.5) — the numbers the `phyllum:cards` table
-           in skill/refs/gui.md records, and the only rounded corner on the
+           in skill/refs/gui/cards.md records, and the only rounded corner on the
            page. */
         --card-radius: 0.5rem;
         --card-min: 13rem;
@@ -278,6 +278,42 @@
         word-break: break-word;
       }
 
+      /* --- component preview (v0.4.1 §4) ---------------------------------
+         The Library view's component panel draws the component above the
+         labelled yaml and jsx blocks it already prints. The stage is the
+         page's own tile idiom — the layer behind, a hairline around it, no
+         new colour and no rounded corner. The element's own look comes
+         entirely from its recorded spec, inline; the only thing this
+         stylesheet lends it is a 1px transparent edge to paint a recorded
+         border colour on, and a type inheritance to start from. */
+      .preview { margin-bottom: 1.5rem; }
+      .preview__toggles { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+      .preview__toggle { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+      .preview__toggle-label {
+        font-size: var(--type-01);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .preview__stage {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 7rem;
+        padding: 1.5rem;
+        background: var(--bg);
+        border: 1px solid var(--line);
+      }
+      .preview__element {
+        display: inline-block;
+        font: inherit;
+        max-width: 100%;
+        border-style: solid;
+        border-width: 1px;
+        border-color: transparent;
+      }
+      .preview__unrendered { margin: 0.75rem 0 0; font-size: var(--type-01); color: var(--muted); }
+
       /* --- swatches (v0.3.0 §6.5) — the ramp-strip treatment, since v0.4.0 */
       .swatch { display: block; }
       .swatch__fill {
@@ -327,6 +363,10 @@
         font-size: var(--type-01);
         border: 1px solid var(--line-strong);
       }
+      /* The `applied` badge (v0.5.0 §3.4): the chip the page already has, in a
+         colour the page already uses. A reading of the codebase is not a
+         warning and not a highlight, so it takes the quiet one. */
+      .chip.applied { color: var(--muted); }
       .chip.token { color: var(--accent); border-color: var(--accent); }
       .chip.raw { color: var(--raw); border-color: var(--raw); }
       form.prompt { display: flex; gap: 0.5rem; margin-top: 1rem; }
@@ -425,7 +465,7 @@
 
     <script>
       // --- phyllum:swatch-contract ----------------------------------------
-      // The rules below are the ones recorded in skill/refs/gui.md under the
+      // The rules below are the ones recorded in skill/refs/gui/cards.md under the
       // `phyllum:swatches` marker: what counts as near-white, when a label
       // switches to dark ink, and how wide a ramp strip is. They are kept pure
       // — strings and numbers, no DOM — because the assertion suite lifts this
@@ -444,7 +484,7 @@
       };
 
       // The colour-card dimensions recorded in the `phyllum:cards` table of
-      // skill/refs/gui.md. They are the same strings the stylesheet holds in
+      // skill/refs/gui/cards.md. They are the same strings the stylesheet holds in
       // its custom properties, so the table, the constant and the CSS are one
       // set of numbers rather than three.
       const CARD = {
@@ -598,7 +638,433 @@
       }
       // --- end phyllum:swatch-contract -------------------------------------
 
-      const state = { system: null, session: null, scope: 'all', view: 'library', selected: null, scopeTouched: false };
+      // --- phyllum:preview-contract ----------------------------------------
+      // The component preview (v0.4.1 §4), recorded in
+      // skill/refs/gui/component-preview.md.
+      //
+      // The preview is a projection of the component's recorded **spec**, never
+      // an execution of its stored React code. Running that code would need a
+      // JSX transform — a dependency, a build step, or a CDN fetch, and all
+      // three are on this page's never-list — and it would mean executing
+      // content out of a file a person hand-edits. The value gate that keeps a
+      // hand-edited colour out of a `style` attribute applies with more force
+      // to a script.
+      //
+      // So one element is drawn per archetype, and its inline styles are built
+      // slot by slot from `properties`: a token reference resolves against the
+      // tokens `/system` already carries, a raw value is used verbatim, and a
+      // `TODO` or unresolvable slot contributes nothing at all and is named
+      // underneath as an unrendered slot. Nothing is invented — the preview is
+      // the one place where an invented value would be believed.
+      //
+      // Kept pure — strings, numbers, no DOM and no fetch — so the assertion
+      // suite runs this exact code against a fixture rather than a restatement
+      // of it.
+      const PREVIEW = {
+        // Archetype → the element its spec is drawn as. This is the "preview
+        // element" column of the `phyllum:contracts` table in
+        // skill/refs/create/archetypes.md; the suite reads the table and this
+        // map, so the two cannot drift.
+        elements: {
+          button: 'button',
+          input: 'input',
+          card: 'div',
+          badge: 'span',
+          modal: 'div',
+          toggle: 'span',
+          checkbox: 'span',
+          radio: 'span',
+          select: 'div',
+          tooltip: 'span',
+          toast: 'div',
+          tabs: 'div',
+          link: 'span',
+          avatar: 'span',
+          progress: 'div',
+        },
+        // A component with no contract — a `custom`, or an archetype this page
+        // has never heard of — is a generic block built from whatever slots it
+        // happens to carry.
+        fallbackElement: 'div',
+        // Elements that take no children: their label rides on `value`.
+        voidElements: ['input'],
+        // The base reading: the recorded properties with no state overlaid.
+        baseState: 'default',
+        // Property → the declarations it projects into, and the shape its value
+        // has to have before it reaches a style attribute. The
+        // `phyllum:preview-projection` table in
+        // skill/refs/gui/component-preview.md records the same map. An empty
+        // declaration list is a slot with no single-element projection: a
+        // thumb, an indicator or a scrim is a second box, and this preview
+        // draws one.
+        projection: {
+          background: { declarations: ['background'], shape: 'fill' },
+          'text-colour': { declarations: ['color'], shape: 'colour' },
+          'border-colour': { declarations: ['border-color'], shape: 'colour' },
+          'border-width': { declarations: ['border-width'], shape: 'length' },
+          radius: { declarations: ['border-radius'], shape: 'lengths' },
+          'radius-top-left': { declarations: ['border-top-left-radius'], shape: 'length' },
+          'radius-top-right': { declarations: ['border-top-right-radius'], shape: 'length' },
+          'radius-bottom-right': { declarations: ['border-bottom-right-radius'], shape: 'length' },
+          'radius-bottom-left': { declarations: ['border-bottom-left-radius'], shape: 'length' },
+          padding: { declarations: ['padding'], shape: 'lengths' },
+          'padding-top': { declarations: ['padding-top'], shape: 'length' },
+          'padding-bottom': { declarations: ['padding-bottom'], shape: 'length' },
+          'padding-left': { declarations: ['padding-left'], shape: 'length' },
+          'padding-right': { declarations: ['padding-right'], shape: 'length' },
+          font: { declarations: ['font-size', 'font-weight', 'line-height'], shape: 'typography' },
+          'font-size': { declarations: ['font-size'], shape: 'length' },
+          'font-weight': { declarations: ['font-weight'], shape: 'weight' },
+          'line-height': { declarations: ['line-height'], shape: 'leading' },
+          shadow: { declarations: ['box-shadow'], shape: 'shadow' },
+          gap: { declarations: ['gap'], shape: 'length' },
+          size: { declarations: ['width', 'height'], shape: 'length' },
+          'track-colour': { declarations: ['background'], shape: 'fill' },
+          'overlay-colour': { declarations: [], shape: 'colour' },
+          'focus-ring': { declarations: [], shape: 'colour' },
+          'thumb-colour': { declarations: [], shape: 'colour' },
+          'indicator-colour': { declarations: [], shape: 'colour' },
+        },
+      };
+
+      /** Why a slot was not drawn — the three words the panel prints. */
+      const UNRENDERED = { todo: 'TODO', unresolved: 'unresolved', unprojectable: 'no preview element' };
+
+      /**
+       * The hard gate, ahead of every shape gate.
+       *
+       * DESIGN-SYSTEM.md is a file a person edits, so a value only reaches a
+       * style attribute when the page can classify it. This half is the part
+       * that has nothing to do with classification: anything that could end the
+       * declaration, open a string, open a comment, open a request, or close
+       * the attribute is refused whatever shape it otherwise wears.
+       */
+      const isSafeDeclaration = (value) => {
+        const text = String(value ?? '');
+        if (text.trim() === '') return false;
+        if (/[;"'\\<>{}]/.test(text)) return false;
+        if (/\/\*|\*\//.test(text)) return false;
+        return !/(url|expression|image-set|attr|element)\s*\(/i.test(text);
+      };
+
+      /** A colour keyword the page is willing to write, beyond a hex literal. */
+      const isColourKeyword = (value) => /^(transparent|currentcolor)$/i.test(String(value ?? '').trim());
+
+      // Only these shapes are ever inlined into a style attribute. They were the
+      // typography specimens' gates first (v0.3.0 §6.5); the preview reads the
+      // same three, because a font size is a font size wherever it is drawn.
+      const safeSize = (value) => (/^\d*\.?\d+(px|rem|em|pt|%)$/.test(value) ? value : null);
+      const safeWeight = (value) => (/^([1-9]00|normal|bold|lighter|bolder)$/.test(value) ? value : null);
+      const safeLeading = (value) => (/^(normal|\d*\.?\d+(px|rem|em|%)?)$/.test(value) ? value : null);
+
+      const isLength = (value) => /^(0|\d*\.?\d+(px|rem|em|pt|%))$/.test(String(value ?? '').trim());
+
+      /** One to four lengths — the shorthand `12px 16px` a padding or radius wears. */
+      const isLengths = (value) => {
+        const parts = String(value ?? '').trim().split(/\s+/);
+        return parts.length >= 1 && parts.length <= 4 && parts.every(isLength);
+      };
+
+      /**
+       * A box-shadow, read conservatively: two to four lengths and one colour,
+       * optionally inset. A comma-separated stack of shadows is not read at
+       * all — it is listed unrendered rather than guessed at.
+       */
+      const isShadow = (value) => {
+        const text = String(value ?? '').trim();
+        return /^(inset\s+)?(-?\d*\.?\d+(px|rem|em)\s+){2,4}(#[0-9a-f]{3,8}|rgba?\(\s*[\d.\s,%]+\))$/i.test(text);
+      };
+
+      /** Every shape gate, by the name the projection table gives it. */
+      const PREVIEW_SHAPES = {
+        fill: (value) => isFillValue(value) || isColourKeyword(value),
+        colour: (value) => isColourValue(value) || isColourKeyword(value),
+        length: isLength,
+        lengths: isLengths,
+        weight: (value) => safeWeight(String(value ?? '').trim()) !== null,
+        leading: (value) => safeLeading(String(value ?? '').trim()) !== null,
+        shadow: isShadow,
+        // Typography is resolved from a token row, never from a written value:
+        // `14px / 600 / 1.4` in a spec is prose, and prose is not projected.
+        typography: () => false,
+      };
+
+      /**
+       * The tokens the page already holds from `/system`, as two lookups: a
+       * name → value map for colours, primitives and numbers, and a name →
+       * [size, weight, line-height] map for typography.
+       */
+      function previewTokens(system) {
+        const values = {};
+        const typography = {};
+        const source = system && typeof system === 'object' && system.tokens && typeof system.tokens === 'object'
+          ? system.tokens
+          : {};
+        for (const key of ['colours', 'primitives', 'numbers']) {
+          for (const row of Array.isArray(source[key]) ? source[key] : []) {
+            if (row === null || typeof row !== 'object') continue;
+            const token = String(row.token ?? (row.cells ?? [])[0] ?? '');
+            if (token !== '' && !(token in values)) values[token] = String(row.value ?? (row.cells ?? [])[1] ?? '');
+          }
+        }
+        for (const row of Array.isArray(source.typography) ? source.typography : []) {
+          if (row === null || typeof row !== 'object') continue;
+          const token = String(row.token ?? (row.cells ?? [])[0] ?? '');
+          if (token === '' || token in typography) continue;
+          typography[token] = [
+            String(row.size ?? (row.cells ?? [])[1] ?? ''),
+            String(row.weight ?? (row.cells ?? [])[2] ?? ''),
+            String(row['line-height'] ?? (row.cells ?? [])[3] ?? ''),
+          ];
+        }
+        return { values, typography };
+      }
+
+      /**
+       * One slot, projected. Returns either the declarations it produced or the
+       * reason it produced none — never a substitute value.
+       */
+      function projectSlot(property, written, tokens) {
+        const text = String(written ?? '').trim();
+        const bag = tokens && typeof tokens === 'object' ? tokens : { values: {}, typography: {} };
+        if (text === '' || /^TODO\b/.test(text)) return { declarations: [], reason: UNRENDERED.todo };
+
+        const rule = Object.prototype.hasOwnProperty.call(PREVIEW.projection, property)
+          ? PREVIEW.projection[property]
+          : null;
+        if (!rule) return { declarations: [], reason: UNRENDERED.unprojectable, resolved: text };
+        if (rule.declarations.length === 0) {
+          return { declarations: [], reason: UNRENDERED.unprojectable, resolved: text };
+        }
+
+        // A typography slot names a typography token, and its three readings
+        // are paired with the three declarations in order.
+        if (rule.shape === 'typography') {
+          const row = (bag.typography ?? {})[text];
+          // Three readings, or it is not a typography row — a row of some other
+          // shape is a token this page cannot read, not a token it guesses at.
+          if (!Array.isArray(row)) return { declarations: [], reason: UNRENDERED.unresolved, resolved: text };
+          const gates = ['length', 'weight', 'leading'];
+          const declarations = [];
+          row.forEach((reading, index) => {
+            const value = String(reading ?? '').trim();
+            if (!isSafeDeclaration(value) || !PREVIEW_SHAPES[gates[index]](value)) return;
+            declarations.push([rule.declarations[index], value]);
+          });
+          if (declarations.length === 0) {
+            return { declarations: [], reason: UNRENDERED.unresolved, resolved: text };
+          }
+          return { declarations, reason: null, resolved: row.join(' / '), token: text };
+        }
+
+        const isToken = Object.prototype.hasOwnProperty.call(bag.values ?? {}, text);
+        const resolved = isToken ? String(bag.values[text]).trim() : text;
+        if (!isSafeDeclaration(resolved) || !PREVIEW_SHAPES[rule.shape](resolved)) {
+          return { declarations: [], reason: UNRENDERED.unresolved, resolved };
+        }
+        return {
+          declarations: rule.declarations.map((name) => [name, resolved]),
+          reason: null,
+          resolved,
+          token: isToken ? text : null,
+        };
+      }
+
+      /**
+       * The states a spec offers, base first, in the order the file records them.
+       *
+       * A spec is free to record a state called `default`, which is the name this
+       * page already gives the base reading. That is one option, not two: an
+       * option offered twice is a picker the user cannot read, and the one that
+       * did nothing was the one the file actually recorded.
+       */
+      function previewStates(spec) {
+        const states = spec && typeof spec.states === 'object' && spec.states !== null ? spec.states : {};
+        return [PREVIEW.baseState, ...Object.keys(states).filter((name) => name !== PREVIEW.baseState)];
+      }
+
+      /**
+       * A spec, projected into one element's declarations and a list of the
+       * slots that produced none.
+       *
+       * A state's slots overlay the base properties — the same projection, one
+       * layer up — so `hover` reads as the component with its hover slots
+       * applied rather than as a second component.
+       */
+      function projectSpec(spec, tokens, stateName) {
+        const safe = spec && typeof spec === 'object' ? spec : {};
+        const properties = safe.properties && typeof safe.properties === 'object' ? safe.properties : {};
+        const states = safe.states && typeof safe.states === 'object' && safe.states !== null ? safe.states : {};
+        const unrendered = [];
+        const slots = {};
+        for (const [property, value] of Object.entries(properties)) slots[property] = value;
+
+        // A state recorded under the base name is overlaid like any other: the
+        // file says what `default` looks like, and the dashboard shows the file.
+        const wanted = stateName ?? PREVIEW.baseState;
+        if (Object.prototype.hasOwnProperty.call(states, wanted)) {
+          const overlay = states[wanted];
+          if (overlay !== null && typeof overlay === 'object') {
+            for (const [property, value] of Object.entries(overlay)) slots[property] = value;
+          } else {
+            // `disabled: TODO`, or a state written as a sentence. Neither is a
+            // slot map, so neither changes a declaration — and saying so is the
+            // point.
+            const text = String(overlay ?? '').trim();
+            unrendered.push({
+              slot: wanted,
+              value: text,
+              reason: /^TODO\b/.test(text) || text === '' ? UNRENDERED.todo : UNRENDERED.unprojectable,
+            });
+          }
+        }
+
+        const declarations = [];
+        for (const [property, value] of Object.entries(slots)) {
+          const projected = projectSlot(property, value, tokens);
+          if (projected.reason !== null) {
+            unrendered.push({ slot: property, value: String(value ?? '').trim(), reason: projected.reason });
+            continue;
+          }
+          for (const pair of projected.declarations) declarations.push(pair);
+        }
+
+        const archetype = String(safe.archetype ?? '').trim().toLowerCase();
+        const element =
+          !safe.custom && Object.prototype.hasOwnProperty.call(PREVIEW.elements, archetype)
+            ? PREVIEW.elements[archetype]
+            : PREVIEW.fallbackElement;
+
+        return {
+          element,
+          declarations,
+          style: declarations.map(([name, value]) => name + ':' + value).join(';'),
+          unrendered,
+        };
+      }
+
+      /** The label a preview element wears: the variant half of the name. */
+      const previewLabel = (name) => {
+        const text = String(name ?? '').trim();
+        const slash = text.lastIndexOf('/');
+        return slash === -1 ? text : text.slice(slash + 1);
+      };
+
+      /** One preview element — the whole projection, and nothing else. */
+      function previewElementHtml(spec, tokens, stateName) {
+        const projected = projectSpec(spec, tokens, stateName);
+        const label = previewLabel(spec && spec.name);
+        const open =
+          '<' + projected.element + ' class="preview__element" style="' + esc(projected.style) + '"';
+        if (PREVIEW.voidElements.includes(projected.element)) {
+          return { html: open + ' value="' + esc(label) + '" readonly />', projected };
+        }
+        return { html: open + '>' + esc(label) + '</' + projected.element + '>', projected };
+      }
+
+      /**
+       * Library entries grouped by base name — `Button/Primary` and
+       * `Button/Ghost` are one group, and a component with no siblings is a
+       * group of one, which is how the panel knows to show no toggle.
+       */
+      function previewVariantGroups(components) {
+        const groups = [];
+        const byBase = new Map();
+        (Array.isArray(components) ? components : []).forEach((component, index) => {
+          if (component === null || typeof component !== 'object') return;
+          const name = String(component.name ?? '');
+          const slash = name.lastIndexOf('/');
+          const base = slash === -1 ? name : name.slice(0, slash);
+          if (!byBase.has(base)) {
+            const group = { base, members: [] };
+            byBase.set(base, group);
+            groups.push(group);
+          }
+          byBase.get(base).members.push({ index, name, variant: previewLabel(name) });
+        });
+        return groups;
+      }
+
+      /** The group one component belongs to. */
+      const previewGroupOf = (components, index) =>
+        previewVariantGroups(components).find((group) =>
+          group.members.some((member) => member.index === index),
+        ) ?? null;
+
+      /** One toggle row — nothing at all when there is only one thing to pick. */
+      function previewToggleHtml(kind, label, options, active) {
+        if (options.length < 2) return '';
+        const buttons = options
+          .map(
+            (option) =>
+              '<button class="tile-action" data-preview-' + kind + '="' + esc(option.value) + '"' +
+              ' aria-selected="' + String(option.value === active) + '">' + esc(option.label) + '</button>',
+          )
+          .join('');
+        return (
+          '<div class="preview__toggle" data-toggle="' + kind + '">' +
+          '<span class="preview__toggle-label">' + esc(label) + '</span>' + buttons + '</div>'
+        );
+      }
+
+      /**
+       * The whole preview section: the toggles, the stage, and the honest list
+       * of what was not drawn. It is the panel's first section — the labelled
+       * `yaml` and `jsx` blocks follow it, unchanged.
+       */
+      function previewPanelHtml(components, index, tokens, stateName) {
+        const component = (Array.isArray(components) ? components : [])[index];
+        if (!component || typeof component !== 'object') return '';
+        const group = previewGroupOf(components, index);
+        const states = previewStates(component);
+        const active = states.includes(stateName) ? stateName : PREVIEW.baseState;
+        const { html, projected } = previewElementHtml(component, tokens, active);
+
+        const variants = previewToggleHtml(
+          'variant',
+          'Variant',
+          (group ? group.members : []).map((member) => ({ value: String(member.index), label: member.variant })),
+          String(index),
+        );
+        const stateRow = previewToggleHtml(
+          'state',
+          'State',
+          states.map((name) => ({ value: name, label: name })),
+          active,
+        );
+        const toggles = variants || stateRow ? '<div class="preview__toggles">' + variants + stateRow + '</div>' : '';
+
+        const unrendered = projected.unrendered.length
+          ? '<p class="preview__unrendered">Unrendered slots: ' +
+            projected.unrendered
+              .map(
+                (entry) =>
+                  '<span class="chip raw">' + esc(entry.slot) +
+                  (entry.value ? ': ' + esc(entry.value) : '') + ' — ' + esc(entry.reason) + '</span>',
+              )
+              .join(' ') +
+            '</p>'
+          : '';
+
+        return (
+          '<div class="preview" data-component="' + esc(component.name) + '"' +
+          ' data-element="' + esc(projected.element) + '" data-state="' + esc(active) + '">' +
+          toggles + '<div class="preview__stage">' + html + '</div>' + unrendered + '</div>'
+        );
+      }
+      // --- end phyllum:preview-contract -------------------------------------
+
+      const state = {
+        system: null,
+        session: null,
+        scope: 'all',
+        view: 'library',
+        selected: null,
+        scopeTouched: false,
+        // Which reading of the selected component the preview is showing —
+        // `default`, or one of the states the spec records (v0.4.1 §4.2).
+        previewState: PREVIEW.baseState,
+      };
 
       const el = (id) => document.getElementById(id);
 
@@ -670,11 +1136,6 @@
         return heading('Numbers', rows.length) + '<div class="bars">' + bars + '</div>';
       }
 
-      // Only these shapes are ever inlined into a specimen's style attribute.
-      const safeSize = (value) => (/^\d*\.?\d+(px|rem|em|pt|%)$/.test(value) ? value : null);
-      const safeWeight = (value) => (/^([1-9]00|normal|bold|lighter|bolder)$/.test(value) ? value : null);
-      const safeLeading = (value) => (/^(normal|\d*\.?\d+(px|rem|em|%)?)$/.test(value) ? value : null);
-
       /** Typography as live specimens — each token set in its own reading. */
       function typographySection(rows) {
         if (!rows.length) return heading('Typography', 0) + '<p class="muted">(none yet)</p>';
@@ -736,8 +1197,14 @@
           typographySection(rowsOf('typography')),
         ].join('');
 
+        // The `applied` badge (v0.5.0 §3.4). It is the page's own chip — no new
+        // colour, no new shape — and it is drawn for `applied: true` alone: a
+        // `false` and a file with no flag at all are both "no evidence of
+        // adoption", and neither earns a badge that says there is.
         const list = (Array.isArray(system.components) ? system.components : [])
-          .map((component, index) => '<button data-index="' + index + '">' + esc(component && component.name) + '</button>')
+          .map((component, index) =>
+            '<button data-index="' + index + '">' + esc(component && component.name) +
+            appliedBadge(component) + '</button>')
           .join('');
         el('component-list').innerHTML = list || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
         el('token-view-list').innerHTML = list || '<p class="muted">No components yet.</p>';
@@ -748,6 +1215,12 @@
           : '<p class="muted">Nothing outstanding.</p>';
 
         if (state.selected !== null) showComponent(state.selected);
+      }
+
+      /** `applied: true` wears a chip; `false` and "no flag yet" wear nothing. */
+      function appliedBadge(component) {
+        if (!component || typeof component !== 'object') return '';
+        return component.applied === true ? ' <span class="chip applied">applied</span>' : '';
       }
 
       function tokenNames() {
@@ -774,7 +1247,13 @@
         const blocks = (Array.isArray(component.blocks) ? component.blocks : [])
           .map((block) => '<p class="muted">' + esc(block && block.lang) + '</p><pre><code>' + esc(block && block.content) + '</code></pre>')
           .join('');
-        el('component-detail').innerHTML = '<h3>' + esc(component.name) + '</h3>' + blocks;
+        // The preview is the panel's first section (v0.4.1 §4.3): the component
+        // as its spec records it, then the labelled `yaml` and `jsx` blocks the
+        // panel has always printed, unchanged beneath it.
+        if (!previewStates(component).includes(state.previewState)) state.previewState = PREVIEW.baseState;
+        const preview = previewPanelHtml(system.components, index, previewTokens(system), state.previewState);
+        el('component-detail').innerHTML =
+          '<h3>' + esc(component.name) + appliedBadge(component) + '</h3>' + preview + blocks;
 
         const known = tokenNames();
         const used = [];
@@ -783,6 +1262,11 @@
           const match = line.match(/^\s*([A-Za-z-]+):\s*(.+?)\s*$/);
           if (!match) continue;
           const [, slot, value] = match;
+          // The spec block's header keys are facts about the component, not
+          // slots holding a value — and `applied` in particular is a reading of
+          // the codebase, so listing it as "a raw value still unnamed" would
+          // invite somebody to tokenise the word `true`.
+          if (slot === 'applied') continue;
           if (known.has(value)) used.push({ slot, value });
           else if (!/^(TODO|\{|\[|$)/.test(value)) raw.push({ slot, value });
         }
@@ -798,6 +1282,22 @@
             : '<span class="muted">none</span>') +
           '</p>';
       }
+
+      // The two toggle rows swap the rendered spec in place, without leaving the
+      // panel: a variant picks a sibling component, a state overlays its slots.
+      el('component-detail').addEventListener('click', (event) => {
+        const data = event.target.dataset;
+        if (!data) return;
+        if (data.previewVariant !== undefined) {
+          state.previewState = PREVIEW.baseState;
+          showComponent(Number(data.previewVariant));
+          return;
+        }
+        if (data.previewState !== undefined && state.selected !== null) {
+          state.previewState = data.previewState;
+          showComponent(state.selected);
+        }
+      });
 
       for (const id of ['component-list', 'token-view-list']) {
         el(id).addEventListener('click', (event) => {

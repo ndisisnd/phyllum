@@ -21,7 +21,7 @@
  *   - **What cannot be read is never compared.** An expression is counted and
  *     excluded; a spread is noted and never treated as an absence.
  *   - **The tables decide.** Every convention, severity, synonym, kind and cap
- *     is a row in `refs/assess.md`, and no number or word among them is written
+ *     is a row in `refs/assess/consistency.md`, and no number or word among them is written
  *     into the code where a table cannot reach it.
  *
  * And the promise the whole command rests on, asserted here for the fourth
@@ -34,6 +34,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { assess } from '../../lib/assess.js';
+import { readRef } from '../../lib/refs.js';
 import {
   NAMING_CAVEAT,
   assessNaming,
@@ -113,7 +114,7 @@ const groupOf = (rows, forms) =>
 // ---------------------------------------------------------------------------
 
 test('every convention, severity, synonym, kind and cap is read from the table', () => {
-  const spec = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'assess.md'), 'utf8');
+  const spec = readRef('assess');
   for (const marker of [
     '<!-- phyllum:naming-conventions -->',
     '<!-- phyllum:naming-rules -->',

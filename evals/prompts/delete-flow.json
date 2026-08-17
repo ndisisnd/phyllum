@@ -1,0 +1,86 @@
+{
+  "eval": "delete-flow",
+  "rubric": "evals/rubrics/delete-flow.md",
+  "status": "scored (v0.5.0 M3). M2 landed the cases and the rubric and left the eval pinned on purpose: a scored eval must carry a line in `evals/baseline.json`, and the baseline is re-recorded once per release, in the milestone that bumps the version. M3 is that milestone, so the runner is registered in `evals/graders.js` and the score entered the baseline in the same pass that bumped to 0.5.0.",
+  "milestone": "v0.5.0 M3",
+  "threshold": 1.0,
+  "designSystem": "evals/fixtures/design-system/populated.md",
+  "emptySystem": "evals/fixtures/design-system/empty.md",
+  "note": "What these cases are for is the half of `delete` the assertions cannot reach: not whether the right bytes moved, but whether the *conversation* holds its shape. The warning has to arrive before any question about proceeding, on a bare run and on a pre-answered one alike. The refusal has to name what it saw and what to do about it, and it has to end at exit 0 rather than at an error. A skip has to be available and free at every depth, and the empty system has to point somewhere instead of dead-ending. Those are the four ways a gated flow rots without any assertion noticing.",
+  "planSections": ["v0.5.0 §4.1", "v0.5.0 §4.2", "v0.5.0 §4.3", "v0.5.0 §4.4"],
+  "cases": [
+    {
+      "id": "end-to-end",
+      "planSection": "v0.5.0 §4.2",
+      "typed": "phyllum delete",
+      "answers": ["1", "Button/Primary"],
+      "gate": "accepted",
+      "expects": [
+        "every recorded component is listed, numbered, with its archetype and its applied reading",
+        "the breaking-change warning prints after the pick and before the acceptance gate",
+        "the proposal names the entry and the Backlog lines and claims nothing else changes",
+        "the acceptance gate is asked once",
+        "the second confirmation asks for the component's name and is answered with it",
+        "the write happens once, and the report names DESIGN-SYSTEM.md.bak as the undo"
+      ]
+    },
+    {
+      "id": "refusal-reads-the-flag",
+      "planSection": "v0.5.0 §4.2",
+      "typed": "phyllum delete Button/Primary",
+      "given": "the spec block records `applied: true`",
+      "expects": [
+        "the run refuses and says the component is in use right now",
+        "the refusal names the evidence — the recorded flag, and where it came from",
+        "the way out is stated in order: remove the usage, re-run `phyllum apply`, then delete",
+        "no acceptance gate is opened and nothing is written",
+        "the exit code is 0, because a refusal honoured is not an error"
+      ]
+    },
+    {
+      "id": "refusal-reads-the-codebase",
+      "planSection": "v0.5.0 §4.2",
+      "typed": "phyllum delete Button/Primary",
+      "given": "no `applied:` line is recorded and the markup uses <ButtonPrimary>",
+      "expects": [
+        "the absence of a flag is read as 'apply has never run', never as 'not in use'",
+        "the codebase is read once, for this component only",
+        "the refusal names the site and the file it is in",
+        "nothing is written and the exit code is 0"
+      ]
+    },
+    {
+      "id": "skip-at-every-depth",
+      "planSection": "v0.5.0 §4.2",
+      "typed": "phyllum delete",
+      "answers": ["skip"],
+      "alsoTried": ["a declined acceptance gate", "a wrong name at the second confirmation"],
+      "expects": [
+        "each depth ends the run cleanly and says nothing was written",
+        "no DESIGN-SYSTEM.md is changed and no .bak appears, at any depth",
+        "a wrong name says so rather than failing silently or asking again"
+      ]
+    },
+    {
+      "id": "empty-system",
+      "planSection": "v0.5.0 §4.2",
+      "typed": "phyllum delete",
+      "given": "a design system with no components",
+      "expects": [
+        "the run says there is nothing to delete",
+        "it points at `phyllum create` as the command that records the first component",
+        "no question is asked, nothing is written, and the exit code is 0"
+      ]
+    },
+    {
+      "id": "token-refused",
+      "planSection": "v0.5.0 §4.4",
+      "typed": "phyllum delete token",
+      "expects": [
+        "the run refuses",
+        "the reason is stated: a token's removal ripples through every component slot and Backlog line naming it",
+        "no conversation is opened and nothing is written"
+      ]
+    }
+  ]
+}

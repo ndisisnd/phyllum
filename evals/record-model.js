@@ -19,7 +19,7 @@
  *   node evals/record-model.js create-values-free
  *   node evals/record-model.js --model haiku
  *
- * Re-record when the prompt set changes, when refs/create.md changes the rules,
+ * Re-record when the prompt set changes, when refs/create/ changes the rules,
  * or when moving to a newer model. Commit the result with the change.
  */
 
@@ -31,6 +31,7 @@ import { promisify } from 'node:util';
 
 import { EVALS, PACKAGE_ROOT, RECORDINGS_DIR } from './graders.js';
 import { findClaudeCli } from '../lib/claude-cli.js';
+import { readRef } from '../lib/refs.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -49,13 +50,15 @@ const familyOf = (evalId) => {
 };
 
 const CONTRACTS = {
-  create: () => readText('skill/refs/create.md'),
-  image: () => readText('skill/refs/create.md'),
-  // The naming scales live in refs/tokenise.md and the scanning contract moved to
-  // refs/assess.md in v0.2.0 M3, so an `assess-*` naming eval needs both to be
+  create: () => readRef('create'),
+  image: () => readRef('create'),
+  // The naming scales live in refs/tokenise/ and the scanning contract moved to
+  // refs/assess/ in v0.2.0 M3, so an `assess-*` naming eval needs both to be
   // judged against the whole contract: assess finds the cluster, and the scales
   // that name it are still documented on the tokenise side.
-  tokenise: () => `${readText('skill/refs/tokenise.md')}\n\n${readText('skill/refs/assess.md')}`,
+  // Each is a folder as of v0.4.1, read whole here because a recording is judged
+  // against the whole contract rather than one topic of it.
+  tokenise: () => `${readRef('tokenise')}\n\n${readRef('assess')}`,
 };
 
 const OPENING = {

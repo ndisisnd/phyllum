@@ -24,7 +24,7 @@ import { slotWords } from '../../lib/nomenclature.js';
 import { readState } from '../../lib/state.js';
 import { askable, deriveRamp, primitiveOffers } from '../../lib/primitives.js';
 import {
-  SPEC_FILE,
+  readSpecText,
   comparedAs,
   gradientFunctions,
   gradientMark,
@@ -470,7 +470,7 @@ test('the comparison table is the contract, and the code reads it', () => {
   assert.equal(colourShape('hsl(217, 91%, 60%)'), 'hsl');
   assert.equal(colourShape('12px'), 'other');
   assert.ok(
-    fs.readFileSync(SPEC_FILE, 'utf8').includes('<!-- phyllum:value-comparison -->'),
+    readSpecText().includes('<!-- phyllum:value-comparison -->'),
     'the table is marked for the parser',
   );
 });

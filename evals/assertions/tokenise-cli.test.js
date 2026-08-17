@@ -2,7 +2,7 @@
  * Assertions for the `tokenise` command surface (v0.2.0 plan §6, §7).
  *
  * Three things are checked here that the reader tests cannot see: that the spec
- * tables in `skill/refs/tokenise.md` really are what drives the code, that the
+ * tables in `skill/refs/tokenise/` really are what drives the code, that the
  * alias `tokenize` is the same subskill rather than a second one, and — the
  * v0.2.0 rework's headline promise — that `tokenise` no longer reads the
  * codebase at all. A sentence is the whole input; scanning belongs to `assess`.
@@ -14,6 +14,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { execute } from '../../lib/execute.js';
+import { readRef } from '../../lib/refs.js';
 import { tokenizeLine } from '../../lib/parse-args.js';
 import { resolveCommand } from '../../lib/registry.js';
 import { slotNames, slotWords } from '../../lib/nomenclature.js';
@@ -84,7 +85,7 @@ async function withProject(body, fixture = POPULATED_FIXTURE) {
 // The spec file is the contract
 // ---------------------------------------------------------------------------
 
-test('the spec tables in refs/tokenise.md cover every pass', () => {
+test('the spec tables in refs/tokenise/ cover every pass', () => {
   reloadSpec();
   assert.deepEqual(
     passes().map((pass) => pass.pass),
@@ -219,21 +220,21 @@ test('the review answers come from the review table', () => {
   assert.equal(actionForAnswer('brand-blue').action, 'rename');
 });
 
-test('the scanning tables have left this file for refs/assess.md', () => {
+test('the scanning tables have left this reference for refs/assess/', () => {
   // M2 left the scanning contract here on purpose, so that moving a contract and
   // changing a command were two steps rather than one. M3 is the second step: the
-  // tables move with the behaviour, and `tokenise.md` keeps only what a *name* is
-  // made of. Neither file may hold both halves.
-  const ref = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'tokenise.md'), 'utf8');
-  const assessRef = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'assess.md'), 'utf8');
+  // tables move with the behaviour, and the `tokenise` reference keeps only what
+  // a *name* is made of. Neither reference may hold both halves.
+  const ref = readRef('tokenise');
+  const assessRef = readRef('assess');
 
   for (const marker of ['phyllum:sources', 'phyllum:tailwind', 'phyllum:clustering']) {
-    assert.ok(assessRef.includes(marker), `refs/assess.md should now carry ${marker}`);
-    assert.ok(!ref.includes(marker), `refs/tokenise.md should no longer carry ${marker}`);
+    assert.ok(assessRef.includes(marker), `refs/assess/ should now carry ${marker}`);
+    assert.ok(!ref.includes(marker), `refs/tokenise/ should no longer carry ${marker}`);
   }
   for (const marker of ['phyllum:passes', 'phyllum:roles', 'phyllum:colour-names', 'phyllum:ladders']) {
-    assert.ok(ref.includes(marker), `the naming scales stay in refs/tokenise.md: ${marker}`);
-    assert.ok(!assessRef.includes(marker), `refs/assess.md should not restate ${marker}`);
+    assert.ok(ref.includes(marker), `the naming scales stay in refs/tokenise/: ${marker}`);
+    assert.ok(!assessRef.includes(marker), `refs/assess/ should not restate ${marker}`);
   }
 
   // And the tables still drive the code from their new home.
@@ -241,7 +242,7 @@ test('the scanning tables have left this file for refs/assess.md', () => {
   assert.deepEqual(extensions, [...stylesheets, ...markup]);
   assert.ok(skipped.includes('node_modules'));
 
-  assert.match(ref, /refs\/assess\.md/, 'tokenise.md points at where the contract went');
+  assert.match(ref, /refs\/assess\//, 'the tokenise reference points at where the contract went');
   assert.match(ref, /does not read your codebase|does \*\*not\*\* read the codebase/i);
 });
 
@@ -255,7 +256,7 @@ test('tokenise is registered as built, and points at its own reference file', ()
   assert.deepEqual(command.aliases, ['tokenize']);
 
   const skill = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'SKILL.md'), 'utf8');
-  assert.ok(skill.includes('refs/tokenise.md'));
+  assert.ok(skill.includes('refs/tokenise/'));
 });
 
 test('tokenise takes a sentence, and says what it read before writing', async () => {
@@ -331,7 +332,7 @@ function pickerRun(dir, answers) {
   };
 }
 
-test('the kind picker is the table in refs/tokenise.md, printed', () => {
+test('the kind picker is the table in refs/tokenise/picker.md, printed', () => {
   const rows = pickerOptions();
   assert.deepEqual(
     rows.map((row) => row.pick),

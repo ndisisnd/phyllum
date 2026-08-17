@@ -36,7 +36,7 @@ User content is never dropped: a rerun's diff shows additions only.
 Two shape changes arrived with v0.3.0, and they are handled in opposite ways
 because one adds and one takes away:
 
-- **The `Primitives` subsection** (inside Colours, `refs/create.md` §5.3) is
+- **The `Primitives` subsection** (inside Colours, `refs/create/primitives.md`) is
   added only when there are primitives to put under it. A file without it is
   valid, so repair never adds an empty one.
 - **The Colours `notes` column** went in v0.3.0 (§5.5). A file written before

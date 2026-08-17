@@ -462,7 +462,7 @@ test('a request with a foreign Host header is refused', { skip }, async () => {
 // ---------------------------------------------------------------------------
 
 const GUI_PAGE = path.join(PACKAGE_ROOT, 'gui', 'index.html');
-const GUI_REF = path.join(PACKAGE_ROOT, 'skill', 'refs', 'gui.md');
+const GUI_REF = path.join(PACKAGE_ROOT, 'skill', 'refs', 'gui', 'cards.md');
 const readPage = () => fs.readFileSync(GUI_PAGE, 'utf8');
 
 /**
@@ -540,10 +540,10 @@ test('the cards sit in one grid container that wraps to the viewport', () => {
   assert.ok(!/one-token-per-row/.test(rule[1]));
 });
 
-test('the card dimensions are the ones skill/refs/gui.md records, in the table, the constant and the CSS', () => {
+test('the card dimensions are the ones skill/refs/gui/cards.md records, in the table, the constant and the CSS', () => {
   const contract = swatchContract();
   const text = readPage();
-  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:cards -->', 'refs/gui.md');
+  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:cards -->', 'refs/gui/cards.md');
   const recorded = (name) => stripTicks(rows.find((row) => row[0] === name)[1]);
 
   const dimensions = [
@@ -657,9 +657,9 @@ test('near-white colours take the bordered variant, and only they do', () => {
   assert.equal(articles(odd).length, 1, 'and it is still one swatch element');
 });
 
-test('the swatch thresholds are the ones skill/refs/gui.md records', () => {
+test('the swatch thresholds are the ones skill/refs/gui/cards.md records', () => {
   const contract = swatchContract();
-  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:swatches -->', 'refs/gui.md');
+  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:swatches -->', 'refs/gui/cards.md');
   const rule = (name) => rows.find((row) => row[0] === name);
 
   const nearWhite = comparatorCell(rule('near-white')[1]);

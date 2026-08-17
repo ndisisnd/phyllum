@@ -26,7 +26,7 @@ Two things joined it in v0.3.0 (plan §8):
 | Responder | What it grades | Needs a model? |
 |-----------|----------------|----------------|
 | `deterministic` | Phyllum's own extractor, running now | no |
-| `recorded` | a real `claude` run following `skill/refs/create.md`, committed under `evals/fixtures/recordings/` | only to re-record |
+| `recorded` | a real `claude` run following `skill/refs/create/`, committed under `evals/fixtures/recordings/` | only to re-record |
 
 Nothing here calls a model during a test run, and nothing invents what a model
 would have said. A case with no recording is reported as unrecorded.

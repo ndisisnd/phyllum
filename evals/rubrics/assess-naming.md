@@ -28,7 +28,7 @@ The pinned cases cover all three scales: the colour roles and ranks
 
 | Responder | What it grades | Needs a model? |
 |-----------|----------------|----------------|
-| `deterministic` | Phyllum's own naming, from the scales in `skill/refs/tokenise.md` | no |
+| `deterministic` | Phyllum's own naming, from the scales in `skill/refs/tokenise/` | no |
 | `recorded` | a real `claude` run following the same reference file, committed under `evals/fixtures/recordings/` | only to record |
 
 Nothing here calls a model during a test run, and nothing invents what a model

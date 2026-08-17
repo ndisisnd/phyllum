@@ -14,7 +14,7 @@ the other:
 1. **Severity.** A value written three times or more is systematic drift and is
    proposed as a token; a value written once or twice looks like a deliberate
    exception, and is reported without being demanded. One threshold for every
-   family, and it lives in the `phyllum:severity` table in `refs/assess.md`.
+   family, and it lives in the `phyllum:severity` table in `refs/assess/`.
 2. **Rule families.** Every finding says which kind of value it is —
    `raw-colour`, `raw-spacing`, `raw-radius`, `raw-border`, `raw-shadow`,
    `raw-typography` — so a report can say which half of the drift got fixed.

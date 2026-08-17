@@ -335,11 +335,22 @@ const WRITE_SURFACE = [
   { line: 'assess components', writes: null, answers: 'skip' },
   // An empty design system is not a plan: `apply` says so and writes nothing.
   { line: 'apply', writes: null },
-  // With one to apply, `apply` is plan-only by design: one file, inside
-  // `.phyllum/**`, and never a byte of source. That is what made it shippable
-  // before `apply run` existed, and it is still the boundary.
-  { line: 'apply', writes: ['.phyllum/PRD.md'], seed: 'apply-target.md' },
-  { line: 'apply --fresh', writes: ['.phyllum/PRD.md'], seed: 'apply-target.md' },
+  // With one to apply, `apply` writes the plan and — since v0.5.0 §3.2 — the
+  // `applied:` line of each component's spec block, which brings the design
+  // system and the `.bak` the funnel always takes with it. Never a byte of
+  // source: that is what made this half shippable before `apply run` existed,
+  // and it is still the boundary. Which *lines* of the design system may change
+  // is asserted in `applied.test.js`, byte for byte.
+  {
+    line: 'apply',
+    writes: ['.phyllum/PRD.md', 'DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak'],
+    seed: 'apply-target.md',
+  },
+  {
+    line: 'apply --fresh',
+    writes: ['.phyllum/PRD.md', 'DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak'],
+    seed: 'apply-target.md',
+  },
 ];
 
 test('each command in the v0.2.0 surface writes exactly what it claims, and nothing else', async () => {

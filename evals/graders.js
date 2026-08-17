@@ -42,11 +42,22 @@ import {
   suggestionsFor,
   tokenNamesOf,
 } from '../lib/create.js';
+import { readAppliedFlags, setAppliedLines } from '../lib/applied.js';
+import {
+  applyDelete,
+  inUseCheck,
+  planDelete,
+  renderComponentList,
+  renderProposal,
+  renderRefusal,
+} from '../lib/delete-command.js';
+import { deleteCopy, isDeleteChainWord } from '../lib/delete-spec.js';
+import { componentEntries } from '../lib/update-command.js';
 import { emptyModel, parse } from '../lib/design-system.js';
 import { codeViewFor, detectProject } from '../lib/detect.js';
 import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
 import { applyAcceptance, proposeTokens, scanCodebase } from '../lib/tokenise.js';
-import { accepted, decide, questionFor } from '../lib/tokenise-command.js';
+import { accepted, decide, questionFor, resolvePick } from '../lib/tokenise-command.js';
 import {
   existingTokenFor,
   parseProse,
@@ -142,9 +153,27 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * `tokenise-prose-extraction` reading of a sentence that `tokenise`'s are, since
  * a sentence describing a change is still a sentence. Still nineteen evals, still
  * every one at 1.000, still no threshold lowered and none ever has been.
+ *
+ * v0.4.1 repeats it a fourth time, in one line because there is one line to say:
+ * M1–M2 left both stamps at `v0.4.0`, M3 moved them together to `v0.4.1`, the
+ * release added no eval and removed none, nineteen evals, every one at 1.000.
+ *
+ * v0.5.0 is the first release since v0.2.1 M5 to **add** an eval, and it is
+ * worth saying why the list grew here when four releases in a row grew cases
+ * instead. `delete` is not a new case under a question the suite already asks:
+ * it is the first *gated* flow in the product, and what can rot in a gated flow
+ * is the order it speaks in — a warning that arrives after the question it was
+ * meant to precede, a refusal that cannot say what it saw, a skip that costs
+ * something. No existing eval asks that question of any command, so
+ * `delete-flow` is a twentieth question rather than a sixth case under an
+ * existing one. It was pinned and unscored through M2 on purpose (see
+ * `evals/prompts/delete-flow.json`): a scored eval must carry a line in the
+ * baseline, the baseline is re-recorded once per release, and this is that
+ * milestone. Twenty evals now, every one at 1.000, no threshold lowered and
+ * none ever has been.
  */
-export const MILESTONE = 'v0.4.0 M7';
-export const RELEASE = 'v0.4.0';
+export const MILESTONE = 'v0.5.0 M3';
+export const RELEASE = 'v0.5.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
@@ -2126,6 +2155,289 @@ function assessReportEval() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// delete — the conversational ends of the removal verb (v0.5.0 §4, M3)
+// ---------------------------------------------------------------------------
+
+/**
+ * `delete`'s flow, walked without a terminal (v0.5.0 §4.2).
+ *
+ * `runDelete` in `lib/delete-command.js` is this chain plus the printing, the
+ * questions and the file write; the pieces themselves — `componentEntries`,
+ * `readAppliedFlags`, `renderComponentList`, `deleteCopy`, `inUseCheck`,
+ * `renderRefusal`, `planDelete`, `renderProposal`, `applyDelete` — are the real
+ * ones, in the real order, exactly as `walkQueue` above walks `tokenise`'s. That
+ * is what makes the claims worth grading: the *order* the flow speaks in, and
+ * the depth at which it stops.
+ *
+ * `written` is the text the run would have written, or null when it wrote
+ * nothing — which is the answer four of the six cases are about.
+ */
+function walkDelete(text, { root, typed = '', answers = [], accept = true, signatures = null } = {}) {
+  const said = [];
+  const asked = [];
+  const gates = [];
+  const next = () => answers.shift() ?? 'skip';
+  const end = (written = null) => ({ said, asked, gates, written, code: 0 });
+
+  if (typed !== '' && isDeleteChainWord(typed)) {
+    said.push(deleteCopy('token-refused'), deleteCopy('not-written'));
+    return end();
+  }
+
+  const model = parse(text);
+  const flags = readAppliedFlags(text);
+  const entries = componentEntries(model).map((entry) => ({
+    ...entry,
+    applied: flags.has(entry.name) ? flags.get(entry.name) : null,
+  }));
+
+  if (entries.length === 0) {
+    said.push(deleteCopy('no-components'), deleteCopy('create-pointer'));
+    return end();
+  }
+
+  // ---- step 1: the pick ----------------------------------------------------
+  let target = entries.find((entry) => entry.name.toLowerCase() === typed.toLowerCase()) ?? null;
+  if (!target) {
+    said.push(renderComponentList(entries));
+    const question = deleteCopy('pick-question');
+    asked.push(question);
+    const chosen = resolvePick(
+      next(),
+      entries.map((entry) => ({ pick: entry.name, printsAs: entry.name, entry })),
+    );
+    if (chosen.action === 'skip') {
+      said.push(deleteCopy('not-written'));
+      return end();
+    }
+    target =
+      chosen.action === 'pick'
+        ? chosen.row.entry
+        : entries.find((entry) => entry.name.toLowerCase() === chosen.prose.trim().toLowerCase());
+    if (!target) {
+      said.push(deleteCopy('unknown-name', { name: chosen.prose }), deleteCopy('not-written'));
+      return end();
+    }
+  }
+
+  // ---- step 2: the warning, before any question about proceeding -----------
+  said.push(deleteCopy('warning', { name: target.name }));
+
+  // ---- step 3: the in-use block -------------------------------------------
+  const check = inUseCheck(root, target, { signatures });
+  if (check.inUse) {
+    said.push(renderRefusal(target, check), deleteCopy('not-written'));
+    return { ...end(), check };
+  }
+
+  // ---- step 4: the proposal, then the acceptance gate ----------------------
+  const plan = planDelete(text, target.name);
+  said.push(renderProposal(target, plan));
+  const gate = deleteCopy('gate-question', { name: target.name });
+  gates.push(gate);
+  if (!accept) {
+    said.push(deleteCopy('not-written'));
+    return { ...end(), check, plan };
+  }
+
+  // ---- step 5: the name, typed back ---------------------------------------
+  const confirm = deleteCopy('confirm-question', { name: target.name });
+  asked.push(confirm);
+  const answer = String(next()).trim().replace(/`/g, '').trim();
+  if (answer.toLowerCase() !== target.name.toLowerCase()) {
+    said.push(deleteCopy('confirm-refused', { name: target.name }), deleteCopy('not-written'));
+    return { ...end(), check, plan };
+  }
+
+  // ---- step 6: the one write ----------------------------------------------
+  return { ...end(applyDelete(text, plan)), check, plan, target };
+}
+
+/**
+ * Does the gated flow hold its shape?
+ *
+ * Not whether the right bytes moved — `evals/assertions/delete-cli.test.js`
+ * proves that — but whether the *conversation* stays in the order the contract
+ * declares. Four ways a gated flow rots without any assertion noticing, and one
+ * case each: the warning arriving late, a refusal that cannot say what it saw,
+ * a skip that costs something, and an empty system dead-ending.
+ *
+ * Everything here is mechanical, so there is no responder and no headroom in
+ * the threshold. The evidence for the live case is a real file in a real
+ * temporary directory, read by `delete`'s own scan.
+ */
+function deleteFlowEval() {
+  const spec = readJson('evals/prompts/delete-flow.json');
+  const populated = readText(spec.designSystem);
+  const empty = readText(spec.emptySystem);
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+  const transcript = (walk) => walk.said.join('\n');
+
+  // An empty directory: a codebase using none of the recorded components, which
+  // is what every case but one is about. The live check reads a real tree even
+  // when the answer is "nothing here", because a check that skipped the read on
+  // an empty project would not be the check the refusal case exercises.
+  const bare = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-eval-'));
+  const walkFrom = (system, options = {}) => walkDelete(system, { root: bare, ...options });
+
+  try {
+  for (const testCase of spec.cases) {
+    if (testCase.id === 'end-to-end') {
+      const model = parse(populated);
+      const walk = walkFrom(populated, { answers: [...testCase.answers] });
+      const list = walk.said[0] ?? '';
+
+      claim(
+        model.components.every((component, index) => list.includes(`${index + 1}. ${component.name}`)) &&
+          /button/.test(list) &&
+          /card/.test(list),
+        `${testCase.id}: the list is not every component, numbered, with its archetype`,
+      );
+      // The warning is step 2 of six, and where it sits is the whole point: it
+      // has to arrive after the pick and before anything asks about proceeding.
+      // Grading its *presence* would pass a run that printed it last.
+      const warning = deleteCopy('warning', { name: 'Button/Primary' });
+      claim(
+        walk.said.indexOf(warning) === 1 && walk.said.length > 2,
+        `${testCase.id}: the warning is not the line between the pick and the proposal`,
+      );
+      const proposal = walk.said[2] ?? '';
+      claim(
+        proposal.includes('### Button/Primary') &&
+          walk.plan.backlog.every((line) => proposal.includes(line.text)) &&
+          proposal.includes('nothing else in the file is touched'),
+        `${testCase.id}: the proposal does not name the entry, its Backlog lines and nothing else`,
+      );
+      claim(walk.gates.length === 1, `${testCase.id}: the acceptance gate was asked ${walk.gates.length} times`);
+      claim(
+        walk.asked.some((question) => question.includes('Button/Primary')) && walk.written !== null,
+        `${testCase.id}: the second confirmation did not ask for the name, or the write never happened`,
+      );
+      claim(
+        walk.written !== null &&
+          !walk.written.includes('### Button/Primary') &&
+          walk.written.includes('### Card/Basic') &&
+          /\.bak/.test(deleteCopy('undo')),
+        `${testCase.id}: the write did not remove exactly the entry, or the report names no undo`,
+      );
+      continue;
+    }
+
+    if (testCase.id === 'refusal-reads-the-flag') {
+      const flagged = setAppliedLines(populated, new Map([['Button/Primary', true]]));
+      const walk = walkFrom(flagged, { typed: 'Button/Primary' });
+      const out = transcript(walk);
+
+      claim(walk.check?.inUse === true && /in use in this codebase right now/.test(out), `${testCase.id}: the run did not refuse`);
+      claim(
+        walk.check?.source === 'flag' && /applied: true/.test(out) && /phyllum apply/.test(out),
+        `${testCase.id}: the refusal does not name the recorded flag or where it came from`,
+      );
+      const wayOut = deleteCopy('way-out');
+      claim(
+        wayOut.indexOf('Remove') < wayOut.indexOf('phyllum apply') &&
+          wayOut.indexOf('phyllum apply') < wayOut.lastIndexOf('phyllum delete'),
+        `${testCase.id}: the way out is not stated in order`,
+      );
+      claim(walk.gates.length === 0 && walk.written === null, `${testCase.id}: a gate opened, or something was written`);
+      claim(walk.code === 0, `${testCase.id}: a refusal honoured exited ${walk.code}`);
+      continue;
+    }
+
+    if (testCase.id === 'refusal-reads-the-codebase') {
+      const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'phyllum-eval-'));
+      try {
+        fs.mkdirSync(path.join(dir, 'src'));
+        fs.writeFileSync(
+          path.join(dir, 'src', 'Toolbar.jsx'),
+          'export function Toolbar() {\n  return <ButtonPrimary>Save</ButtonPrimary>;\n}\n',
+        );
+        const walk = walkDelete(populated, { root: dir, typed: 'Button/Primary' });
+        const out = transcript(walk);
+
+        claim(
+          readAppliedFlags(populated).get('Button/Primary') === null && walk.check?.source === 'live',
+          `${testCase.id}: the absence of a flag was not read as 'apply has never run'`,
+        );
+        claim(
+          walk.check?.sites.length > 0 &&
+            walk.check.sites.every((site) => /ButtonPrimary|button-primary/i.test(site.signature)),
+          `${testCase.id}: the codebase read was not about this component alone`,
+        );
+        claim(
+          /ButtonPrimary/.test(out) && /Toolbar\.jsx/.test(out),
+          `${testCase.id}: the refusal names neither the site nor the file it is in`,
+        );
+        claim(walk.written === null && walk.code === 0, `${testCase.id}: something was written, or the exit was not 0`);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+      continue;
+    }
+
+    if (testCase.id === 'skip-at-every-depth') {
+      const depths = [
+        ['the pick', walkFrom(populated, { answers: ['skip'] })],
+        ['the acceptance gate', walkFrom(populated, { answers: ['1'], accept: false })],
+        ['the second confirmation', walkFrom(populated, { answers: ['1', 'Card/Basic'] })],
+      ];
+      claim(
+        depths.every(([, walk]) => walk.written === null && walk.code === 0),
+        `${testCase.id}: a depth wrote something: ${depths
+          .filter(([, walk]) => walk.written !== null)
+          .map(([label]) => label)
+          .join(', ')}`,
+      );
+      claim(
+        depths.every(([, walk]) => transcript(walk).includes(deleteCopy('not-written'))),
+        `${testCase.id}: a depth ended without saying nothing was written`,
+      );
+      claim(
+        transcript(depths[2][1]).includes(deleteCopy('confirm-refused', { name: 'Button/Primary' })),
+        `${testCase.id}: a wrong name did not say so`,
+      );
+      continue;
+    }
+
+    if (testCase.id === 'empty-system') {
+      const walk = walkFrom(empty);
+      const out = transcript(walk);
+      claim(/nothing to delete/.test(out), `${testCase.id}: the run does not say there is nothing to delete`);
+      claim(/phyllum create/.test(out), `${testCase.id}: the run points at no command that would record one`);
+      claim(
+        walk.asked.length === 0 && walk.gates.length === 0 && walk.written === null && walk.code === 0,
+        `${testCase.id}: a question was asked, or something was written`,
+      );
+      continue;
+    }
+
+    if (testCase.id === 'token-refused') {
+      const walk = walkFrom(populated, { typed: 'token' });
+      const out = transcript(walk);
+      claim(isDeleteChainWord('token') && /reserved/.test(out), `${testCase.id}: the run did not refuse`);
+      claim(/ripples/.test(out), `${testCase.id}: the refusal does not state the reason`);
+      claim(
+        walk.asked.length === 0 && walk.gates.length === 0 && walk.written === null,
+        `${testCase.id}: a conversation was opened, or something was written`,
+      );
+    }
+  }
+  } finally {
+    fs.rmSync(bare, { recursive: true, force: true });
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
 /** Object keys in a fixed order, so a comparison is about content. */
 function sortKeys(object) {
   return Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
@@ -2151,6 +2463,7 @@ export const EVALS = [
   { id: 'assess-consistency', modelDependent: false, run: assessConsistencyEval },
   { id: 'assess-report', modelDependent: false, run: assessReportEval },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
+  { id: 'delete-flow', modelDependent: false, run: deleteFlowEval },
 ];
 
 /** Run every eval against one responder. */

@@ -3,8 +3,8 @@
 A shared vocabulary for token *names*, and the shipped constants a primitive
 colour ramp is built from. This file is a **library, not a command**: nothing
 here runs, and no command changes behaviour by loading it. Other reference
-files borrow from it — naming suggestions in `refs/tokenise.md`, primitive
-ramps in `refs/create.md`.
+files borrow from it — naming suggestions in `refs/tokenise/naming.md`, primitive
+ramps in `refs/create/primitives.md`.
 
 "Library" means **data Phyllum ships**, never an npm package. Phyllum has zero
 dependencies and this file is why that stays true: the vocabulary is three

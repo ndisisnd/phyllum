@@ -2,7 +2,7 @@
  * Assertions for the archetype contracts and the follow-up loop
  * (plan §3.1.1, §3.2, §8.5).
  *
- * These are table-driven over `skill/refs/create.md`: the same table the skill
+ * These are table-driven over `skill/refs/create/`: the same table the skill
  * reads is the table the CLI computes gaps from and the table these checks
  * assert against. Adding an archetype there adds a case here automatically —
  * there is nowhere else for a contract to be written down.
@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import {
-  CONTRACT_FILE,
+  readContractText,
   CUSTOM_ARCHETYPE,
   archetypes,
   candidateSignals,
@@ -51,10 +51,10 @@ const draftFor = (archetypeKey) => {
   return draft;
 };
 
-test('the contract table in refs/create.md covers the plan §3.1.1 archetypes', () => {
+test('the contract table in refs/create/ covers the plan §3.1.1 archetypes', () => {
   const names = archetypes().map((archetype) => archetype.name);
   for (const required of ['Button', 'Input', 'Card', 'Badge', 'Modal']) {
-    assert.ok(names.includes(required), `refs/create.md has no ${required} contract`);
+    assert.ok(names.includes(required), `refs/create/ has no ${required} contract`);
   }
 });
 
@@ -73,7 +73,7 @@ test('the ten v0.3.0 joiners are in the table, each with a contract of its own',
     'Progress',
   ];
   for (const joiner of joiners) {
-    assert.ok(names.includes(joiner), `refs/create.md has no ${joiner} contract (v0.3.0 §6.6)`);
+    assert.ok(names.includes(joiner), `refs/create/ has no ${joiner} contract (v0.3.0 §6.6)`);
     const contract = contractFor(joiner.toLowerCase());
     assert.ok(contract.slots.length > 0, `${joiner} demands nothing, which is not a contract`);
   }
@@ -210,16 +210,16 @@ test('every mandatory slot has a labelled default to fall back on', () => {
     for (const slot of [...archetype.slots, ...archetype.states]) {
       assert.ok(
         defaultFor(archetype.key, slot),
-        `no labelled default for ${archetype.name}.${slot} in refs/create.md`,
+        `no labelled default for ${archetype.name}.${slot} in refs/create/`,
       );
     }
   }
 });
 
-test('the contract tables are read from refs/create.md, not from the code', () => {
-  const text = fs.readFileSync(CONTRACT_FILE, 'utf8');
+test('the contract tables are read from refs/create/, not from the code', () => {
+  const text = readContractText();
   for (const marker of ['<!-- phyllum:contracts -->', '<!-- phyllum:vocabulary -->', '<!-- phyllum:defaults -->']) {
-    assert.ok(text.includes(marker), `refs/create.md lost its ${marker} marker`);
+    assert.ok(text.includes(marker), `refs/create/ lost its ${marker} marker`);
   }
 });
 
@@ -344,8 +344,8 @@ test('every candidate signal resolves to an archetype the contract table has', (
 });
 
 test('the tables are read from the file, not restated in code', () => {
-  const text = fs.readFileSync(CONTRACT_FILE, 'utf8');
+  const text = readContractText();
   for (const marker of ['<!-- phyllum:trace -->', '<!-- phyllum:candidates -->']) {
-    assert.ok(text.includes(marker), `refs/create.md is missing ${marker}`);
+    assert.ok(text.includes(marker), `refs/create/ is missing ${marker}`);
   }
 });

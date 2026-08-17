@@ -99,7 +99,7 @@ test('`apply` needs a design system before it means anything', async () => {
 // The one write, and nothing else
 // ---------------------------------------------------------------------------
 
-test('apply writes .phyllum/PRD.md and leaves every other byte alone', async () => {
+test('apply writes .phyllum/PRD.md and the `applied:` lines, and leaves every other byte alone', async () => {
   await project(async (dir) => {
     const before = snapshotContents(dir);
     const result = await executeArgv(['apply'], ctx(dir));
@@ -108,9 +108,21 @@ test('apply writes .phyllum/PRD.md and leaves every other byte alone', async () 
 
     assert.equal(result.code, 0);
     assert.equal(result.written, true);
-    assert.deepEqual(diff.added, [PRD_FILE], 'the PRD is the only new file');
-    assert.deepEqual(diff.changed, [], 'not one existing file may change');
+    // v0.5.0 §3.2 amended this: the design system's `applied:` lines are written
+    // too, which brings the `.bak` the funnel always takes first. The file's
+    // *other* bytes are still untouchable — that is asserted line by line in
+    // `applied.test.js`; here it is the file list that matters.
+    assert.deepEqual(diff.added, [PRD_FILE, 'DESIGN-SYSTEM.md.bak'], 'the plan and the pre-edit copy');
+    assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'the design system, and no other existing file');
     assert.deepEqual(diff.removed, [], 'nothing may be removed');
+
+    // No source file, on any path. This is the boundary `apply` shipped behind.
+    for (const rel of [...diff.added, ...diff.changed]) {
+      assert.ok(
+        rel === PRD_FILE || rel.startsWith('DESIGN-SYSTEM.md'),
+        `${rel} is not something \`apply\` may write`,
+      );
+    }
   });
 });
 
@@ -378,16 +390,18 @@ test('nothing to apply writes no PRD at all, and says why', async () => {
 
 test('a project that only Phyllum has written to is left exactly as it was', async () => {
   // The polyglot fixture has no React and no matching tokens: `apply` must not
-  // invent a reason to touch a Go or Kotlin file.
+  // invent a reason to touch a Go or Kotlin file. The design system is Phyllum's
+  // own file and may gain its `applied:` lines; nothing else may be touched at
+  // all.
+  const OWN = [PRD_FILE, 'DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak'];
   await project(
     async (dir) => {
       const before = snapshotContents(dir);
       await executeArgv(['apply'], ctx(dir));
       const diff = diffSnapshots(before, snapshotContents(dir));
-      assert.deepEqual(diff.changed, []);
       assert.deepEqual(diff.removed, []);
-      for (const added of diff.added) {
-        assert.equal(added, PRD_FILE, `${added} should never have been written`);
+      for (const rel of [...diff.added, ...diff.changed]) {
+        assert.ok(OWN.includes(rel), `${rel} should never have been written`);
       }
     },
     { fixture: 'polyglot-theme' },

@@ -2,6 +2,52 @@
 
 What's new for you, release by release.
 
+## v0.5.0 — 2026-08-17
+
+> There has never been a way to remove a component except editing the file by hand. There is now — and it arrives with the safety rail it needed first. Every component records whether your codebase is actually using it, worked out by `phyllum apply` from a read of your code, so `phyllum delete` can refuse on evidence rather than on a hunch. Deleting is the one thing Phyllum makes harder rather than easier: a warning, a refusal while the component is in use, your acceptance, and then the component's name typed back.
+
+### ✨ New
+- **`phyllum delete` removes a component.** It lists what you have recorded with each component's type and whether it is in use, takes your pick — or `phyllum delete Button/Primary` if you already know — and then slows down on purpose. It shows you exactly what goes: the component's entry and the backlog lines naming it, and nothing else in the file. The save takes a `.bak` first, and the report tells you that is your undo.
+- **It warns you before it asks anything.** Deleting a component can be a breaking change: code generated from it stays in your codebase and stops matching anything your design system records. That sentence prints every time, before any question about proceeding — on a bare run and a pre-answered one alike.
+- **It refuses while the component is still in use.** If your code is using the component, `delete` stops, tells you what it saw and where, and gives you the way out in order: remove the usage, re-run `phyllum apply` so the reading catches up, then delete. There is no flag, option or `--force` past that refusal, and a refusal is not an error — the run ends cleanly.
+- **And then it asks you to type the name.** After the ordinary acceptance question, one more: type the component's name back. A `y` proves you agreed; a typed name proves you are looking at the right target. `--yes` cannot answer it, and neither can a run with nobody there — a non-interactive `delete` refuses and says why.
+- **Your components now say whether they are applied.** Run `phyllum apply` and each component's spec block gains `applied: true` or `applied: false`: is this component adopted in your codebase right now? `display`, the dashboard and the JSON all show it. It is worked out from your code, not asked about and not settable — if you edit it by hand, the next `apply` puts the true reading back.
+
+### 📈 Improved
+- **`phyllum apply` now writes one line into `DESIGN-SYSTEM.md`.** It is the `applied:` line of each component and nothing else in the file, with the backup taken first as always, and a run that changes no line writes nothing at all. This is the one addition to what `apply` touches since it shipped, and it is written down in the permission rules rather than slipped in.
+- **A design system written before 0.5.0 reads exactly as it did.** No `applied:` line means `phyllum apply` has never run here — which is deliberately *not* the same as "not in use" — so nothing shows a reading it does not have, and nothing behaves differently until you run `apply`.
+
+### 🐛 Fixed
+- An `applied:` line edited by hand into something that is neither `true` nor `false` used to be read as "not in use", which could let `delete` past the very check that exists to stop it. Phyllum now says it cannot read that line and goes and reads your codebase instead.
+- Two components recorded under the same heading name used to have one reading between them, taken from one entry while a deletion took the other's lines. `delete` now says the name does not identify one entry, and changes nothing.
+- If Phyllum's own shipped `delete` reference is damaged, the affected line is dropped with a message naming the file and the table, the same way its other reference tables already behave, instead of the flow quietly running with one of its rules missing.
+
+### Not in this release
+- **Deleting a token.** `phyllum delete token` is refused on purpose, with the reason: removing a token ripples through every component slot and backlog line naming it, which is a different risk story and deserves its own release.
+- Batch deletion, `delete --force`, or any path around the second confirmation.
+
+Update with `phyllum upgrade`.
+
+## v0.4.1 — 2026-08-17
+
+> The dashboard stops describing your components and starts drawing them. Click one in the Library and you see the component itself — built from the spec Phyllum recorded, with your own token values resolved into it — plus a row of buttons for its variants and another for its states. Anything the spec does not actually say is listed underneath rather than invented.
+
+### ✨ New
+- **Your components are drawn, not just printed.** The Library panel now opens with the component itself, above the spec and code blocks it already showed. It is drawn from what your file records: each recorded slot becomes a real style on a real element, and a token name is resolved against the tokens you named. Nothing is executed and nothing is fetched — the page still needs no install, no build step and no network.
+- **A toggle for your variants.** `Button/Primary` and `Button/Ghost` are one family, so the panel shows a button per variant and swaps the drawing in place. A component with no siblings shows no toggle, because a picker with one option is not a picker.
+- **A toggle for your states.** If the spec records `hover`, `disabled` or any other state, a second row switches to it — and a state is read as *your component with those slots applied*, not as a different component.
+- **What could not be drawn is listed, never guessed.** A slot still recorded as `TODO`, a token name nothing holds, or a value Phyllum cannot classify contributes nothing at all and appears underneath as an unrendered slot with the reason. A preview that quietly invented a background would be the one place you would believe it.
+
+### 📈 Improved
+- **Phyllum reads less to answer you.** Every command's reference is a folder of small topic files now instead of one long file, so a conversation loads the part it actually needs. Nothing about what any command does has changed — the same contracts, on new shelves.
+
+### 🐛 Fixed
+- A component whose spec records a state literally called `default` no longer shows that state twice in the toggle while ignoring what it says. It is one option, and what you recorded is what is drawn.
+- A hand-edited typography token with the wrong number of readings no longer blanks the component panel; it is reported as unresolved like any other value Phyllum cannot read.
+- If Phyllum's own shipped reference files are missing or damaged, it now says which folder is wrong and that `phyllum upgrade` restores it, instead of failing with a bare technical line naming a path inside the install.
+
+Update with `phyllum upgrade`.
+
 ## v0.4.0 — 2026-08-17
 
 > `tokenise` stops needing you to know the sentence. Run it with nothing and it asks what kind of token you are recording, then asks the one thing that kind needs — and every question that wants a value now shows you the shape the answer takes. Gradients are colours Phyllum can name. `rgba()` finally counts as the same colour as the hex you already recorded. Your colours show up in the dashboard as cards you can actually look at. And there is a new verb for the thing there was never a good way to do: changing what your design system already says.

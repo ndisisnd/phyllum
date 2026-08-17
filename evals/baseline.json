@@ -1,9 +1,9 @@
 {
-  "recordedAt": "2026-08-16",
-  "phyllumVersion": "0.4.0",
-  "milestone": "v0.4.0 M7",
-  "release": "v0.4.0",
-  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v0.4.0 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why. Every score the previous release recorded is still met or beaten, and no threshold has ever been lowered.",
+  "recordedAt": "2026-08-17",
+  "phyllumVersion": "0.5.0",
+  "milestone": "v0.5.0 M3",
+  "release": "v0.5.0",
+  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v0.5.0 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why. Every score the previous release recorded is still met or beaten, and no threshold has ever been lowered.",
   "assertions": {
     "command": "npm test",
     "harness": "evals/harness/fs-harness.js",
@@ -142,6 +142,13 @@
       "threshold": 1,
       "points": 145,
       "max": 145
+    },
+    "delete-flow": {
+      "responder": "deterministic",
+      "score": 1,
+      "threshold": 1,
+      "points": 24,
+      "max": 24
     }
   },
   "recordedRuns": {

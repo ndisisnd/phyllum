@@ -7,7 +7,7 @@
  * into a severity by a table rather than by a constant. This file exists to hold
  * three promises about that:
  *
- *   1. **The threshold is data.** It is a row in `refs/assess.md`, the same row
+ *   1. **The threshold is data.** It is a row in `refs/assess/severity.md`, the same row
  *      the report and the fast-forward read, so a project that wants to be
  *      stricter edits a table rather than the code.
  *   2. **Severity belongs to aggregation.** A scanner reports what it saw in one

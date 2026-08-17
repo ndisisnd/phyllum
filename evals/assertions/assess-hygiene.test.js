@@ -31,6 +31,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { ERROR, SCAN_LIMITS, WARN, assess } from '../../lib/assess.js';
+import { readRef } from '../../lib/refs.js';
 import {
   UNUSED_CAVEAT,
   collisionFindings,
@@ -180,7 +181,7 @@ test('a single-stack project reports no collisions at all', () => {
 
 test('every hygiene severity comes from the table, and every rule is in it', () => {
   const declared = hygieneRules();
-  const spec = fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'refs', 'assess.md'), 'utf8');
+  const spec = readRef('assess');
   assert.ok(spec.includes('<!-- phyllum:hygiene-rules -->'), 'the table is marked for the parser');
 
   const result = assess(STALE, staleModel());

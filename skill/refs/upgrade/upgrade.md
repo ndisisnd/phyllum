@@ -71,7 +71,7 @@ re-sync. The word moved because it was answering the wrong question — "update"
 is what people type when they mean *update what Phyllum recorded*, not *update
 Phyllum*. So `update` left and the install-moving job took the verb that only
 ever meant one thing. `update` spent v0.3.0 as `apply`'s alias and became its own
-editing command in v0.4.0 (`refs/update.md`); neither move touched anything here.
+editing command in v0.4.0 (`refs/update/update.md`); neither move touched anything here.
 
 The switch is silent: no redirect notice, no acknowledgement gate. A
 muscle-memory `phyllum update` now opens the editing menu and writes nothing
