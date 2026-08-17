@@ -68,6 +68,15 @@ and no more — the inherited type stack, a 1px transparent edge for a recorded
 border colour to paint, and the stage it sits on. Everything else it wears comes
 from its own spec, inline.
 
+**The rule bends by exactly one recorded step (v0.5.1 §5.3).** An archetype
+whose contract records icon slots may draw **one child box per recorded icon
+slot** that is currently shown — nothing else ever becomes a second box. A
+thumb, an indicator and a scrim are still listed unrendered rather than drawn,
+because none of them is recorded as a slot the component *has*; they are
+readings of a part the preview does not build. The bend is written down in the
+`phyllum:preview-attributes` table below, and it goes no further than that
+table.
+
 ### The projection map
 
 Each recorded property projects into named declarations, and only after its
@@ -135,6 +144,7 @@ shapes that end a declaration, close the attribute, or open a request.
 | leading | `normal`, or a number with an optional length unit |
 | shadow | two to four lengths and one colour, optionally `inset`; a stack of shadows is not read |
 | typography | a typography token name, never a written reading — `14px / 600 / 1.4` in a spec is prose |
+| presence | one of the presence readings below — an icon slot records that the slot exists, not a colour or a length |
 
 ### Unrendered slots — the honesty line
 
@@ -176,6 +186,86 @@ recorded state is overlaid like any other — the file says what `default` looks
 like, and the dashboard shows the file. An option offered twice is a picker
 nobody can read, and the copy that did nothing was the one the file recorded.
 
+### The attribute controls (v0.5.1 §5.2)
+
+The third toggle row, and the first that is not a picker. Some recorded slots
+are not a colour or a length but a *configuration* of the component: whether a
+button has a leading icon, a trailing icon, or neither. The row shows one on/off
+control per recorded slot, and flipping one shows or hides that slot's
+placeholder in the stage.
+
+Four rules hold it to the same honesty the rest of the panel keeps:
+
+- **Derived, never invented.** A control appears **only for a slot the spec
+  records**. A spec with no `trailing-icon` shows no trailing-icon control — an
+  interactive preview must not offer configurability the design system never
+  wrote down.
+- **A `TODO` slot is a gap, not a switch.** It gets no control and keeps its
+  line in the unrendered list, exactly as before. A switch that does nothing is
+  a worse answer than a stated gap.
+- **Projection only.** Flipping a control changes what is drawn and nothing
+  else: no write, no request, no change to the `yaml` block, which goes on
+  showing the spec as recorded whatever the toggles say. The dashboard shows the
+  file; the controls show a *reading* of the file.
+- **Reset on switch.** Switching variant or state returns every control to the
+  spec's recorded reading — the same reset rule the states toggle already
+  follows on a variant switch, because a sibling records its own slots.
+
+The toggleable slots are exactly these two. Other configuration-shaped slots — a
+field's clearable affordance, and the rest — wait for a later release.
+
+<!-- phyllum:preview-attributes -->
+
+| Slot | Position | Shape |
+|------|----------|-------|
+| leading-icon | leading | presence |
+| trailing-icon | trailing | presence |
+
+This table is the `PREVIEW.attributes` constant inside the page's
+`phyllum:preview-contract` region, and the suite reads both, so the two cannot
+drift. Which archetypes may carry these slots is the `phyllum:icon-slots` table
+in `refs/create/archetypes.md`, read the same way.
+
+A slot's recorded value says whether the control **starts** shown, and that
+reading is what a reset returns to:
+
+<!-- phyllum:preview-presence -->
+
+| Reading | The control starts |
+|---------|--------------------|
+| yes | shown |
+| true | shown |
+| required | shown |
+| no | hidden |
+| false | hidden |
+| optional | hidden |
+
+A value outside that list is one the page cannot classify. The slot is still
+recorded, so it still earns a control, but the reading is listed as
+`unresolved` in the unrendered list and the control starts hidden — the file
+said something about this slot that the page will not pretend to have read.
+
+### Drawing an icon slot — the placeholder
+
+A shown icon slot draws **one child box** inside the preview element, leading or
+trailing as the table says. The placeholder is a **filled dot**: a solid circle
+in the page's muted ink, sized in `em` from the component's own font size, so it
+grows with a recorded type slot and never states a size of its own.
+
+- It is deliberately generic. Phyllum records that an icon slot exists, not
+  which icon fills it, and the preview shows exactly that — no icon font, no
+  asset fetch, no guessed glyph, and no external request of any kind.
+- The dot carries **no inline style**. It is the page's own mark, not the
+  specimen's, so the rule that the specimen wears only its recorded slots is
+  untouched: nothing the page chose ever reaches the element's `style`
+  attribute.
+- A void preview element takes no children, so an `input` — or any archetype
+  drawn as one — lists a recorded icon slot as `no preview element` instead of
+  drawing it.
+- Every value still passes the gates. A slot the archetype's contract does not
+  record, and a slot on an element that cannot hold a child, stay unrendered
+  with their reason, control or no control.
+
 ### Placement and treatment
 
 The preview and its toggle rows are the panel's **first** section. The labelled
@@ -184,10 +274,14 @@ not lose one.
 
 | Element | Treatment |
 |---------|-----------|
-| Stage | the page's tile idiom: the `--bg` layer, a `--line` hairline, sharp corners |
+| Stage | the page's tile idiom: the `--bg` layer, a `--line` hairline, the page's own `--radius-md` corner |
 | Toggle buttons | the existing `.tile-action` button, `aria-selected` marking the active one |
+| Attribute controls | the same `.tile-action` button, `aria-pressed` marking a shown slot — an on/off control, not a picker |
+| Icon placeholder | a filled dot in the page's muted ink, `em`-sized from the component's font size; the one circle on the stage, and no colour of its own |
 | Unrendered list | the existing raw-value chip, in the muted ink at the smallest type step |
 
-No new colour, no new font, no new size outside the five-step ramp, and no
-rounded corner: the colour-card swatch remains the page's one recorded
-departure from sharp corners.
+No new colour, no new font, and no new size outside the five-step ramp. The
+stage is restyled with the rest of the page (v0.5.1 §3), but **the specimen is
+not**: the preview element takes no radius from this stylesheet, because a
+corner the page rounded is a corner the file never recorded. A previewed
+component is round only where its own `radius` slot says so.

@@ -2,6 +2,28 @@
 
 What's new for you, release by release.
 
+## v0.5.1 — 2026-08-17
+
+> The dashboard gets a new look — simpler, softer, rounder — and you get to choose whether it is light or dark. The component preview gains a third row of controls: where your spec records a button's leading or trailing icon, you can flip that slot on and off and watch the drawing change. Nothing new is written, no new command exists, and the page still fetches nothing from the network.
+
+### ✨ New
+- **Pick your theme.** A light · dark · system control sits in the shell. `system` is the default and follows your OS, exactly as the page always has, so a dashboard you never touch looks the way it always did. Your choice is remembered by the browser between visits and applied before the page paints, so it never flashes the wrong theme at you. The server is never told — this is your browser's preference, not your project's.
+- **Flip a component's icon slots in the preview.** If your spec records a `leading-icon` or `trailing-icon` for a button, the preview panel now shows a control for it. Turn it on and a placeholder appears in the drawing; turn it off and it goes. The controls come from your file: a slot you never recorded gets no control, and a slot still marked `TODO` stays in the unrendered list rather than becoming a switch that does nothing.
+- **The placeholder is a plain dot, on purpose.** Phyllum records that an icon slot exists, not which icon fills it, so the preview draws a filled dot in the muted ink, sized from the component's own type. No icon font, no downloaded asset, no guessed glyph.
+
+### 📈 Improved
+- **The dashboard is restyled along Notion lines.** Rounded corners throughout, quieter borders, a soft shadow instead of an edge where a surface needs lifting, warm near-whites over soft greys in the light theme and soft charcoal rather than pure black in the dark one. The dark product header is gone and the left rail is calmer. It is an aesthetic, not a dependency: the stylesheet is still hand-written inside the one file.
+- **Number tokens read as a list, sorted by what they apply to.** The measured bars are gone. The Numbers section now groups your tokens under the very words your file's `applies to` column uses — corner radius with corner radius, padding with padding — each token a plain name-and-value line. Tokens with nothing in that column gather under `other` at the end.
+- **A better type stack, still with nothing to download.** The page asks for Geist and Geist Mono and falls back to your system faces if you do not have them — the same rule as before, which is that nothing is ever fetched.
+- **Your components still wear only what you recorded.** The preview stage is rounded like the rest of the page; the component drawn on it is not. It is round only where its own `radius` slot says so, and flipping an icon control changes the drawing and nothing else — never your `DESIGN-SYSTEM.md`, and never the spec shown beside it.
+
+### Not in this release
+- **Editing the spec from the page.** The controls change what is drawn, not what is written. The dashboard stays read-only, on localhost only.
+- **Real icons.** Phyllum does not record which icon fills a slot, so the preview does not draw one.
+- **Controls beyond the icon pair.** Other configuration-shaped slots wait until this pattern has settled.
+
+Update with `phyllum upgrade`.
+
 ## v0.5.0 — 2026-08-17
 
 > There has never been a way to remove a component except editing the file by hand. There is now — and it arrives with the safety rail it needed first. Every component records whether your codebase is actually using it, worked out by `phyllum apply` from a read of your code, so `phyllum delete` can refuse on evidence rather than on a hunch. Deleting is the one thing Phyllum makes harder rather than easier: a warning, a refusal while the component is in use, your acceptance, and then the component's name typed back.

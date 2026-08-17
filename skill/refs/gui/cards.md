@@ -7,7 +7,7 @@ The Library view renders each token in the thing it describes:
 |---------|-----------|
 | Colours | one **card** per token — a filled, rounded swatch, with the token name and then its value printed *beneath* the swatch (v0.4.0 §5.5, below) |
 | Colours — Primitives | **swatches** in **ramp strips**: one strip per base name, its steps side by side in file order, each step's label sitting on the swatch itself |
-| Numbers | a **measured bar** per token, its length proportional to the largest number in the section; a value with no leading number reads as an empty track |
+| Numbers | a **grouped list**, cut by the `applies to` column — one labelled group per distinct reading, groups and tokens in file order, each token a plain name-and-value line (v0.5.1, below) |
 | Typography | a **live specimen** per token, set in that token's own size, weight and line-height |
 
 Two rules decide how a swatch is drawn, and both are numbers rather than
@@ -63,7 +63,7 @@ that. The card grid is the semantic Colours table only.
 
 | dimension | value | meaning |
 |-----------|-------|---------|
-| swatch radius | `0.5rem` | the rounded corner on the swatch — the one recorded departure from the sharp-cornered Carbon direction |
+| swatch radius | `var(--radius-md)` | the rounded corner on the swatch — the medium step of the page's radius scale, the same corner every other rounded surface takes |
 | card min width | `13rem` | the narrowest a card gets before the grid drops a column |
 | card max width | `20rem` | the widest one card grows to, so a wide viewport gains columns rather than billboards |
 | grid gap | `1rem` | the space between cards, in the page's existing spacing scale |
@@ -77,9 +77,10 @@ all.
 
 **Colour style follows the page.** Card chrome — text colours, spacing,
 background — is the dashboard's existing palette and type ramp. No font changes,
-no new sizes outside the five-step ramp. The rounded swatch corner is the single
-deliberate departure from "sharp corners everywhere"; every other element keeps
-its square corner.
+no new sizes outside the five-step ramp. Since v0.5.1 the swatch corner is no
+longer a departure from anything: rounded corners are the page's default, and
+the swatch simply takes the medium step of the shared radius scale like every
+other surface.
 
 ### Gradients in a card (v0.4.0 §5.1)
 
@@ -98,3 +99,41 @@ Two consequences worth stating as contract:
   renders bordered and unfilled, exactly as `var(--brand)` does today.
 - **A gradient is never near-white.** It has no single luminance, so it takes
   the plain variant, and its label reads off the fill like every other card's.
+
+## Numbers as a grouped list (v0.5.1)
+
+A number token is **not** drawn as a measurement. The bar that used to size each
+token against the largest value in the section is gone, along with its track: a
+`4px` radius beside a `64px` control size made a picture of a ratio nobody
+asked about, and the reading a person wants is the value itself.
+
+The Numbers section is now **cut into groups by the `applies to` column**:
+
+- **One group per distinct reading.** Every distinct `applies to` cell — `corner
+  radius`, `padding`, `border width`, `control size` — is one labelled group.
+- **The label is the file's own words, verbatim.** Nothing is normalised,
+  title-cased, singularised or invented. The dashboard shows the file.
+- **File order, twice over.** Groups appear in the order their first row appears
+  in the table, and the tokens inside a group keep their own file order.
+- **An empty cell falls to one trailing group.** Rows whose `applies to` cell is
+  blank collect in a single group at the end, labelled with the neutral word
+  below rather than with a guess at what they apply to.
+- **Each token is one plain line** — the name in the page's own ink, then the
+  value in the mono face in the muted ink, the same idiom the colour card's
+  value line uses. No bar, no track, no visualisation.
+
+<!-- phyllum:numbers -->
+
+| setting | value | meaning |
+|---------|-------|---------|
+| ungrouped label | `other` | the label of the one trailing group holding every row with an empty `applies to` cell |
+
+That word is the page's `NUMBERS` constant, inside the region marked
+`phyllum:numbers-contract`, and the assertion suite reads both this table and
+that region so the two cannot drift.
+
+The markup is one `section.number-group` per group, carrying `data-applies`
+(the verbatim reading, empty for the trailing group), holding a
+`.number-group__label` and then a `.number-list`; each token is one
+`li.number` carrying `data-token`, holding `.number__name` and `.number__value`.
+The groups sit in one `.numbers` container.

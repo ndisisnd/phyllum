@@ -68,6 +68,35 @@ Two rules, deliberately asymmetric:
   never warn about it, never substitute a token that is merely *close*. The only
   job is to make sure the slot was filled consciously.
 
+### Icon slots (v0.5.1 §5.3)
+
+Some archetypes carry a slot that is a **configuration** of the component rather
+than a colour or a length: a button records whether it has a leading icon, a
+trailing icon, or neither. These are **optional** slots — they are not in the
+mandatory list above, `create` never asks for one, and a component without them
+is complete. They are recorded here because the dashboard's preview needs to
+know which archetype may draw one, and because a slot nobody wrote down is a
+slot nobody may invent.
+
+<!-- phyllum:icon-slots -->
+
+| Archetype | Icon slots |
+|-----------|------------|
+| Button | `leading-icon`, `trailing-icon` |
+
+An icon slot records **presence, not artwork**. Phyllum stores that the slot
+exists — `yes`, `no`, `required`, `optional`, `true`, `false` — and never which
+icon fills it, because a design system that names an asset is describing a file
+rather than a decision. The preview draws that much and no more: a placeholder
+dot per shown slot (`refs/gui/component-preview.md` § The attribute controls).
+
+An archetype absent from this table records no icon slot. A spec of that
+archetype that carries one anyway is listed as an unrendered slot in the
+preview, never drawn — the contract says which slots an archetype has, and the
+preview shows the contract. A `custom` component has no contract, so it draws
+whatever icon slots it actually carries, exactly as it does with every other
+slot.
+
 ### Slot vocabulary
 
 The property keys Phyllum writes into a spec, the contract slot each one fills,

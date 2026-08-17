@@ -28,16 +28,16 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.5.0 -->
+<!-- mkpub:release 0.5.1 -->
 > [!NOTE]
-> **🚀 New in 0.5.0 · Removal gets a verb, and a safety rail first**
+> **🚀 New in 0.5.1 · The dashboard softens, and the preview answers back**
 >
-> `phyllum delete` takes one recorded component away, behind the loudest gate in the
-> product: a breaking-change warning, a refusal while your codebase is still using the
-> component, and then your acceptance *plus* the component's name typed back before
-> anything is written. It can refuse on evidence because every component now records
-> whether it is **applied** — adopted in your code right now — derived by `phyllum apply`
-> from a read of the codebase, never set by hand.
+> The dashboard is restyled along Notion lines — simpler, softer, rounder — and a
+> **light · dark · system** control lets you pick the theme yourself, remembered in your
+> browser and applied before the first paint. The component preview gains **attribute
+> controls**: where your spec records a button's leading or trailing icon, you can flip
+> that slot on and off in place. The controls are derived from your file and never
+> invented, the drawing changes and nothing else does, and the page still fetches nothing.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
@@ -290,7 +290,8 @@ on top, the token name beneath it, and the value on its own line under that — 
 the swatch where a near-white would otherwise vanish against the page, and a gradient
 painted as the swatch fill. A primitives ramp keeps its nine-step strip, because a ramp
 reads as one thing rather than as nine cards; typography tokens render as live specimens in
-their own size, weight and line-height; and numbers render as measured bars. Only a value
+their own size, weight and line-height; and numbers render as a plain list grouped by what
+each one applies to, in the file's own words. Only a value
 the page recognises as a colour or a gradient is ever painted — anything else is shown as
 text on an unfilled swatch, so a hand-edited file can never write CSS into the page.
 
@@ -304,11 +305,24 @@ because a preview that invented a background would break the no-invented-values 
 the one place you would believe it. Components sharing a base name — `Button/Primary`,
 `Button/Ghost` — get a **variant toggle**, and a spec recording states gets a second
 toggle for `hover`, `disabled` and the rest; a state's slots overlay the base rather than
-replacing it. A component with no variant siblings shows no toggle. The page is styled along Carbon Design
-System lines — flat tiles, sharp corners, a disciplined type ramp — but it takes no
-dependency on Carbon or anything else: the stylesheet is hand-written in the one file and
-the page fetches nothing from the network. It stays read-only, on localhost only. Writing
-is the CLI's job.
+replacing it. A component with no variant siblings shows no toggle. A third row appears
+where the spec records an icon slot — a **leading-icon** or **trailing-icon** control that
+flips the slot in the drawing, with the placeholder drawn as a filled dot in the muted ink
+because Phyllum records that an icon slot exists, not which icon fills it. The controls
+are derived from the file: a slot the spec does not record gets no control, a `TODO` slot
+stays in the unrendered list, and flipping one changes the projection only — never the
+spec, never the served payload.
+
+The page is styled along Notion lines — simpler, softer, rounder: rounded corners
+throughout on one two-step radius scale, quiet borders and low diffuse shadows, warm
+near-whites over soft greys in the light theme and soft charcoal in the dark one, one calm
+surface with no dark product header. You pick the theme yourself — **light, dark or
+system** — from a control in the shell; `system` is the default and follows your OS, and
+your choice is remembered in the browser and applied before the first paint, so the page
+never flashes the wrong theme. It takes no dependency on Notion or anything else: the
+stylesheet is hand-written in the one file, the type stack asks for Geist and falls back
+to the system faces without fetching a webfont, and the page fetches nothing from the
+network. It stays read-only, on localhost only. Writing is the CLI's job.
 
 `delete` is the one destructive verb, and it is built as the inverse of `create`'s ease.
 Deleting a component can break things — code generated from it stays in your codebase and

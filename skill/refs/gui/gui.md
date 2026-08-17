@@ -26,21 +26,72 @@ decides anything.
    which values are still raw and therefore candidates for the next `tokenise`
    run.
 
-## Look and feel — Carbon-like, not Carbon
+## Look and feel — Notion-like, not Notion
 
-The dashboard is styled along Carbon Design System lines: flat tiles, sharp
-corners (with one recorded exception — the colour-card swatch, above), a
-five-step type ramp, generous whitespace, and a left-rail shell under a dark
-product header. It is an aesthetic, not a
-dependency — no `@carbon/*` package, no CDN, no build step.
+The dashboard is styled along Notion lines: **simpler, softer, rounder**. It is
+an aesthetic followed as a direction, never as a dependency — there is no
+`@notion/*` package to take, no CDN, and no build step, which makes the point
+cleanly.
+
+- **Rounder** — rounded corners are the default: tiles, chips, buttons, inputs,
+  the preview stage, the colour-card swatch. Two CSS variables carry the whole
+  scale (`--radius-sm`, `--radius-md`), so the page rounds from one place. Sharp
+  corners are the departure that needs recording now, not the rule.
+- **Softer** — a hairline gives way wherever a background shift says the same
+  thing; where a surface needs lifting it takes one low, diffuse shadow
+  (`--shadow`) instead of an edge. The light palette is warm near-white over
+  soft warm greys with ink slightly off-black; the dark palette is soft
+  charcoal, not pure black. Both themes are drawn to the same temperament.
+- **Simpler** — one calm surface: no dark product header over a light body, and
+  a quieter left rail on the page's own background with the selected view
+  reading as a rounded resting place rather than a stripe. The five-step type
+  ramp survives untouched — simplicity is fewer surfaces, not fewer sizes — and
+  so do the three views and their navigation.
 
 | Property | Value |
 |----------|-------|
 | Stylesheet | hand-written, inline in `gui/index.html` — one file, no second asset |
-| Type stack | `'IBM Plex Sans'` first, then system sans; mono is `'IBM Plex Mono'` then system mono |
-| Webfont | **none** — Plex is used where it is already installed locally and nothing is fetched |
+| Type stack | `'Geist'` first, then system sans; mono is `'Geist Mono'` then system mono |
+| Webfont | **none** — Geist is used where it is already installed locally and nothing is fetched |
 | Network | the page makes same-origin requests to its own server only (`/state`, `/system`, `/prompt`, `/upload`); no external URL appears anywhere in the file |
-| Themes | a Carbon-shaped white theme, and a g100-shaped dark theme under `prefers-color-scheme` |
+| Radius | two steps, `--radius-sm` and `--radius-md`; every rounded corner on the page reads one of them |
+| Themes | a warm near-white light theme and a soft-charcoal dark one, one CSS variable set each, picked by the theme control below |
+
+## The theme control (v0.5.1 §4)
+
+The page ships both themes, and the viewer picks between them. Three choices and
+no more, in the shell beside the connection status:
+
+<!-- phyllum:theme -->
+
+| Choice | What it means |
+|--------|---------------|
+| `light` | the light variable set, whatever the OS asks for |
+| `dark` | the dark variable set, whatever the OS asks for |
+| `system` | **the default** — defer to `prefers-color-scheme`, which is the behaviour the page had before v0.5.1 |
+
+The mechanics, all of them page-local:
+
+- **The attribute picks the set.** Theme selection is the `data-theme` attribute
+  on the root element. `light` and `dark` each select their variable set
+  outright; `system` carries no colour of its own and defers to the
+  `prefers-color-scheme` media query. One variable set per theme stays the rule.
+- **Persistence is `localStorage`**, under the key `phyllum.theme`, on the
+  page's own origin. A presentation preference belongs to the viewer and the
+  browser, not to `.phyllum/session.json`, which records what the *server* needs
+  to know. The server is never told, no route changes, and no new write path
+  exists.
+- **An absent or unreadable choice reads as `system`.** A store that is missing,
+  denied or holding a word the page does not know falls back to the default
+  rather than to a broken page; with storage denied, the clicked theme still
+  holds for the life of the page and only the remembering is lost.
+- **No flash of the wrong theme.** The stored choice is applied in the page's
+  own inline `<head>` script, before the body paints. It is the page's own
+  script in its own file, so the no-external-script rule is untouched.
+
+These are the `THEME` constant inside the page's region marked
+`phyllum:theme-contract`, and the assertion suite reads both this table and that
+region, so the two cannot drift.
 
 ## Lifecycle
 

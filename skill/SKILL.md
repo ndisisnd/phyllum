@@ -280,12 +280,14 @@ page and a label that flips to dark ink once the fill is light enough — both
 thresholds are rows in `refs/gui/cards.md`, not constants in the page. A primitives
 ramp renders as a nine-step strip, which is where the `Primitives` subsection
 pays off visually. Typography tokens render as live specimens in their own size,
-weight and line-height; numbers render as bars measured against the largest value
-in the table. The styling follows Carbon Design System *lines* — flat tiles,
-sharp corners, a disciplined type ramp, generous whitespace, a left rail — and
-takes no dependency on Carbon or anything else: the stylesheet is hand-written in
-the one file, the type stack is Plex-first falling back to system sans, and the
-page fetches nothing, so it renders with no network at all. Behaviour is
+weight and line-height; numbers render as a plain list cut into one group per
+`applies to` reading, labelled in the file's own words. The styling followed Carbon Design System *lines* at the time —
+flat tiles, sharp corners, a disciplined type ramp, generous whitespace, a left
+rail — restyled along Notion lines in v0.5.1 (`refs/gui/gui.md` is the live
+contract). What has never changed is the delivery: no dependency on any design
+system, a hand-written stylesheet in the one file, a type stack that falls back
+to the system faces, and a page that fetches nothing, so it renders with no
+network at all. Behaviour is
 unchanged — read-only, live `DESIGN-SYSTEM.md`, localhost only, the same
 `gui`/`kill` lifecycle. The dashboard shows the file; writing it stays the CLI's.
 
@@ -347,8 +349,9 @@ needs an edge. The cards lay out in a responsive grid rather than one token per
 row, and a gradient paints itself as the swatch fill for free. Primitives ramps
 keep their nine-step strips inside the `Primitives` subsection — a ramp reads as
 one thing, so the card grid is for the semantic Colours table. The card chrome
-uses the page's own palette and type ramp; the rounded corner is the one recorded
-departure from the Carbon direction. Only a value the page recognises as a hex
+uses the page's own palette and type ramp; the rounded corner was the one
+recorded departure from the then-sharp-cornered direction, and v0.5.1 inverted
+that rule — rounded is the page's default now. Only a value the page recognises as a hex
 literal or one of the six gradient shapes is ever inlined into a `style`
 attribute, so a hand-edited value carrying CSS or markup renders as text on an
 unfilled swatch. Behaviour is unchanged: read-only, live `DESIGN-SYSTEM.md`,
@@ -542,6 +545,63 @@ the code. The eval suite grows for the first time since v0.2.1 M5: `delete-flow`
 was pinned and unscored through M2 on purpose and is scored now, because
 `delete` is the first *gated* flow in the product and what rots in a gated flow
 is the order it speaks in. Twenty evals, every one at 1.000, no threshold
+lowered.
+
+v0.5.1 M1 restyles the dashboard **along Notion lines, not on Notion**: simpler,
+softer, rounder. Rounded corners become the default, drawn from a two-step scale
+in `--radius-sm` and `--radius-md` so the page rounds from one place — which
+inverts the standing rule, since sharp corners are the departure that needs
+recording now rather than the swatch's roundness. Hairlines give way wherever a
+background shift says the same thing, a surface that needs lifting takes one low
+diffuse shadow instead of an edge, and the palettes move to warm near-white over
+soft warm greys in the light theme and soft charcoal rather than pure black in
+the dark one. The dark product header over a light body goes; the shell is one
+calm surface with a quieter left rail. The type stack becomes Geist-first under
+exactly the rule Plex followed — used where it is already installed, never
+fetched. Beside the restyle comes **the theme control**: light · dark · system,
+with `system` the default and therefore the behaviour every existing page
+already had. The `data-theme` attribute on the root element picks a variable set
+and `system` defers to `prefers-color-scheme`; the choice persists in
+`localStorage` under `phyllum.theme`, because a presentation preference belongs
+to the viewer's browser and not to `.phyllum/session.json`, which records what
+the *server* needs to know. An absent or unreadable choice reads as `system`,
+and the stored choice is applied in the page's own inline head script before the
+body paints, so the page never flashes the wrong theme. Nothing about delivery
+changes: no dependency, no webfont, no CDN, no external URL in the file.
+
+v0.5.1 M2 gives the component preview **attribute controls** — its third toggle
+row, and the first that is not a picker. Where the spec records an icon slot,
+the panel shows an on/off control for it, and flipping one shows or hides the
+slot in the drawing. Four rules hold it to the honesty the rest of the panel
+keeps: derived and never invented, so a spec with no `trailing-icon` gets no
+trailing-icon control; a `TODO` slot gets no control and keeps its line in the
+unrendered list, because a switch that does nothing is a worse answer than a
+stated gap; projection only, so the drawing changes and the file, the `yaml`
+block and the served payload do not; and reset on switch, so changing variant or
+state returns every control to the spec's recorded reading. The toggleable slots
+are `leading-icon` and `trailing-icon` and nothing else this release —
+`phyllum:preview-attributes` in `refs/gui/component-preview.md` carries them,
+`phyllum:preview-presence` reads a slot's recorded value as shown, hidden or
+unresolved, and `phyllum:icon-slots` in `refs/create/archetypes.md` records which
+archetypes may carry them at all, because a slot nobody wrote down is a slot
+nobody may invent. Drawing one bends the single-element rule by exactly one
+recorded step: an archetype whose contract records icon slots may draw **one
+child box per shown slot** — a filled dot in the page's muted ink, sized in `em`
+from the component's own type, carrying no inline style of its own. Phyllum
+records that an icon slot exists, not which icon fills it, so there is no icon
+font, no asset fetch and no guessed glyph; a void element such as an `input`
+lists its recorded icon slot as unrendered instead of drawing into it.
+
+v0.5.1 M3 closes the release: the docs sweep, the 0.5.1 baseline, and a hardening
+pass. The sweep's job this time is the *look* every doc still described — the
+README, `llms.txt` and this file said Carbon, flat tiles and sharp corners, which
+stopped being true in M1 — so each live claim is rewritten to the Notion-like
+contract in `refs/gui/gui.md` while the historical lines stay as they were
+written, because release history is a record and not a claim. The hardening pass
+re-asserts what the restyle could quietly have broken: every marker table in the
+reference tree resolving once and only once across the folders, and the page
+still self-contained — no webfont, no CDN, no `src=` attribute and no external
+URL anywhere in `gui/index.html`. Twenty evals, every one at 1.000, no threshold
 lowered.
 
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`

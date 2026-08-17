@@ -561,12 +561,34 @@ test('the card dimensions are the ones skill/refs/gui/cards.md records, in the t
     assert.equal(declared[1].trim(), value, `${property} is the same ${row}`);
   }
 
-  // The rounded corner is the one departure: it is the swatch's, and no other
-  // element takes a radius of its own.
-  const radii = [...text.matchAll(/border-radius:\s*([^;]+);/g)]
-    .map((match) => match[1].trim())
-    .filter((value) => value !== '0');
-  assert.deepEqual(radii, ['var(--card-radius)'], 'the card swatch is the only rounded element on the page');
+  // v0.5.1 §3.1 inverts the old rule: rounded corners are the default, and the
+  // whole page rounds from the two-step scale rather than from a value typed
+  // wherever a corner happened to be needed.
+  const radii = [...text.matchAll(/border-radius:\s*([^;]+);/g)].map((match) => match[1].trim());
+  assert.ok(radii.length >= 8, `only ${radii.length} rounded corners — the page is meant to round by default`);
+  for (const value of radii) {
+    // The one exception, and it is a shape rather than a corner: the preview's
+    // icon placeholder is a filled dot (v0.5.1 §5.3). A circle is not a step on
+    // a radius scale, and rounding it off one would draw a squircle.
+    if (value === '50%') continue;
+    assert.match(
+      value,
+      /^var\(--(radius-sm|radius-md|card-radius)\)$/,
+      `${value} is a corner typed in place rather than read off the radius scale`,
+    );
+  }
+  const circles = radii.filter((value) => value === '50%');
+  assert.equal(circles.length, 1, 'the icon placeholder is the page’s only circle');
+  assert.match(
+    text.match(/\.preview__icon\s*\{([^}]*)\}/)[1],
+    /border-radius:\s*50%/,
+    'and the circle belongs to the icon placeholder',
+  );
+  for (const step of ['--radius-sm', '--radius-md']) {
+    const declared = text.match(new RegExp(`${step}:\\s*([^;]+);`));
+    assert.ok(declared, `the stylesheet declares ${step}`);
+    assert.match(declared[1].trim(), /^\d*\.?\d+rem$/, `${step} is one length, not an expression`);
+  }
 });
 
 test('a gradient value is painted as the swatch fill, with nothing beyond background', () => {
@@ -716,7 +738,11 @@ test('the page fetches nothing from the network — no webfont, no CDN, no exter
   assert.ok(!/@font-face/.test(text), 'no webfont is declared, let alone downloaded');
   assert.ok(!/<link\b/i.test(text), 'no <link> to a second asset');
   assert.ok(!/<script[^>]+\bsrc=/i.test(text), 'the script is inline — one file, no second request');
-  assert.ok(!/@carbon\/|carbon-components|unpkg|jsdelivr/i.test(text), 'and no Carbon package pulled in');
+  assert.ok(
+    !/@carbon\/|carbon-components|@notion|unpkg|jsdelivr|googleapis|vercel\.com/i.test(text),
+    'and no design-system package or CDN pulled in — the aesthetic is a direction, not a dependency',
+  );
+  assert.ok(!/\bsrc\s*=/i.test(text), 'nothing on the page names a second asset to load at all');
 
   // Everything it does request is its own server, by relative path.
   const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
@@ -726,31 +752,352 @@ test('the page fetches nothing from the network — no webfont, no CDN, no exter
   }
 });
 
-test('the type stack names IBM Plex first and falls back to system sans', () => {
+test('the type stack names Geist first and falls back to system sans', () => {
   const text = readPage();
   const sans = text.match(/--sans:\s*([^;]+);/);
   assert.ok(sans, 'the page defines one sans stack');
   const families = sans[1].split(',').map((family) => family.trim().replace(/^'|'$/g, ''));
-  assert.equal(families[0], 'IBM Plex Sans', 'Plex is named first, used where it is installed locally');
+  assert.equal(families[0], 'Geist', 'Geist is named first, used where it is installed locally');
   assert.ok(families.includes('system-ui'), 'and a system sans carries everyone else');
   assert.ok(families.at(-1).includes('sans-serif'), 'ending in the generic family');
 
   const mono = text.match(/--mono:\s*([^;]+);/);
-  assert.ok(mono[1].startsWith("'IBM Plex Mono'"), mono[1]);
+  assert.ok(mono[1].startsWith("'Geist Mono'"), mono[1]);
   assert.ok(mono[1].includes('monospace'));
 });
 
-test('numbers show as measured bars and typography as live specimens', () => {
+/**
+ * The Numbers section's own contract, lifted and run (v0.5.1).
+ *
+ * The region between the `phyllum:numbers-contract` markers reads its rows
+ * through the page's `cell` helper and escapes with the page's `esc`, so both
+ * are lifted out of the page too rather than restated here — the suite runs
+ * the code the browser runs.
+ */
+function numbersContract() {
+  const text = readPage();
+  const start = text.indexOf('// --- phyllum:numbers-contract');
+  const end = text.indexOf('// --- end phyllum:numbers-contract');
+  assert.ok(start !== -1 && end > start, 'the page marks its numbers-contract region');
+  const region = text.slice(start, end);
+  assert.ok(!/\b(document|window)\b/.test(region), 'the contract region touches no DOM');
+
+  const esc = text.match(/const esc = \(value\) =>[\s\S]*?;\n/);
+  const cell = text.match(/const cell = \(row, name, index\) =>[^\n]*\n/);
+  assert.ok(esc && cell, 'the helpers the region leans on are the page\'s own');
+
+  const factory = new Function(
+    `${esc[0]}${cell[0]}${region}\nreturn { NUMBERS, numberGroups, numberGroupHtml };`,
+  );
+  return factory();
+}
+
+/** The rows a grouped list is worth testing on — two groups, one repeat, two blanks. */
+const numberRows = () => [
+  { token: 'rounded-sm', value: '4px', 'applies to': 'corner radius' },
+  { token: 'space-md', value: '16px', 'applies to': 'padding' },
+  { token: 'rounded-md', value: '12px', 'applies to': 'corner radius' },
+  { token: 'hairline', value: '1px', 'applies to': 'Border Width' },
+  { token: 'stage', value: '2rem', 'applies to': '' },
+  { token: 'nudge', value: '2px' },
+];
+
+test('numbers group by their `applies to` reading, in the file\'s own words and file order', () => {
+  const contract = numbersContract();
+  const rows = numberRows();
+  const groups = contract.numberGroups(rows, 'applies to');
+
+  assert.deepEqual(
+    groups.map((group) => group.label),
+    ['corner radius', 'padding', 'Border Width', contract.NUMBERS.ungrouped],
+    'one group per distinct reading, in the order the file first gives it, blanks last',
+  );
+
+  // Every label but the trailing one is a cell of the file, character for
+  // character: nothing is title-cased, singularised, translated or invented.
+  const readings = new Set(rows.map((row) => row['applies to']).filter(Boolean));
+  for (const group of groups.slice(0, -1)) {
+    assert.ok(readings.has(group.label), `${group.label} is a reading the file itself carries`);
+  }
+  assert.ok(
+    groups.some((group) => group.label === 'Border Width'),
+    'an oddly-cased reading keeps its own casing — the dashboard shows the file',
+  );
+
+  assert.deepEqual(
+    groups[0].rows.map((row) => row.token),
+    ['rounded-sm', 'rounded-md'],
+    'and inside a group the tokens keep their file order too',
+  );
+  assert.deepEqual(groups[0].rows.map((row) => row.value), ['4px', '12px']);
+
+  // The two rows that say nothing about what they apply to fall into one
+  // trailing group rather than into a guess.
+  const trailing = groups.at(-1);
+  assert.equal(trailing.applies, '', 'the trailing group stands for an empty cell');
+  assert.deepEqual(trailing.rows.map((row) => row.token), ['stage', 'nudge']);
+
+  // Every row lands in exactly one group, and no group is empty.
+  assert.equal(groups.reduce((sum, group) => sum + group.rows.length, 0), rows.length);
+  assert.ok(groups.every((group) => group.rows.length > 0));
+
+  // With every cell filled there is no trailing group at all.
+  const filled = contract.numberGroups(rows.slice(0, 4), 'applies to');
+  assert.deepEqual(filled.map((group) => group.label), ['corner radius', 'padding', 'Border Width']);
+
+  // A table with no third column is one ungrouped list, not a crash.
+  const columnless = contract.numberGroups(rows, '');
+  assert.deepEqual(columnless.map((group) => group.label), [contract.NUMBERS.ungrouped]);
+  assert.equal(columnless[0].rows.length, rows.length);
+});
+
+test('a number group renders as a plain name-and-value list — no bar, no track', () => {
+  const contract = numbersContract();
+  const groups = contract.numberGroups(numberRows(), 'applies to');
+  const html = groups.map(contract.numberGroupHtml).join('');
+
+  const items = html.match(/<li class="number" data-token="[^"]+">/g) ?? [];
+  assert.equal(items.length, numberRows().length, 'one line per token, and only one');
+  assert.equal((html.match(/<section class="number-group"/g) ?? []).length, groups.length);
+
+  assert.ok(
+    html.includes('<section class="number-group" data-applies="corner radius">' +
+      '<h4 class="number-group__label">corner radius</h4><ul class="number-list">'),
+    'the group is its verbatim label over its list',
+  );
+  assert.ok(
+    html.includes('<li class="number" data-token="rounded-sm">' +
+      '<span class="number__name">rounded-sm</span><code class="number__value">4px</code></li>'),
+    'and a line is the name in the page ink then the value in the mono face',
+  );
+  assert.ok(html.includes('data-applies=""'), 'the trailing group carries no reading of its own');
+
+  // Nothing here is a picture of a number any more: no bar element, no track,
+  // and no inline width to size one with.
+  assert.equal(/bar__|class="bar\b|track|fill/.test(html), false, html.slice(0, 160));
+  assert.equal(html.match(/style=/g), null, 'no line is sized by an inline style');
+
+  // A hand-edited file cannot write markup into the list.
+  const hostile = contract.numberGroupHtml(
+    contract.numberGroups([{ token: '<b>x</b>', value: '"4px"', 'applies to': '<i>r</i>' }], 'applies to')[0],
+  );
+  assert.equal(/<b>|<i>/.test(hostile), false, hostile);
+  assert.ok(hostile.includes('&lt;b&gt;x&lt;/b&gt;') && hostile.includes('&quot;4px&quot;'));
+});
+
+test('the ungrouped label is the one skill/refs/gui/cards.md records', () => {
+  const contract = numbersContract();
+  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:numbers -->', 'refs/gui/cards.md');
+  const recorded = rows.find((row) => row[0] === 'ungrouped label');
+  assert.ok(recorded, 'the ref records the label a blank `applies to` cell falls to');
+  assert.equal(stripTicks(recorded[1]), contract.NUMBERS.ungrouped);
+});
+
+test('the fixture\'s own Numbers row groups under the reading the file gives it', () => {
+  const contract = numbersContract();
+  const system = systemJson(readFixture(POPULATED_FIXTURE));
+  const groups = contract.numberGroups(system.tokens.numbers, system.columns.numbers[2]);
+  assert.deepEqual(groups.map((group) => group.label), ['corner radius']);
+  assert.deepEqual(groups[0].rows.map((row) => row.token), ['rounded-md']);
+  assert.ok(contract.numberGroupHtml(groups[0]).includes('<code class="number__value">12px</code>'));
+});
+
+test('numbers show as a grouped list and typography as live specimens', () => {
   const text = readPage();
   assert.ok(text.includes('function numbersSection'), 'numbers have their own renderer');
-  assert.ok(text.includes('bar__fill'), 'and a measured fill');
+  assert.ok(text.includes('numberGroups('), 'and it renders them grouped');
   assert.ok(text.includes('function typographySection'), 'typography has its own renderer');
   assert.ok(text.includes('specimen__line'), 'and a specimen line set in the token itself');
+
+  // The measured bar is gone from the page entirely — markup, class and CSS.
+  for (const gone of ['bar__fill', 'bar__track', 'bar__head', 'bar__name', 'bar__value', 'bar__note', '.bars']) {
+    assert.equal(text.includes(gone), false, `${gone} is no longer anywhere in the page`);
+  }
   // A specimen only ever inlines a shape it recognises — the values come from a
   // user-edited file, so they are gated, not trusted.
   for (const guard of ['safeSize', 'safeWeight', 'safeLeading']) {
     assert.ok(text.includes(guard), `${guard} guards what reaches a style attribute`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// The restyle and the theme toggle (v0.5.1 §3, §4)
+// ---------------------------------------------------------------------------
+
+const GUI_MD = path.join(PACKAGE_ROOT, 'skill', 'refs', 'gui', 'gui.md');
+
+/** The custom properties a CSS block declares, as name → value. */
+function declarations(block) {
+  const found = new Map();
+  for (const match of block.matchAll(/(--[\w-]+):\s*([^;]+);/g)) found.set(match[1], match[2].trim());
+  return found;
+}
+
+/** The three palette blocks: the light set, and the dark set's two selectors. */
+function palettes() {
+  const text = readPage();
+  const light = text.match(/:root\s*\{([^}]*)\}/);
+  assert.ok(light, 'the page declares a plain :root set');
+
+  const mediaAt = text.indexOf('@media (prefers-color-scheme: dark)');
+  assert.notEqual(mediaAt, -1, 'the page still keeps a prefers-color-scheme rule');
+  const media = text
+    .slice(mediaAt)
+    .match(/:root\[data-theme='system'\][^{]*\{([^}]*)\}/);
+  assert.ok(media, '`system` is the selector the media query carries');
+
+  const chosen = text.match(/:root\[data-theme='dark'\]\s*\{([^}]*)\}/);
+  assert.ok(chosen, '`dark` chosen in the page selects a set of its own');
+
+  return {
+    light: declarations(light[1]),
+    systemDark: declarations(media[1]),
+    chosenDark: declarations(chosen[1]),
+  };
+}
+
+/**
+ * The page's own theme rules, lifted out and run — the same trick the swatch
+ * contract uses, and for the same reason: the suite executes the code the
+ * browser executes rather than a restatement of it. The region is written pure
+ * (the store arrives as an argument), so it runs with no DOM at all.
+ */
+function themeContract() {
+  const text = readPage();
+  const start = text.indexOf('// --- phyllum:theme-contract');
+  const end = text.indexOf('// --- end phyllum:theme-contract');
+  assert.ok(start !== -1 && end > start, 'the page marks its theme-contract region');
+  const region = text.slice(start, end);
+  // Comments are prose — the rule is about the code, which must reach neither
+  // the DOM nor a store of its own: the store arrives as an argument.
+  const code = region.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/\b(document|window|localStorage|fetch)\b/.test(code), 'the contract region touches no DOM and no store');
+  return new Function(`${region}\nreturn { THEME, isThemeChoice, readTheme, storeTheme };`)();
+}
+
+/** A localStorage stand-in — and one that refuses, the way a locked-down browser does. */
+const stubStore = (initial = {}) => {
+  const held = { ...initial };
+  return {
+    getItem: (key) => (key in held ? held[key] : null),
+    setItem: (key, value) => {
+      held[key] = String(value);
+    },
+    held,
+  };
+};
+
+test('both theme variable sets exist, and the root attribute picks between them', () => {
+  const { light, systemDark, chosenDark } = palettes();
+
+  for (const name of ['--bg', '--layer', '--layer-accent', '--ink', '--muted', '--line', '--accent']) {
+    assert.ok(light.has(name), `the light set is missing ${name}`);
+    assert.ok(systemDark.has(name), `the dark set is missing ${name}`);
+  }
+
+  // The dark set is one set, whichever way the reader arrived at it: chosen in
+  // the page, or asked for by the OS while the choice is `system`.
+  assert.deepEqual(
+    [...chosenDark.entries()].sort(),
+    [...systemDark.entries()].sort(),
+    '`dark` chosen and `dark` inherited from the OS must be the same variable set',
+  );
+
+  // A dark override only ever redraws a variable the light set already names —
+  // a theme is a second reading of one palette, not a second palette.
+  for (const name of systemDark.keys()) {
+    assert.ok(light.has(name), `${name} is declared in the dark set but nowhere in the light one`);
+  }
+
+  // And they really are two themes: the page and its ink both move.
+  for (const name of ['--bg', '--ink', '--layer']) {
+    assert.notEqual(systemDark.get(name), light.get(name), `${name} reads the same in both themes`);
+  }
+});
+
+test('the theme choices are the three skill/refs/gui/gui.md records, and system is the default', () => {
+  const contract = themeContract();
+  const rows = tableAfter(fs.readFileSync(GUI_MD, 'utf8'), '<!-- phyllum:theme -->', 'refs/gui/gui.md');
+  const recorded = rows.map((row) => stripTicks(row[0]));
+
+  assert.deepEqual(recorded, ['light', 'dark', 'system'], 'the ref records exactly three choices');
+  assert.deepEqual(contract.THEME.choices, recorded, 'and the page offers exactly those');
+  assert.equal(contract.THEME.fallback, 'system', 'system is the default');
+  assert.equal(contract.THEME.attribute, 'data-theme', 'the choice is an attribute on the root element');
+
+  const defaultRow = rows.find((row) => stripTicks(row[0]) === 'system');
+  assert.match(defaultRow[1], /default/i, 'the ref says which one is the default');
+  assert.match(defaultRow[1], /prefers-color-scheme/, 'and that it defers to the media query');
+
+  // The page offers every one of them, and no fourth.
+  const text = readPage();
+  const offered = [...text.matchAll(/data-theme-choice="([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(offered, recorded, 'the shell shows one button per recorded choice, in order');
+});
+
+test('a stored theme choice round-trips, and an absent one reads as system', () => {
+  const contract = themeContract();
+  const key = contract.THEME.storageKey;
+
+  for (const choice of contract.THEME.choices) {
+    const store = stubStore();
+    assert.equal(contract.storeTheme(store, choice), choice, `${choice} is recorded as itself`);
+    assert.equal(store.held[key], choice, 'under the key the ref records');
+    assert.equal(contract.readTheme(store), choice, `${choice} reads back`);
+  }
+
+  // Absent, empty, or a word this page does not know — all `system`, never a
+  // broken page and never a theme nobody asked for.
+  assert.equal(contract.readTheme(stubStore()), 'system', 'an empty store reads as system');
+  assert.equal(contract.readTheme(null), 'system', 'no store at all reads as system');
+  assert.equal(contract.readTheme(undefined), 'system');
+  for (const junk of ['', 'sepia', 'SYSTEM', '{"theme":"dark"}', 'light dark']) {
+    assert.equal(contract.readTheme(stubStore({ [key]: junk })), 'system', `${junk} is not a choice`);
+  }
+  assert.equal(contract.storeTheme(stubStore(), 'sepia'), 'system', 'and it is not recorded as one either');
+
+  // A browser with storage denied throws on both calls; the page keeps working.
+  const denied = {
+    getItem() {
+      throw new Error('denied');
+    },
+    setItem() {
+      throw new Error('denied');
+    },
+  };
+  assert.equal(contract.readTheme(denied), 'system');
+  assert.equal(contract.storeTheme(denied, 'dark'), 'dark', 'the click still takes effect for this page');
+});
+
+test('the stored choice is applied before the body paints, from the page\'s own script', () => {
+  const text = readPage();
+  const head = text.slice(0, text.indexOf('</head>'));
+  assert.ok(head.includes('phyllum:theme-contract'), 'the theme contract is in the head, ahead of the body');
+  assert.match(
+    head,
+    /document\.documentElement\.setAttribute\(\s*THEME\.attribute,/,
+    'and the head applies the choice to the root element',
+  );
+  assert.ok(!/<script[^>]+\bsrc=/i.test(head), 'the no-flash script is the page\'s own, not a fetched one');
+  assert.ok(
+    text.indexOf('setAttribute(') < text.indexOf('<body>'),
+    'the attribute is set before the body element, so no wrong theme is ever painted',
+  );
+});
+
+test('the theme choice is page-local — the server is never told and never asked', () => {
+  const text = readPage();
+  const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
+  assert.deepEqual(new Set(requests), new Set(['/state', '/system', '/prompt', '/upload']), 'no theme route exists');
+
+  // Nothing posts the choice anywhere: the only place it is written is the
+  // browser's own store, under the page's own key.
+  const posts = [...text.matchAll(/JSON\.stringify\(\{([^}]*)\}\)/g)].map((match) => match[1]);
+  for (const body of posts) assert.ok(!/theme/i.test(body), `a request body carries the theme: ${body}`);
+  assert.equal((text.match(/localStorage/g) ?? []).length >= 1, true, 'the choice lives in localStorage');
+
+  const server = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
+  assert.ok(!/theme/i.test(server), 'and the server has never heard of a theme');
 });
 
 test('the restyle left the server surface alone', () => {

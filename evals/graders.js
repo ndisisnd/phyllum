@@ -172,8 +172,8 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * milestone. Twenty evals now, every one at 1.000, no threshold lowered and
  * none ever has been.
  */
-export const MILESTONE = 'v0.5.0 M3';
-export const RELEASE = 'v0.5.0';
+export const MILESTONE = 'v0.5.1 M3';
+export const RELEASE = 'v0.5.1';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');

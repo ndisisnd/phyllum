@@ -12,15 +12,21 @@
     Workbench  the current create session, plus a box to prompt from here
     Tokens     a component's token usage, and which values are still raw
 
-  The look is Carbon-like, not Carbon: flat tiles, sharp corners — bar one
-  recorded exception, the rounded colour-card swatch (v0.4.0 §5.5) — a
-  disciplined type ramp, generous whitespace, a left rail. Hand-written — taking
-  a Carbon package, or any other dependency, is out of scope by rule, not by
-  omission.
+  The look is Notion-like, not Notion (v0.5.1 §3): rounded corners by default,
+  quiet borders, low diffuse shadows, a warm near-white light theme and a
+  soft-grey dark one, one calm surface under a quieter left rail, and the same
+  five-step type ramp. Hand-written — there is no Notion package to depend on in
+  the first place, and taking any other dependency is out of scope by rule, not
+  by omission.
+
+  Both themes are variable sets, and the viewer picks between them: light, dark,
+  or system (v0.5.1 §4). The choice lives in this browser's localStorage and is
+  applied before first paint, so the page never flashes the wrong theme. The
+  server learns nothing about it.
 
   Values are shown, not merely printed: semantic colours are cards in a grid,
   primitive ramps are nine-step strips, typography tokens are live specimens,
-  numbers are measured bars.
+  numbers are a plain list grouped by what each one applies to.
 
   The page is a viewer and a prompt relay. It polls GET /state, reads GET
   /system, and posts what the user types to POST /prompt — where the Claude
@@ -33,24 +39,32 @@
     <title>Phyllum — dashboard</title>
     <style>
       /* --- palette ------------------------------------------------------
-         A Carbon-shaped white theme, and its g100 counterpart for dark. No
-         webfont: IBM Plex is named first so it is used where it is already
-         installed, and a system sans carries everyone else. */
-      :root {
-        --shell: #161616;
-        --shell-ink: #f4f4f4;
-        --bg: #f4f4f4;
-        --layer: #ffffff;
-        --layer-accent: #e8e8e8;
-        --ink: #161616;
-        --muted: #525252;
-        --line: #e0e0e0;
-        --line-strong: #8d8d8d;
-        --accent: #0f62fe;
-        --raw: #8e6a00;
+         Two variable sets, one per theme, drawn to the same temperament
+         (v0.5.1 §3): the light one warm near-white over soft warm greys with
+         ink slightly off-black, the dark one soft charcoal rather than pure
+         black. No webfont: Geist is named first so it is used where it is
+         already installed, and a system sans carries everyone else.
 
-        --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-        --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+         The light set is the plain `:root` set. The dark set is written for the
+         two ways a reader can be in dark: `system` (or no attribute at all)
+         with the OS asking for dark, and `dark` chosen outright in the page.
+         Which set applies is therefore the root `data-theme` attribute, with
+         `system` deferring to the media query — see the theme contract in the
+         head script. */
+      :root {
+        --bg: #f8f7f4;
+        --layer: #fffefb;
+        --layer-accent: #f0eee9;
+        --ink: #33312d;
+        --muted: #7b776f;
+        --line: #e9e6e0;
+        --line-strong: #cdc9c1;
+        --accent: #2383e2;
+        --raw: #9a6a1a;
+        --shadow: 0 1px 2px rgba(28, 27, 25, 0.05), 0 2px 6px rgba(28, 27, 25, 0.04);
+
+        --sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+        --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
         /* type ramp — five steps, and no sizes outside them */
         --type-01: 0.75rem;
@@ -59,32 +73,51 @@
         --type-04: 1.25rem;
         --type-05: 1.75rem;
 
+        /* the radius scale — two steps, and the page rounds from here alone
+           (v0.5.1 §3.1). Sharp corners are the departure now, not the rule. */
+        --radius-sm: 0.375rem;
+        --radius-md: 0.625rem;
+
         --rail: 15rem;
         --gap: 2rem;
 
         /* colour cards (v0.4.0 §5.5) — the numbers the `phyllum:cards` table
-           in skill/refs/gui/cards.md records, and the only rounded corner on the
-           page. */
-        --card-radius: 0.5rem;
+           in skill/refs/gui/cards.md records. The swatch takes the medium step
+           of the scale above, like every other rounded surface. */
+        --card-radius: var(--radius-md);
         --card-min: 13rem;
         --card-max: 20rem;
         --card-gap: 1rem;
         --card-swatch-height: 7rem;
       }
+      /* system, deferring to the OS — the behaviour the page has always had. */
       @media (prefers-color-scheme: dark) {
-        :root {
-          --shell: #000000;
-          --shell-ink: #f4f4f4;
-          --bg: #161616;
-          --layer: #262626;
-          --layer-accent: #333333;
-          --ink: #f4f4f4;
-          --muted: #a8a8a8;
-          --line: #393939;
-          --line-strong: #6f6f6f;
-          --accent: #4589ff;
-          --raw: #f1c21b;
+        :root[data-theme='system'],
+        :root:not([data-theme]) {
+          --bg: #1c1b19;
+          --layer: #242320;
+          --layer-accent: #2f2d28;
+          --ink: #ecebe7;
+          --muted: #a19d95;
+          --line: #33312c;
+          --line-strong: #4b4741;
+          --accent: #7cb1ec;
+          --raw: #d8b877;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.26);
         }
+      }
+      /* dark, chosen in the page — the same set, whatever the OS says. */
+      :root[data-theme='dark'] {
+        --bg: #1c1b19;
+        --layer: #242320;
+        --layer-accent: #2f2d28;
+        --ink: #ecebe7;
+        --muted: #a19d95;
+        --line: #33312c;
+        --line-strong: #4b4741;
+        --accent: #7cb1ec;
+        --raw: #d8b877;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.26);
       }
 
       * { box-sizing: border-box; }
@@ -98,16 +131,18 @@
         -webkit-font-smoothing: antialiased;
       }
 
-      /* --- shell --------------------------------------------------------- */
+      /* --- shell ---------------------------------------------------------
+         One calm surface: the header sits on the page background rather than
+         over it in its own dark bar, and it needs no hairline to be read as a
+         header — the whitespace does that. */
       header {
         display: flex;
         align-items: center;
         gap: 1rem;
         height: 3rem;
         padding: 0 1rem;
-        background: var(--shell);
-        color: var(--shell-ink);
-        border-bottom: 1px solid var(--shell);
+        background: var(--bg);
+        color: var(--ink);
         position: sticky;
         top: 0;
         z-index: 3;
@@ -123,17 +158,34 @@
         margin-left: auto;
         font-size: var(--type-01);
         letter-spacing: 0.02em;
-        color: #c6c6c6;
+        color: var(--muted);
       }
+
+      /* The theme control (v0.5.1 §4): three choices, the active one marked. */
+      #theme { display: flex; gap: 0.25rem; }
+      #theme button {
+        font: inherit;
+        font-size: var(--type-01);
+        color: var(--muted);
+        background: transparent;
+        border: 0;
+        border-radius: var(--radius-sm);
+        padding: 0.25rem 0.6rem;
+        cursor: pointer;
+      }
+      #theme button:hover { background: var(--layer-accent); color: var(--ink); }
+      #theme button[aria-selected='true'] { background: var(--layer-accent); color: var(--ink); font-weight: 600; }
 
       .shell { display: flex; align-items: stretch; min-height: calc(100vh - 3rem); }
 
+      /* The rail is quieter now: the same surface as the page, no dividing
+         hairline, and the selected view reads as a rounded resting place
+         rather than as a stripe. */
       nav#views {
         width: var(--rail);
         flex: 0 0 var(--rail);
-        background: var(--layer);
-        border-right: 1px solid var(--line);
-        padding: 1rem 0;
+        background: var(--bg);
+        padding: 1rem 0.5rem;
         position: sticky;
         top: 3rem;
         align-self: flex-start;
@@ -141,7 +193,7 @@
       }
       nav#views .rail-label {
         display: block;
-        padding: 0.5rem 1rem;
+        padding: 0.5rem 0.75rem;
         font-size: var(--type-01);
         letter-spacing: 0.06em;
         text-transform: uppercase;
@@ -151,9 +203,9 @@
         display: block;
         width: 100%;
         text-align: left;
-        padding: 0.6rem 1rem;
+        padding: 0.5rem 0.75rem;
         border: 0;
-        border-left: 3px solid transparent;
+        border-radius: var(--radius-sm);
         background: transparent;
         color: inherit;
         font: inherit;
@@ -162,7 +214,6 @@
       }
       nav#views button:hover { background: var(--layer-accent); }
       nav#views button[aria-selected='true'] {
-        border-left-color: var(--accent);
         background: var(--layer-accent);
         font-weight: 600;
       }
@@ -179,10 +230,14 @@
       section.view[hidden] { display: none; }
       section.view { display: grid; gap: var(--gap); align-content: start; }
 
-      /* --- tiles --------------------------------------------------------- */
+      /* --- tiles ---------------------------------------------------------
+         A tile is a rounded, softly shadowed layer. The hairline it used to
+         carry is gone: a background shift and a low diffuse shadow already say
+         "this is a surface", and one fewer line is one less thing to read. */
       .panel {
         background: var(--layer);
-        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow);
         padding: 1.5rem;
       }
       h2 {
@@ -209,7 +264,7 @@
         margin: 0 0 1rem;
         padding: 1rem;
         background: var(--bg);
-        border-left: 3px solid var(--line);
+        border-radius: var(--radius-sm);
         white-space: pre-wrap;
         word-break: break-word;
       }
@@ -220,19 +275,20 @@
         font-size: var(--type-02);
         color: inherit;
         background: transparent;
-        border: 1px solid var(--line-strong);
-        border-radius: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
         padding: 0.4rem 1rem;
         cursor: pointer;
       }
       button.tile-action:hover { background: var(--layer-accent); }
-      button.tile-action[aria-selected='true'] { border-color: var(--accent); color: var(--accent); }
+      button.tile-action[aria-selected='true'],
+      button.tile-action[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
       .list button {
         display: block;
         width: 100%;
         text-align: left;
         border: 0;
-        border-left: 3px solid transparent;
+        border-radius: var(--radius-sm);
         background: transparent;
         color: inherit;
         font: inherit;
@@ -240,7 +296,7 @@
         padding: 0.5rem 0.75rem;
         cursor: pointer;
       }
-      .list button:hover { background: var(--bg); border-left-color: var(--line-strong); }
+      .list button:hover { background: var(--layer-accent); }
       .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
       /* --- colour cards (v0.4.0 §5.5) ------------------------------------
@@ -281,11 +337,12 @@
       /* --- component preview (v0.4.1 §4) ---------------------------------
          The Library view's component panel draws the component above the
          labelled yaml and jsx blocks it already prints. The stage is the
-         page's own tile idiom — the layer behind, a hairline around it, no
-         new colour and no rounded corner. The element's own look comes
-         entirely from its recorded spec, inline; the only thing this
-         stylesheet lends it is a 1px transparent edge to paint a recorded
-         border colour on, and a type inheritance to start from. */
+         page's own tile idiom — the layer behind, a hairline around it, the
+         page's own rounded corner, and no new colour. The stage is restyled;
+         the specimen is not. The element's own look comes entirely from its
+         recorded spec, inline; the only thing this stylesheet lends it is a
+         1px transparent edge to paint a recorded border colour on, and a type
+         inheritance to start from — never a radius of the page's choosing. */
       .preview { margin-bottom: 1.5rem; }
       .preview__toggles { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
       .preview__toggle { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
@@ -303,6 +360,7 @@
         padding: 1.5rem;
         background: var(--bg);
         border: 1px solid var(--line);
+        border-radius: var(--radius-md);
       }
       .preview__element {
         display: inline-block;
@@ -312,6 +370,22 @@
         border-width: 1px;
         border-color: transparent;
       }
+      /* The icon placeholder (v0.5.1 §5.3). The one child box the preview
+         draws, and the one round corner on the stage that is not the page's
+         radius scale: a dot is a circle, and a circle is a placeholder shape
+         rather than a corner anybody recorded. It is the page's own muted ink
+         and it takes its size from the component's font size in `em`, so it
+         grows with a recorded type slot and never states a size of its own. */
+      .preview__icon {
+        display: inline-block;
+        width: 0.7em;
+        height: 0.7em;
+        border-radius: 50%;
+        background: var(--muted);
+        vertical-align: middle;
+      }
+      .preview__icon[data-position='leading'] { margin-right: 0.5em; }
+      .preview__icon[data-position='trailing'] { margin-left: 0.5em; }
       .preview__unrendered { margin: 0.75rem 0 0; font-size: var(--type-01); color: var(--muted); }
 
       /* --- swatches (v0.3.0 §6.5) — the ramp-strip treatment, since v0.4.0 */
@@ -336,19 +410,26 @@
       .ramp { margin-bottom: 1.5rem; }
       .ramp:last-child { margin-bottom: 0; }
       .ramp__base { margin: 0 0 0.5rem; font-size: var(--type-02); font-weight: 600; letter-spacing: 0.02em; }
-      .ramp__strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; overflow-x: auto; }
+      /* A ramp reads as one thing, so the strip rounds at its ends and the
+         steps inside it stay flush against each other. */
+      .ramp__strip {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        overflow-x: auto;
+        border-radius: var(--radius-md);
+      }
       .ramp__strip .swatch__fill { min-height: 5.5rem; padding: 0.5rem 0.4rem; }
       .ramp__strip .swatch__name { font-size: var(--type-01); }
       .ramp__strip .swatch__value { font-size: 0.6875rem; }
 
-      /* --- number bars and type specimens -------------------------------- */
-      .bars { display: grid; gap: 0.75rem; }
-      .bar__head { display: flex; gap: 0.75rem; align-items: baseline; font-size: var(--type-02); }
-      .bar__name { font-weight: 600; }
-      .bar__value { font-family: var(--mono); color: var(--muted); }
-      .bar__note { margin-left: auto; color: var(--muted); font-size: var(--type-01); }
-      .bar__track { height: 0.5rem; background: var(--bg); border: 1px solid var(--line); }
-      .bar__fill { height: 100%; background: var(--accent); }
+      /* --- number groups and type specimens ------------------------------ */
+      .numbers { display: grid; gap: 1.25rem; }
+      .number-group__label { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
+      .number-list { display: grid; gap: 0.375rem; margin-top: 0.375rem; list-style: none; }
+      .number { display: flex; gap: 0.75rem; align-items: baseline; font-size: var(--type-02); }
+      .number__name { font-weight: 600; }
+      .number__value { font-family: var(--mono); color: var(--muted); }
 
       .specimens { display: grid; gap: 1.25rem; }
       .specimen__meta { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
@@ -361,7 +442,8 @@
         padding: 0.15rem 0.6rem;
         margin: 0 0.35rem 0.35rem 0;
         font-size: var(--type-01);
-        border: 1px solid var(--line-strong);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
       }
       /* The `applied` badge (v0.5.0 §3.4): the chip the page already has, in a
          colour the page already uses. A reading of the codebase is not a
@@ -375,14 +457,15 @@
         font: inherit;
         font-size: var(--type-02);
         padding: 0.5rem 0.75rem;
-        border: 0;
-        border-bottom: 1px solid var(--line-strong);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
         background: var(--bg);
         color: inherit;
       }
       form.prompt input:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
       .drop {
         border: 1px dashed var(--line-strong);
+        border-radius: var(--radius-md);
         padding: 1.25rem;
         text-align: center;
         color: var(--muted);
@@ -393,15 +476,86 @@
 
       @media (max-width: 40rem) {
         .shell { display: block; }
-        nav#views { width: auto; height: auto; position: static; border-right: 0; border-bottom: 1px solid var(--line); }
+        nav#views { width: auto; height: auto; position: static; padding-bottom: 0; }
         main { padding: 1rem; }
       }
     </style>
+    <script>
+      // --- phyllum:theme-contract ------------------------------------------
+      // The theme toggle (v0.5.1 §4), recorded in skill/refs/gui/gui.md under
+      // the `phyllum:theme` marker.
+      //
+      // Three choices and no more: `light`, `dark`, and `system` — the default,
+      // which is the behaviour the page has always had, deferring to
+      // `prefers-color-scheme`. The choice is the root element's `data-theme`
+      // attribute, which picks between the two variable sets in the stylesheet
+      // above; nothing else in the page decides a colour.
+      //
+      // Persistence is this browser's `localStorage`, on the page's own origin:
+      // a presentation preference belongs to the viewer, not to
+      // `.phyllum/session.json`. The server is never told, and no route
+      // changes.
+      //
+      // Kept pure — strings, and functions taking the store as an argument, no
+      // DOM and no fetch — so the assertion suite runs this exact code against
+      // a stub store rather than a restatement of it.
+      const THEME = {
+        attribute: 'data-theme',
+        storageKey: 'phyllum.theme',
+        choices: ['light', 'dark', 'system'],
+        // `system` is the default: a reader who never touches the toggle sees
+        // exactly what the OS asks for, which is what they saw before v0.5.1.
+        fallback: 'system',
+      };
+
+      /** One of the three words, or nothing. */
+      const isThemeChoice = (value) => THEME.choices.includes(String(value ?? ''));
+
+      /**
+       * The stored choice, or `system`. A store that is missing, that throws
+       * (a browser with storage denied), or that holds a word this page does
+       * not know all read as `system` — the default is never a broken page.
+       */
+      function readTheme(store) {
+        try {
+          const stored = store && store.getItem(THEME.storageKey);
+          return isThemeChoice(stored) ? String(stored) : THEME.fallback;
+        } catch (error) {
+          return THEME.fallback;
+        }
+      }
+
+      /** Record a choice and return the one that was actually recorded. */
+      function storeTheme(store, choice) {
+        const wanted = isThemeChoice(choice) ? String(choice) : THEME.fallback;
+        try {
+          if (store) store.setItem(THEME.storageKey, wanted);
+        } catch (error) {
+          // A viewer with storage denied still gets the theme they clicked for
+          // the life of the page; only the remembering is lost.
+        }
+        return wanted;
+      }
+      // --- end phyllum:theme-contract ---------------------------------------
+
+      // Applied here, in the head, before the body paints: a theme decided
+      // after first paint is a theme the reader sees change, and a flash of the
+      // wrong one is exactly the bug this line exists to prevent.
+      document.documentElement.setAttribute(
+        THEME.attribute,
+        readTheme(typeof localStorage === 'undefined' ? null : localStorage),
+      );
+    </script>
   </head>
   <body>
     <header>
       <h1>Phyllum <strong>Dashboard</strong></h1>
       <span class="status" id="status">connecting…</span>
+      <div id="theme" role="group" aria-label="Theme">
+        <button data-theme-choice="light" aria-selected="false">light</button>
+        <button data-theme-choice="dark" aria-selected="false">dark</button>
+        <button data-theme-choice="system" aria-selected="true">system</button>
+      </div>
     </header>
 
     <div class="shell">
@@ -488,7 +642,7 @@
       // its custom properties, so the table, the constant and the CSS are one
       // set of numbers rather than three.
       const CARD = {
-        radius: '0.5rem',
+        radius: 'var(--radius-md)',
         minWidth: '13rem',
         maxWidth: '20rem',
         gap: '1rem',
@@ -725,6 +879,35 @@
           'thumb-colour': { declarations: [], shape: 'colour' },
           'indicator-colour': { declarations: [], shape: 'colour' },
         },
+        // The attribute layer (v0.5.1 §5.2) — slots that are a *configuration*
+        // of the component rather than a colour or a length. Icon slots are the
+        // whole layer this release. Each one draws a child box inside the
+        // preview element, which is the one recorded bend to the
+        // one-element rule (§5.3). The `phyllum:preview-attributes` table in
+        // skill/refs/gui/component-preview.md records the same map.
+        attributes: {
+          'leading-icon': { position: 'leading', shape: 'presence' },
+          'trailing-icon': { position: 'trailing', shape: 'presence' },
+        },
+        // Which archetypes' contracts record icon slots — the
+        // `phyllum:icon-slots` table in skill/refs/create/archetypes.md. An
+        // archetype absent from the map records none, so a spec of that
+        // archetype that carries one anyway is listed unrendered rather than
+        // drawn: the contract says which slots the archetype has.
+        attributeArchetypes: {
+          button: ['leading-icon', 'trailing-icon'],
+        },
+        // A recorded presence reading → whether its control starts shown. This
+        // is the "spec's recorded reading" the reset rule returns to, and the
+        // `phyllum:preview-presence` table records the same readings.
+        presence: {
+          yes: true,
+          true: true,
+          required: true,
+          no: false,
+          false: false,
+          optional: false,
+        },
       };
 
       /** Why a slot was not drawn — the three words the panel prints. */
@@ -787,6 +970,12 @@
         // Typography is resolved from a token row, never from a written value:
         // `14px / 600 / 1.4` in a spec is prose, and prose is not projected.
         typography: () => false,
+        // An attribute slot records that the component *has* the slot, not what
+        // fills it, so its gate reads one of the presence words and nothing
+        // else. A colour or a length in an icon slot is a reading this page
+        // cannot classify, and an unclassifiable value is listed, never drawn.
+        presence: (value) =>
+          Object.prototype.hasOwnProperty.call(PREVIEW.presence, String(value ?? '').trim().toLowerCase()),
       };
 
       /**
@@ -884,6 +1073,25 @@
       }
 
       /**
+       * The icon slots this spec is allowed to draw (v0.5.1 §5.3).
+       *
+       * Derived, never invented. An archetype draws the icon slots its contract
+       * records and no others; a `custom` component — and an archetype this
+       * page has never heard of — has no contract to read, so it draws whatever
+       * icon slots it actually carries, the same honesty as its rendering
+       * today. A recorded slot outside this list is listed unrendered.
+       */
+      function attributeSlotsFor(spec) {
+        const safe = spec && typeof spec === 'object' ? spec : {};
+        const archetype = String(safe.archetype ?? '').trim().toLowerCase();
+        const contracted = !safe.custom && Object.prototype.hasOwnProperty.call(PREVIEW.elements, archetype);
+        if (!contracted) return Object.keys(PREVIEW.attributes);
+        return Object.prototype.hasOwnProperty.call(PREVIEW.attributeArchetypes, archetype)
+          ? PREVIEW.attributeArchetypes[archetype]
+          : [];
+      }
+
+      /**
        * A spec, projected into one element's declarations and a list of the
        * slots that produced none.
        *
@@ -891,7 +1099,7 @@
        * layer up — so `hover` reads as the component with its hover slots
        * applied rather than as a second component.
        */
-      function projectSpec(spec, tokens, stateName) {
+      function projectSpec(spec, tokens, stateName, shown) {
         const safe = spec && typeof spec === 'object' ? spec : {};
         const properties = safe.properties && typeof safe.properties === 'object' ? safe.properties : {};
         const states = safe.states && typeof safe.states === 'object' && safe.states !== null ? safe.states : {};
@@ -919,27 +1127,76 @@
           }
         }
 
-        const declarations = [];
-        for (const [property, value] of Object.entries(slots)) {
-          const projected = projectSlot(property, value, tokens);
-          if (projected.reason !== null) {
-            unrendered.push({ slot: property, value: String(value ?? '').trim(), reason: projected.reason });
-            continue;
-          }
-          for (const pair of projected.declarations) declarations.push(pair);
-        }
-
         const archetype = String(safe.archetype ?? '').trim().toLowerCase();
         const element =
           !safe.custom && Object.prototype.hasOwnProperty.call(PREVIEW.elements, archetype)
             ? PREVIEW.elements[archetype]
             : PREVIEW.fallbackElement;
 
+        // The attribute layer, read before the declarations so an icon slot
+        // never reaches the projection map: a dot is a child box, not a
+        // declaration on the element.
+        const allowed = attributeSlotsFor(safe);
+        const isVoid = PREVIEW.voidElements.includes(element);
+        const overrides = shown && typeof shown === 'object' ? shown : {};
+        const controls = {};
+
+        const declarations = [];
+        for (const [property, value] of Object.entries(slots)) {
+          const written = String(value ?? '').trim();
+          if (Object.prototype.hasOwnProperty.call(PREVIEW.attributes, property)) {
+            const rule = PREVIEW.attributes[property];
+            // A gap is shown as a gap, not as a switch that does nothing.
+            if (written === '' || /^TODO\b/.test(written)) {
+              unrendered.push({ slot: property, value: written, reason: UNRENDERED.todo });
+              continue;
+            }
+            // An element with no children cannot hold a child box, and an
+            // archetype whose contract records no icon slot has none to draw.
+            if (isVoid || !allowed.includes(property)) {
+              unrendered.push({ slot: property, value: written, reason: UNRENDERED.unprojectable });
+              continue;
+            }
+            // The slot is recorded, so it earns a control. Its *reading* is a
+            // separate question: a value the gate refuses is listed unrendered
+            // and starts the control hidden, because the file said nothing this
+            // page can read about whether the icon is there.
+            const passes = PREVIEW_SHAPES[rule.shape](written);
+            if (!passes) unrendered.push({ slot: property, value: written, reason: UNRENDERED.unresolved });
+            const recorded = passes ? PREVIEW.presence[written.toLowerCase()] === true : false;
+            const override = Object.prototype.hasOwnProperty.call(overrides, property)
+              ? overrides[property] === true
+              : null;
+            controls[property] = {
+              slot: property,
+              position: rule.position,
+              value: written,
+              recorded,
+              shown: override === null ? recorded : override,
+            };
+            continue;
+          }
+          const projected = projectSlot(property, value, tokens);
+          if (projected.reason !== null) {
+            unrendered.push({ slot: property, value: written, reason: projected.reason });
+            continue;
+          }
+          for (const pair of projected.declarations) declarations.push(pair);
+        }
+
+        // Positions are the map's, never the file's: a leading icon leads
+        // whichever order the slots happen to be written in.
+        const attributes = Object.keys(PREVIEW.attributes)
+          .filter((slot) => Object.prototype.hasOwnProperty.call(controls, slot))
+          .map((slot) => controls[slot]);
+
         return {
           element,
           declarations,
           style: declarations.map(([name, value]) => name + ':' + value).join(';'),
           unrendered,
+          attributes,
+          icons: attributes.filter((entry) => entry.shown),
         };
       }
 
@@ -950,16 +1207,35 @@
         return slash === -1 ? text : text.slice(slash + 1);
       };
 
+      /**
+       * The icon placeholder (v0.5.1 §5.3): a filled dot in the page's muted
+       * ink, sized from the component's own font size.
+       *
+       * Deliberately generic. Phyllum records that an icon slot exists, not
+       * which icon fills it, so the preview draws exactly that much — no icon
+       * font, no asset, no guessed glyph. It carries no inline style at all:
+       * the dot is the page's mark, not the specimen's, and the specimen is
+       * still styled only by its own recorded slots.
+       */
+      const previewIconHtml = (entry) =>
+        '<span class="preview__icon" data-icon="' + esc(entry.slot) +
+        '" data-position="' + esc(entry.position) + '" aria-hidden="true"></span>';
+
       /** One preview element — the whole projection, and nothing else. */
-      function previewElementHtml(spec, tokens, stateName) {
-        const projected = projectSpec(spec, tokens, stateName);
+      function previewElementHtml(spec, tokens, stateName, shown) {
+        const projected = projectSpec(spec, tokens, stateName, shown);
         const label = previewLabel(spec && spec.name);
         const open =
           '<' + projected.element + ' class="preview__element" style="' + esc(projected.style) + '"';
         if (PREVIEW.voidElements.includes(projected.element)) {
           return { html: open + ' value="' + esc(label) + '" readonly />', projected };
         }
-        return { html: open + '>' + esc(label) + '</' + projected.element + '>', projected };
+        const at = (position) =>
+          projected.icons.filter((entry) => entry.position === position).map(previewIconHtml).join('');
+        return {
+          html: open + '>' + at('leading') + esc(label) + at('trailing') + '</' + projected.element + '>',
+          projected,
+        };
       }
 
       /**
@@ -1008,17 +1284,41 @@
       }
 
       /**
+       * The attribute row — one on/off control per recorded icon slot.
+       *
+       * Not a picker, so it is not `previewToggleHtml`: each button stands
+       * alone and reads `aria-pressed`, and a single control is a real choice
+       * where a single option on a picker is a label wearing a button's
+       * clothes. A spec that records no icon slot shows no row at all.
+       */
+      function previewAttributeRowHtml(attributes) {
+        const controls = Array.isArray(attributes) ? attributes : [];
+        if (controls.length === 0) return '';
+        const buttons = controls
+          .map(
+            (entry) =>
+              '<button class="tile-action" data-preview-attribute="' + esc(entry.slot) + '"' +
+              ' aria-pressed="' + String(entry.shown === true) + '">' + esc(entry.position) + ' icon</button>',
+          )
+          .join('');
+        return (
+          '<div class="preview__toggle" data-toggle="attribute">' +
+          '<span class="preview__toggle-label">Icons</span>' + buttons + '</div>'
+        );
+      }
+
+      /**
        * The whole preview section: the toggles, the stage, and the honest list
        * of what was not drawn. It is the panel's first section — the labelled
        * `yaml` and `jsx` blocks follow it, unchanged.
        */
-      function previewPanelHtml(components, index, tokens, stateName) {
+      function previewPanelHtml(components, index, tokens, stateName, shown) {
         const component = (Array.isArray(components) ? components : [])[index];
         if (!component || typeof component !== 'object') return '';
         const group = previewGroupOf(components, index);
         const states = previewStates(component);
         const active = states.includes(stateName) ? stateName : PREVIEW.baseState;
-        const { html, projected } = previewElementHtml(component, tokens, active);
+        const { html, projected } = previewElementHtml(component, tokens, active, shown);
 
         const variants = previewToggleHtml(
           'variant',
@@ -1032,7 +1332,11 @@
           states.map((name) => ({ value: name, label: name })),
           active,
         );
-        const toggles = variants || stateRow ? '<div class="preview__toggles">' + variants + stateRow + '</div>' : '';
+        const attributeRow = previewAttributeRowHtml(projected.attributes);
+        const toggles =
+          variants || stateRow || attributeRow
+            ? '<div class="preview__toggles">' + variants + stateRow + attributeRow + '</div>'
+            : '';
 
         const unrendered = projected.unrendered.length
           ? '<p class="preview__unrendered">Unrendered slots: ' +
@@ -1048,7 +1352,8 @@
 
         return (
           '<div class="preview" data-component="' + esc(component.name) + '"' +
-          ' data-element="' + esc(projected.element) + '" data-state="' + esc(active) + '">' +
+          ' data-element="' + esc(projected.element) + '" data-state="' + esc(active) + '"' +
+          ' data-icons="' + esc(projected.icons.map((entry) => entry.slot).join(' ')) + '">' +
           toggles + '<div class="preview__stage">' + html + '</div>' + unrendered + '</div>'
         );
       }
@@ -1064,6 +1369,12 @@
         // Which reading of the selected component the preview is showing —
         // `default`, or one of the states the spec records (v0.4.1 §4.2).
         previewState: PREVIEW.baseState,
+        // Which attribute controls the viewer has flipped away from the spec's
+        // recorded reading (v0.5.1 §5.2). Empty is the recorded reading itself,
+        // which is what a variant or state switch returns it to. The map is a
+        // projection preference and nothing else: no request carries it, and
+        // the file never hears about it.
+        previewIcons: {},
       };
 
       const el = (id) => document.getElementById(id);
@@ -1092,6 +1403,27 @@
         renderLibrary();
       });
 
+      // The theme control (v0.5.1 §4). The head script has already applied the
+      // stored choice; this only marks which button is the live one, and moves
+      // the choice when the reader picks another. Nothing is sent to the
+      // server: the preference is the browser's.
+      const themeStore = typeof localStorage === 'undefined' ? null : localStorage;
+
+      function applyTheme(choice) {
+        const wanted = isThemeChoice(choice) ? String(choice) : THEME.fallback;
+        document.documentElement.setAttribute(THEME.attribute, wanted);
+        select(el('theme'), 'themeChoice', wanted);
+        return wanted;
+      }
+
+      el('theme').addEventListener('click', (event) => {
+        const choice = event.target.dataset && event.target.dataset.themeChoice;
+        if (choice === undefined) return;
+        applyTheme(storeTheme(themeStore, choice));
+      });
+
+      applyTheme(readTheme(themeStore));
+
       // --- rendering ---------------------------------------------------------
 
       const heading = (title, count) =>
@@ -1110,30 +1442,66 @@
         return heading('Colours — Primitives', rows.length) + rampGroups(rows).map(rampHtml).join('');
       }
 
-      /** Numbers as measured bars — the same "show the value" move as a swatch. */
+      // --- phyllum:numbers-contract -----------------------------------------
+      // Numbers are a grouped list, not a measurement. The section is cut into
+      // one group per distinct `applies to` reading, and both the groups and
+      // the rows inside them keep the order the file gives them. A label is
+      // the file's own words, never a normalised category name — the dashboard
+      // shows the file. A row whose `applies to` cell is empty joins one
+      // trailing group labelled `NUMBERS.ungrouped`. The region is kept pure —
+      // `esc` and `cell` arrive from the surrounding scope, and nothing here
+      // touches the DOM — because the assertion suite lifts it out and runs it.
+      const NUMBERS = {
+        // The label the trailing group of rows with no `applies to` reading takes.
+        ungrouped: 'other',
+      };
+
+      /** The Numbers rows cut into labelled groups, groups and rows in file order. */
+      function numberGroups(rows, note) {
+        const groups = [];
+        const byLabel = new Map();
+        const ungrouped = { label: NUMBERS.ungrouped, applies: '', rows: [] };
+        for (const row of rows) {
+          const applies = (note ? cell(row, note, 2) : '').trim();
+          const entry = { token: cell(row, 'token', 0), value: cell(row, 'value', 1) };
+          if (!applies) {
+            ungrouped.rows.push(entry);
+            continue;
+          }
+          if (!byLabel.has(applies)) {
+            const group = { label: applies, applies, rows: [] };
+            byLabel.set(applies, group);
+            groups.push(group);
+          }
+          byLabel.get(applies).rows.push(entry);
+        }
+        if (ungrouped.rows.length) groups.push(ungrouped);
+        return groups;
+      }
+
+      /** One labelled group — its tokens as a plain name-and-value list. */
+      function numberGroupHtml(group) {
+        const items = group.rows
+          .map(
+            (entry) =>
+              '<li class="number" data-token="' + esc(entry.token) + '">' +
+              '<span class="number__name">' + esc(entry.token) + '</span>' +
+              '<code class="number__value">' + esc(entry.value) + '</code></li>',
+          )
+          .join('');
+        return (
+          '<section class="number-group" data-applies="' + esc(group.applies) + '">' +
+          '<h4 class="number-group__label">' + esc(group.label) + '</h4>' +
+          '<ul class="number-list">' + items + '</ul></section>'
+        );
+      }
+      // --- end phyllum:numbers-contract --------------------------------------
+
+      /** Numbers as a plain list per `applies to` group — the file's own words. */
       function numbersSection(rows, columns) {
         if (!rows.length) return heading('Numbers', 0) + '<p class="muted">(none yet)</p>';
-        const measured = rows.map((row) => {
-          const value = cell(row, 'value', 1);
-          const match = value.match(/^(-?[\d.]+)/);
-          return { row, value, size: match ? Math.abs(Number(match[1])) : null };
-        });
-        const largest = Math.max(...measured.map((entry) => entry.size ?? 0), 0);
-        const note = columns[2] ?? '';
-        const bars = measured
-          .map((entry) => {
-            const width = largest > 0 && entry.size !== null ? Math.max((entry.size / largest) * 100, 1) : 0;
-            const applies = note ? cell(entry.row, note, 2) : '';
-            return (
-              '<div class="bar" data-token="' + esc(cell(entry.row, 'token', 0)) + '">' +
-              '<div class="bar__head"><span class="bar__name">' + esc(cell(entry.row, 'token', 0)) + '</span>' +
-              '<code class="bar__value">' + esc(entry.value) + '</code>' +
-              (applies ? '<span class="bar__note">' + esc(applies) + '</span>' : '') +
-              '</div><div class="bar__track"><div class="bar__fill" style="width:' + width.toFixed(2) + '%"></div></div></div>'
-            );
-          })
-          .join('');
-        return heading('Numbers', rows.length) + '<div class="bars">' + bars + '</div>';
+        const groups = numberGroups(rows, columns[2] ?? '').map(numberGroupHtml).join('');
+        return heading('Numbers', rows.length) + '<div class="numbers">' + groups + '</div>';
       }
 
       /** Typography as live specimens — each token set in its own reading. */
@@ -1242,6 +1610,9 @@
         if (!system || system.error || !Array.isArray(system.components)) return;
         const component = system.components[index];
         if (!component || typeof component !== 'object') return;
+        // A different component is a different spec, so its attribute controls
+        // start where its own file puts them.
+        if (state.selected !== index) state.previewIcons = {};
         state.selected = index;
 
         const blocks = (Array.isArray(component.blocks) ? component.blocks : [])
@@ -1251,7 +1622,13 @@
         // as its spec records it, then the labelled `yaml` and `jsx` blocks the
         // panel has always printed, unchanged beneath it.
         if (!previewStates(component).includes(state.previewState)) state.previewState = PREVIEW.baseState;
-        const preview = previewPanelHtml(system.components, index, previewTokens(system), state.previewState);
+        const preview = previewPanelHtml(
+          system.components,
+          index,
+          previewTokens(system),
+          state.previewState,
+          state.previewIcons,
+        );
         el('component-detail').innerHTML =
           '<h3>' + esc(component.name) + appliedBadge(component) + '</h3>' + preview + blocks;
 
@@ -1283,18 +1660,32 @@
           '</p>';
       }
 
-      // The two toggle rows swap the rendered spec in place, without leaving the
-      // panel: a variant picks a sibling component, a state overlays its slots.
+      // The three toggle rows swap the rendered spec in place, without leaving
+      // the panel: a variant picks a sibling component, a state overlays its
+      // slots, and an attribute control shows or hides a recorded icon slot.
+      // All three change the projection and nothing else — no request leaves
+      // the page, and the `yaml` block keeps showing the spec as recorded.
+      // A variant or a state switch returns the attribute controls to the
+      // spec's recorded reading, since the sibling records its own.
       el('component-detail').addEventListener('click', (event) => {
         const data = event.target.dataset;
         if (!data) return;
         if (data.previewVariant !== undefined) {
           state.previewState = PREVIEW.baseState;
+          state.previewIcons = {};
           showComponent(Number(data.previewVariant));
           return;
         }
         if (data.previewState !== undefined && state.selected !== null) {
           state.previewState = data.previewState;
+          state.previewIcons = {};
+          showComponent(state.selected);
+          return;
+        }
+        if (data.previewAttribute !== undefined && state.selected !== null) {
+          state.previewIcons = Object.assign({}, state.previewIcons, {
+            [data.previewAttribute]: event.target.getAttribute('aria-pressed') !== 'true',
+          });
           showComponent(state.selected);
         }
       });

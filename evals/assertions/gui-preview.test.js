@@ -73,7 +73,7 @@ function previewContract() {
   return new Function(
     `${swatch}\n${preview}\nreturn { PREVIEW, UNRENDERED, PREVIEW_SHAPES, isSafeDeclaration, previewTokens,` +
       ' projectSlot, projectSpec, previewStates, previewLabel, previewElementHtml, previewVariantGroups,' +
-      ' previewGroupOf, previewPanelHtml };',
+      ' previewGroupOf, previewPanelHtml, previewAttributeRowHtml, attributeSlotsFor };',
   )();
 }
 
@@ -446,6 +446,308 @@ test('a state overlays the base properties, and a spec with no states shows no s
 });
 
 // ---------------------------------------------------------------------------
+// 4b. The attribute controls — icon slots (v0.5.1 §5)
+// ---------------------------------------------------------------------------
+
+/** A button spec recording both icon slots, with the readings a test wants. */
+const iconSpec = (leading, trailing) => ({
+  name: 'Button/Primary',
+  archetype: 'button',
+  custom: false,
+  properties: Object.assign(
+    { background: '#2563EB' },
+    leading === undefined ? {} : { 'leading-icon': leading },
+    trailing === undefined ? {} : { 'trailing-icon': trailing },
+  ),
+  states: {},
+});
+
+/** The controls a panel offers, as slot → whether it reads as shown. */
+const controls = (html) =>
+  Object.fromEntries(
+    [...html.matchAll(/data-preview-attribute="([^"]+)" aria-pressed="(true|false)"/g)].map((match) => [
+      match[1],
+      match[2] === 'true',
+    ]),
+  );
+
+test('the toggleable-slot tables and the page constants say the same thing', () => {
+  const contract = previewContract();
+
+  const rows = tableAfter(readRefText(PREVIEW_REF), '<!-- phyllum:preview-attributes -->', 'refs/gui/component-preview.md');
+  assert.equal(rows.length, 2, 'the attribute layer is the icon pair and nothing else this release');
+  for (const [slot, position, shape] of rows) {
+    const rule = contract.PREVIEW.attributes[stripTicks(slot)];
+    assert.ok(rule, `the page has no attribute rule for ${stripTicks(slot)}`);
+    assert.equal(rule.position, stripTicks(position), `${slot} sits somewhere else in the page`);
+    assert.equal(rule.shape, stripTicks(shape));
+    assert.ok(contract.PREVIEW_SHAPES[rule.shape], `${rule.shape} is not a gate the page implements`);
+  }
+  assert.deepEqual(
+    Object.keys(contract.PREVIEW.attributes).sort(),
+    rows.map((row) => stripTicks(row[0])).sort(),
+    'the page offers exactly the slots the table declares',
+  );
+
+  // The recorded reading → where the control starts.
+  const presence = tableAfter(readRefText(PREVIEW_REF), '<!-- phyllum:preview-presence -->', 'refs/gui/component-preview.md');
+  assert.ok(presence.length >= 4, 'both readings are recorded');
+  for (const [reading, starts] of presence) {
+    const key = stripTicks(reading).toLowerCase();
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(contract.PREVIEW.presence, key),
+      `the page cannot read the recorded reading ${key}`,
+    );
+    assert.equal(
+      contract.PREVIEW.presence[key],
+      stripTicks(starts) === 'shown',
+      `${key} starts somewhere else in the page`,
+    );
+  }
+  assert.equal(
+    Object.keys(contract.PREVIEW.presence).length,
+    presence.length,
+    'the page reads exactly the readings the table declares',
+  );
+
+  // And which archetypes may carry an icon slot at all is the archetype ref's.
+  const carriers = tableAfter(readRefText(ARCHETYPE_REF), '<!-- phyllum:icon-slots -->', 'refs/create/archetypes.md');
+  assert.ok(carriers.length >= 1, 'at least one archetype records icon slots');
+  for (const [archetype, slots] of carriers) {
+    const key = archetype.trim().toLowerCase();
+    assert.deepEqual(
+      contract.PREVIEW.attributeArchetypes[key],
+      listCell(slots),
+      `${key} carries different icon slots in the page and the table`,
+    );
+    for (const slot of listCell(slots)) {
+      assert.ok(contract.PREVIEW.attributes[slot], `${slot} is not a slot the attribute table declares`);
+    }
+  }
+  assert.equal(
+    Object.keys(contract.PREVIEW.attributeArchetypes).length,
+    carriers.length,
+    'the page draws icon slots for exactly the archetypes the table declares',
+  );
+});
+
+test('a pressed attribute control wears the same active treatment as a selected toggle', () => {
+  const page = readPage();
+  const active = page.match(/button\.tile-action\[aria-selected='true'\][^{]*\{[^}]*\}/);
+  assert.ok(active, 'the active tile-action rule exists');
+  assert.match(
+    active[0],
+    /button\.tile-action\[aria-pressed='true'\]/,
+    'aria-pressed shares the aria-selected active style — an on control must look on',
+  );
+});
+
+test('a control appears only for a slot the spec records', () => {
+  const contract = previewContract();
+  const tokens = contract.previewTokens(null);
+
+  const both = contract.previewPanelHtml([iconSpec('yes', 'optional')], 0, tokens, 'default');
+  assert.deepEqual(controls(both), { 'leading-icon': true, 'trailing-icon': false });
+
+  // A spec with no trailing icon shows no trailing-icon control.
+  const leadingOnly = contract.previewPanelHtml([iconSpec('yes')], 0, tokens, 'default');
+  assert.deepEqual(controls(leadingOnly), { 'leading-icon': true });
+  assert.ok(!leadingOnly.includes('trailing-icon'), 'a slot the file never recorded is nowhere on the panel');
+
+  // And a spec recording neither shows no attribute row at all.
+  const none = contract.previewPanelHtml([iconSpec()], 0, tokens, 'default');
+  assert.ok(!none.includes('data-preview-attribute'), 'no recorded icon slot, no controls');
+  assert.ok(!none.includes('data-toggle="attribute"'), 'and no empty row where the controls would be');
+  assert.ok(none.includes('preview__stage'), 'but the preview is still drawn');
+
+  // The fixture's own button records no icon slot, so it gains nothing.
+  const system = FIXTURE_SYSTEM();
+  const fixture = contract.previewPanelHtml(system.components, 0, contract.previewTokens(system), 'default');
+  assert.ok(!fixture.includes('data-preview-attribute'), 'the shipped fixture records no icon slot');
+  assert.ok(!fixture.includes('preview__icon'), 'and draws no placeholder');
+});
+
+test('a TODO icon slot gets no control and keeps its unrendered line', () => {
+  const contract = previewContract();
+  const tokens = contract.previewTokens(null);
+  for (const written of ['TODO', 'TODO: decide', '']) {
+    const spec = iconSpec(written, 'yes');
+    const projected = contract.projectSpec(spec, tokens, 'default');
+    assert.deepEqual(
+      projected.attributes.map((entry) => entry.slot),
+      ['trailing-icon'],
+      `${written || 'an empty slot'} must not become a switch`,
+    );
+    assert.ok(
+      projected.unrendered.some(
+        (entry) => entry.slot === 'leading-icon' && entry.reason === contract.UNRENDERED.todo,
+      ),
+      'the gap is stated as a gap',
+    );
+    const panel = contract.previewPanelHtml([spec], 0, tokens, 'default');
+    assert.deepEqual(Object.keys(controls(panel)), ['trailing-icon']);
+    assert.match(panel, /leading-icon[^<]*— TODO/, 'and it keeps its line under the preview');
+  }
+});
+
+test('a gated-out icon reading stays out, with the control still there', () => {
+  const contract = previewContract();
+  const tokens = contract.previewTokens(null);
+  for (const hostile of ['#FF0000', '16px', 'yes;position:fixed', 'maybe', 'url(x.svg)']) {
+    const spec = iconSpec(hostile, 'yes');
+    const projected = contract.projectSpec(spec, tokens, 'default');
+    const control = projected.attributes.find((entry) => entry.slot === 'leading-icon');
+    assert.ok(control, `${hostile} is still a recorded slot, so it still earns a control`);
+    assert.equal(control.recorded, false, 'a reading the page cannot classify starts hidden');
+    assert.equal(control.shown, false);
+    assert.ok(
+      projected.unrendered.some(
+        (entry) => entry.slot === 'leading-icon' && entry.reason === contract.UNRENDERED.unresolved,
+      ),
+      `${hostile} must say why it was not read`,
+    );
+
+    // And the refused reading never reaches a style attribute, on the element
+    // or on the placeholder.
+    const { html } = contract.previewElementHtml(spec, tokens, 'default', { 'leading-icon': true });
+    assert.equal(styles(html)[0], 'background:#2563EB', html);
+    assert.ok(!html.includes(hostile), html);
+    assert.ok(!/position:fixed|url\(|16px|#FF0000/.test(html), html);
+  }
+});
+
+test('an icon slot draws one child dot, leading or trailing, and no style of its own', () => {
+  const contract = previewContract();
+  const tokens = contract.previewTokens(null);
+  const { html, projected } = contract.previewElementHtml(iconSpec('yes', 'required'), tokens, 'default');
+
+  assert.deepEqual(projected.icons.map((entry) => entry.slot), ['leading-icon', 'trailing-icon']);
+  assert.equal((html.match(/<span class="preview__icon"/g) ?? []).length, 2, 'one child box per shown slot');
+  assert.match(
+    html,
+    /^<button class="preview__element" style="background:#2563EB"><span class="preview__icon" data-icon="leading-icon" data-position="leading" aria-hidden="true"><\/span>Primary<span class="preview__icon" data-icon="trailing-icon" data-position="trailing" aria-hidden="true"><\/span><\/button>$/,
+    html,
+  );
+  assert.equal(styles(html).length, 1, 'the placeholder carries no style attribute — it is the page’s mark');
+
+  // The dot is the page's muted ink, sized in em from the component's own font.
+  const rule = readPage().match(/\.preview__icon\s*\{([^}]*)\}/);
+  assert.ok(rule, 'the placeholder is styled by the page');
+  assert.match(rule[1], /border-radius:\s*50%/, 'a filled dot is a circle');
+  assert.match(rule[1], /background:\s*var\(--muted\)/, 'in the page’s muted ink');
+  assert.match(rule[1], /width:\s*[\d.]+em/, 'sized from the component’s font size');
+  assert.ok(!/url\(|<img|svg/i.test(rule[1] + html), 'no icon font, no asset, no glyph');
+});
+
+test('an archetype whose contract records no icon slot draws none', () => {
+  const contract = previewContract();
+  const tokens = contract.previewTokens(null);
+
+  // A card records one anyway: it is listed, never drawn, and earns no control.
+  const card = { name: 'Card/Basic', archetype: 'card', custom: false, properties: { 'leading-icon': 'yes' }, states: {} };
+  const projected = contract.projectSpec(card, tokens, 'default');
+  assert.deepEqual(projected.attributes, [], 'the contract says a card has no icon slot');
+  assert.deepEqual(
+    projected.unrendered.map((entry) => [entry.slot, entry.reason]),
+    [['leading-icon', contract.UNRENDERED.unprojectable]],
+  );
+
+  // A void element cannot hold a child box, whatever its contract says.
+  const field = { name: 'Input/Text', archetype: 'input', custom: false, properties: { 'leading-icon': 'yes' }, states: {} };
+  const voided = contract.projectSpec(field, tokens, 'default');
+  assert.deepEqual(voided.attributes, []);
+  assert.equal(voided.unrendered[0].reason, contract.UNRENDERED.unprojectable);
+
+  // A custom component has no contract, so it carries what it carries.
+  const custom = { name: 'Ribbon', archetype: 'custom', custom: true, properties: { 'trailing-icon': 'yes' }, states: {} };
+  const carried = contract.projectSpec(custom, tokens, 'default');
+  assert.deepEqual(carried.attributes.map((entry) => entry.slot), ['trailing-icon']);
+  assert.deepEqual(contract.attributeSlotsFor(custom), Object.keys(contract.PREVIEW.attributes));
+  assert.deepEqual(contract.attributeSlotsFor(card), []);
+  assert.deepEqual(contract.attributeSlotsFor({ archetype: 'button' }), ['leading-icon', 'trailing-icon']);
+});
+
+test('flipping a control changes the projection only — never the spec, never the payload', () => {
+  const contract = previewContract();
+  const tokens = contract.previewTokens(null);
+  const spec = iconSpec('optional', 'optional');
+  const before = JSON.stringify(spec);
+
+  const off = contract.previewPanelHtml([spec], 0, tokens, 'default', {});
+  const on = contract.previewPanelHtml([spec], 0, tokens, 'default', { 'leading-icon': true });
+
+  assert.deepEqual(controls(off), { 'leading-icon': false, 'trailing-icon': false });
+  assert.deepEqual(controls(on), { 'leading-icon': true, 'trailing-icon': false });
+  assert.ok(!off.includes('preview__icon'), 'nothing recorded as hidden is drawn');
+  assert.equal((on.match(/preview__icon/g) ?? []).length, 1, 'exactly the flipped slot is drawn');
+  assert.match(on, /data-icons="leading-icon"/);
+  assert.match(off, /data-icons=""/);
+
+  // The element's inline styles are the same either way: a control changes
+  // children, never a declaration.
+  assert.deepEqual(styles(off), styles(on));
+
+  // And the spec object the panel was handed is untouched, so the `yaml` block
+  // and the `/system` payload the page holds read exactly as the file does.
+  assert.equal(JSON.stringify(spec), before, 'the projection wrote back into the spec');
+  const system = FIXTURE_SYSTEM();
+  const payload = JSON.stringify(system);
+  contract.previewPanelHtml(system.components, 0, contract.previewTokens(system), 'default', {
+    'leading-icon': true,
+    'trailing-icon': true,
+  });
+  assert.equal(JSON.stringify(system), payload, 'the served payload is unchanged by any toggle');
+  assert.equal(JSON.stringify(systemJson(readFixture(POPULATED_FIXTURE))), payload);
+});
+
+test('a variant or a state switch resets the attribute controls to the recorded reading', () => {
+  const contract = previewContract();
+  const tokens = contract.previewTokens(null);
+
+  // The reset is the page's: both switches clear the flipped map before
+  // re-rendering, so the panel is rebuilt from the file's own reading.
+  const text = readPage();
+  const handler = text.slice(text.indexOf('// The three toggle rows'), text.indexOf("for (const id of ['component-list'"));
+  assert.match(handler, /previewVariant !== undefined[\s\S]*?state\.previewIcons = \{\};/, 'a variant switch resets them');
+  assert.match(handler, /previewState !== undefined[\s\S]*?state\.previewIcons = \{\};/, 'a state switch resets them');
+  assert.match(handler, /previewVariant !== undefined[\s\S]*?state\.previewState = PREVIEW\.baseState;/, 'and the state row');
+  assert.match(handler, /previewAttribute !== undefined/, 'and the controls are wired at all');
+  assert.match(text, /previewIcons: \{\},/, 'the empty map is the recorded reading');
+
+  // Rendered with no flips, both siblings read as their own file says.
+  const siblings = [iconSpec('yes', 'no'), Object.assign(iconSpec('optional'), { name: 'Button/Ghost' })];
+  assert.deepEqual(controls(contract.previewPanelHtml(siblings, 0, tokens, 'default', {})), {
+    'leading-icon': true,
+    'trailing-icon': false,
+  });
+  assert.deepEqual(controls(contract.previewPanelHtml(siblings, 1, tokens, 'default', {})), {
+    'leading-icon': false,
+  });
+
+  // A state may record its own reading, and it overlays like any other slot.
+  const stateful = {
+    name: 'Button/Primary',
+    archetype: 'button',
+    properties: { 'leading-icon': 'no' },
+    states: { hover: { 'leading-icon': 'yes' } },
+  };
+  assert.equal(contract.projectSpec(stateful, tokens, 'default').attributes[0].shown, false);
+  assert.equal(contract.projectSpec(stateful, tokens, 'hover').attributes[0].shown, true);
+});
+
+test('the attribute row survives a malformed payload and an empty control list', () => {
+  const contract = previewContract();
+  assert.equal(contract.previewAttributeRowHtml([]), '');
+  assert.equal(contract.previewAttributeRowHtml(null), '');
+  assert.equal(contract.previewAttributeRowHtml(undefined), '');
+  for (const spec of [null, {}, { archetype: 'button', properties: { 'leading-icon': null } }]) {
+    const projected = contract.projectSpec(spec, contract.previewTokens(null), 'default', 'not a map');
+    assert.ok(Array.isArray(projected.attributes));
+    assert.ok(Array.isArray(projected.icons));
+  }
+});
+
+// ---------------------------------------------------------------------------
 // 5. Placement, treatment, and what did not change
 // ---------------------------------------------------------------------------
 
@@ -464,11 +766,33 @@ test('the preview is the panel section above the yaml and jsx blocks, which are 
   );
 });
 
-test('the preview borrows the page palette and adds no colour, font or rounded corner', () => {
+test('the preview borrows the page palette and adds no colour or font of its own', () => {
   const text = readPage();
-  const rules = [...text.matchAll(/\.preview[\w_-]*\s*\{([^}]*)\}/g)].map((match) => match[1]);
+  const rules = [...text.matchAll(/(\.preview[\w_-]*)\s*\{([^}]*)\}/g)].map((match) => ({
+    selector: match[1],
+    body: match[2],
+  }));
   assert.ok(rules.length >= 5, 'the preview is styled');
-  for (const rule of rules) {
+
+  // v0.5.1 §3: the stage is restyled with the rest of the page and rounds like
+  // every other surface, but it rounds off the page's own scale — and the
+  // specimen inside it is never touched. A corner the page chose is a corner
+  // the file never recorded.
+  for (const { selector, body } of rules) {
+    for (const [, radius] of body.matchAll(/border-radius:\s*([^;]+);/g)) {
+      assert.notEqual(selector, '.preview__element', 'the previewed component takes no radius from the page');
+      // v0.5.1 §5.3: the icon placeholder is a dot, and a dot is a circle
+      // rather than a corner anybody recorded — the one radius on the stage
+      // that is not a step on the page's scale.
+      if (selector === '.preview__icon') {
+        assert.equal(radius.trim(), '50%', 'the icon placeholder is a circle');
+        continue;
+      }
+      assert.match(radius.trim(), /^var\(--radius-(sm|md)\)$/, `${selector} rounds off the page's radius scale`);
+    }
+  }
+
+  for (const { body: rule } of rules) {
     for (const [, , colour] of rule.matchAll(/(background|color|border-color):\s*([^;]+);/g)) {
       assert.ok(
         /^(var\(--[\w-]+\)|transparent|inherit)$/.test(colour.trim()),
@@ -476,7 +800,6 @@ test('the preview borrows the page palette and adds no colour, font or rounded c
       );
     }
     assert.ok(!/font-family/.test(rule), 'the preview names no font of its own');
-    assert.ok(!/border-radius/.test(rule), 'and rounds no corner');
     for (const [, size] of rule.matchAll(/font-size:\s*([^;]+);/g)) {
       assert.match(size.trim(), /^var\(--type-0[1-5]\)$/, `${size} is outside the five-step ramp`);
     }
