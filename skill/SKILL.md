@@ -32,7 +32,7 @@ directory around every command and fails on anything not in this list:
 | `DESIGN-SYSTEM.md`, the `applied:` lines only | `apply` and `apply run`, with no question asked — a derived reading of the codebase, scoped to the `applied:` line of each component's spec block and nothing else in the file (v0.5.0 §3.2; `refs/apply/apply.md`) |
 | `DESIGN-SYSTEM.md.bak` | the same write, one step earlier — the pre-edit copy the funnel always takes (v0.2.1 §6.5.2) |
 | `.phyllum/**` | session state, `apply`'s plan at `.phyllum/PRD.md`, and `assess --json`'s default output; gitignored |
-| `.claude/skills/phyllum/**` | `init` — the skill install; and `upgrade`, which re-syncs that same copy |
+| `.claude/skills/phyllum/**` | `init` — the skill install; and `upgrade`, which re-syncs that same copy and, on confirmation, removes files this version no longer ships (v0.7.1) |
 | Phyllum's two `.gitignore` lines | `init` only, with the user's confirmation |
 | a JSON path you name | `assess --json <path>` only, and only a `.json` file inside the project |
 
@@ -719,6 +719,55 @@ historical M1 lines under v0.5.1 stay exactly as they were written, because
 release history is a record and not a claim. `llms.txt` and `SKILL.md` gain the
 container, chip, button and Backlog-by-component facts this release adds.
 Twenty evals, every one at 1.000, no threshold lowered.
+
+v0.7.1 phase 1 commits `lib/skill-drift.js` as it stands: 170 lines carried over
+untracked from the skipped v0.5.2 plan, complete and correct, wired to nothing.
+Its own module, pure and read-only, so the registry import graph — and the
+assertion pinning it — is unaffected. Twelve assertions cover the three
+findings (in step, differs, none), missing/changed/extra files individually and
+combined, a file that turned into a directory read as changed rather than
+thrown, the differing count, and sorted lists. Fixtures are seeded with
+`installSkill`, `init`'s own copier, so the comparison starts from byte-for-byte
+what a real `init` would write.
+
+v0.7.1 phase 2 wires that detector into `phyllum version` as a third row,
+always printed, reporting the skill copy in the directory you are standing in —
+`in step with this install`, a neutral `N of 46 files differ from this
+install`, or `none in this directory` when no copy exists. The row costs no
+network: it is inspected before the registry is asked, and separately from it,
+so it is fully answered under `--skip-registry`. Two rules settle the closing
+line — an outdated CLI and a differing copy share one sentence naming `upgrade`
+once, and a current CLI with only the copy differing names `upgrade` on its own
+account. The three-verdict tests now run in a temp directory rather than
+asserting on the absence of `phyllum upgrade` while reading whatever tree the
+suite happens to sit in, since the row makes that tree ambient to every test in
+the file; the tests' intent is unchanged.
+
+v0.7.1 phase 3 gives `upgrade` the behaviour that lets a user act on what phase
+2 reports: a prune, after the re-sync. `installSkill` copies every enumerated
+file over the top and deletes nothing, so a ref file an older version shipped
+and this one dropped survives forever, and Claude reads the orphan as current
+guidance. The write funnel gains its first delete, `removeGuarded` — a
+narrower door than any writer above it, reusing `isAllowedPath` rather than a
+second permission model, bounded to inside the skill install, and refusing the
+install root itself so pruning can never become uninstalling. The prune never
+decides on its own: every extra file is named, one question is asked with the
+whole list in view, and nothing is removed without a yes. `--yes` does not
+answer it — the same rule `init`'s legacy-column removal keeps, that a gate
+taking something away is answered by a person or it is answered no. Declining
+is reported, changes nothing, and `upgrade` still exits 0. An emptied directory
+is removed along with its last file.
+
+v0.7.1 phase 4 closes the release: the docs sweep and a coupled version bump.
+`refs/version/version.md` gains the skill-copy contract — the three findings,
+the neutral-count wording, and the bytes-not-a-stamp decision carried over from
+the skipped v0.5.2 plan unchanged. `refs/upgrade/upgrade.md` gains a Discovery
+section pointing at `version` as where drift surfaces, and a Step 4 for the
+prune. The permission table above gains the one line pruning adds: `upgrade`
+may now remove files under `.claude/skills/phyllum/`, on confirmation, never
+elsewhere. No eval is added or removed — the release is graded by the existing
+assertion suite, not a new conversational question — so twenty evals carry
+forward, every one at 1.000, no threshold lowered.
 
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest

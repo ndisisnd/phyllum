@@ -6,6 +6,18 @@ Move this install to the latest published version, in one command instead of an
 `upgrade` is mechanics — no model is involved. It is the one command that runs a
 package manager, and the second (with `gui`) that starts a process at all.
 
+## Discovery (v0.7.1)
+
+Nothing used to tell the user to run this command. `phyllum version` reported
+the CLI version and stopped; the skill copy `init` put in
+`.claude/skills/phyllum/` was not part of that conversation, so a package-manager
+upgrade could leave it silently out of step for as long as nobody happened to
+type `phyllum upgrade`. Discovery now lives on `version` (`refs/version/version.md`
+§ The skill copy): it compares the copy's bytes against the freshly installed
+package and, whenever they differ, names `upgrade` as the fix. `upgrade` itself
+gained no new trigger — it is still typed by hand — but it is no longer a
+command the user has to remember exists.
+
 ## Step 1 — how was Phyllum installed?
 
 The right command depends entirely on the answer, so the answer is worked
@@ -52,6 +64,41 @@ CLI and the skill can never be two different versions.
 - The re-sync goes through the same write funnel as `init`, so it can only ever
   touch `.claude/skills/phyllum/**`.
 
+## Step 4 — prune the orphans (v0.7.1)
+
+The re-sync in Step 3 only ever writes: it copies every enumerated file over
+the top and deletes nothing, so a ref file an older version shipped and the
+current one dropped survives every `upgrade` forever. Claude reads that orphan
+as current guidance, and no amount of re-syncing clears it. After the re-sync,
+`upgrade` looks again at what is left in `.claude/skills/phyllum/`. Anything
+this version does not enumerate is listed by name, and one question is asked:
+
+```
+  extra      2 files in .claude/skills/phyllum/ this version does not ship:
+               refs/apply/legacy-flow.txt
+               refs/tokenise/old-passes.txt
+Remove these 2 files from .claude/skills/phyllum/? (what they hold is lost)
+```
+
+- **One question, not one per file.** The whole list is on screen before the
+  question, so the answer is given with every name in view.
+- **`--yes` does not answer it.** The same rule governs `init`'s legacy-column
+  removal: a gate that takes something away is answered by a person, or it is
+  answered no. With no way to ask, the answer is no.
+- **Declining changes nothing.** Every file stays exactly where it was, the
+  re-sync still stands, and `upgrade` still exits 0 — a decline is reported, not
+  treated as a failure.
+- **Nothing is deleted outside `.claude/skills/phyllum/`.** The prune goes
+  through the same write funnel as the re-sync, bounded to that directory and
+  refusing the install root itself; a directory emptied by its last file being
+  removed is removed along with it.
+
+Phyllum still cannot tell an orphaned ref from a note the user added on
+purpose — there is no manifest and no version stamp (§3.1 of the plan that
+introduced the skill-copy check), and that limit was settled deliberately
+rather than overlooked. So the prune never decides on its own: it lists, it
+asks once, and it removes only on a yes.
+
 ## What `upgrade` does not do
 
 - **No registry call of its own.** `latest` is resolved by the package manager.
@@ -59,7 +106,9 @@ CLI and the skill can never be two different versions.
   else.
 - **No shell.** The package manager is spawned by resolved path with an argument
   array.
-- **No confirmation prompt.** Typing `phyllum upgrade` is the consent.
+- **No confirmation prompt for moving the version.** Typing `phyllum upgrade` is
+  the consent for that part. The one confirmation `upgrade` does ask (v0.7.1) is
+  Step 4's prune, and only because that step removes files.
 - **No design system needed.** Like `version`, it is about the install, so it
   works before `init`.
 

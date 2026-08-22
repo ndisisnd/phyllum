@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-23
+
+### [12] — 0.7.1: version learns to see the skill copy, and upgrade learns to prune
+
+- `lib/skill-drift.js`, `evals/assertions/skill-drift.test.js`: Added — **the drift check**: `inspectSkillCopy(root)` compares the bytes of every file `init` would install in `.claude/skills/phyllum/` against the bytes on disk, and returns one of three findings — `in-step` (every file present and byte-identical), `differs` (one or more missing, changed, unreadable, or present but not enumerated by this install), or `none` (no copy in this directory); pure and read-only, in its own module, so the registry import graph stays untouched
+- `lib/version-command.js`, `lib/execute.js`, `evals/assertions/version-cli.test.js`: Changed — **the third row**: `phyllum version` now always prints a `skill copy` row reporting the drift check's finding — `in step with this install`, a neutral `N of 46 files differ from this install`, or `none in this directory` — inspected before the registry is asked and separately from it, so the row is fully answered offline and under `--skip-registry`; the closing line names `phyllum upgrade` once when the CLI is outdated and the copy differs together, and on its own account when only the copy differs
+- `lib/upgrade-command.js`, `lib/write.js`, `evals/assertions/upgrade-cli.test.js`: Added — **the prune**: after the re-sync, `upgrade` lists every file left in `.claude/skills/phyllum/` that this version does not enumerate, by name, and asks one question before removing any of them; `--yes` does not answer it, a decline is reported and changes nothing, and `upgrade` still exits 0 either way; the funnel gains its first delete, `removeGuarded`, bounded to inside the skill install and refusing the install root, reusing `isAllowedPath` rather than a second permission model — an emptied directory is removed with its last file
+- `skill/refs/version/version.md`: Added — the skill-copy contract: the three findings, the neutral-count wording, and the bytes-not-a-stamp decision (no `.phyllum-version`, no manifest — the comparison reads what the file *is*, not what version was last written into it)
+- `skill/refs/upgrade/upgrade.md`: Added — a Discovery section pointing at `version` as where drift now surfaces, and a Step 4 describing the prune, its one confirmation, and its refusal to decide on its own
+- `skill/SKILL.md`: Changed — the permission table's `.claude/skills/phyllum/**` row now names the prune; the milestone narrative gains the four v0.7.1 phases
+- `llms.txt`: Changed — the `version` and `upgrade` lines gain the skill-copy row and the prune step
+- `evals/baseline.json`: Changed — re-recorded as `release: v0.7.1`, 20 evals at 1.000, no threshold lowered
+- `evals/graders.js`: Changed — `MILESTONE` and `RELEASE` move to `v0.7.1 M4` / `v0.7.1`, with a note that the release adds no eval and removes none — the new assertions cover deterministic mechanics, not a conversational question
+- `package.json`: version → 0.7.1
+
 ## 2026-08-22
 
 ### [11] — 0.7.0: the dashboard goes light-first, and the Backlog learns to ask

@@ -1,6 +1,6 @@
 {
   "name": "phyllum",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Design system companion — turns prose, images, or your codebase into tokens and components, recorded in DESIGN-SYSTEM.md",
   "type": "module",
   "license": "Apache-2.0",

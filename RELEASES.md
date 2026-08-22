@@ -2,6 +2,23 @@
 
 What's new for you, release by release.
 
+## v0.7.1 — 2026-08-23
+
+> `phyllum version` now checks more than just the CLI. It looks at the copy of the skill sitting in your project and tells you if it has fallen out of step with what you have installed — something that used to happen silently whenever you upgraded Phyllum the ordinary way. And `phyllum upgrade` can now clean up old files that copy leaves behind, so a leftover from a past version never sits there being read as if it were current.
+
+### ✨ New
+- **`phyllum version` reports on your project's skill copy.** Alongside the installed and latest-published versions, it now says whether the skill copy in the current directory matches what you have installed — "in step", a count of how many files differ, or "none in this directory" if you have not run `phyllum init` here. It never guesses whether a difference means the copy is stale or you edited it on purpose; it just tells you what it found, and points you at `phyllum upgrade` when the two have parted ways.
+- **`phyllum upgrade` cleans up old files.** After it re-syncs your skill copy, it now checks for files that belong to an older version and are no longer part of this one. If it finds any, it lists them by name and asks once before removing them — nothing is deleted without you saying yes, and saying no leaves everything exactly as it was.
+
+### 📈 Improved
+- **You will actually notice when your project's skill copy has parted ways with your install.** Before this release, an `npm install --global phyllum@latest` quietly left your project on the old skill files, with nothing telling you. Now `phyllum version` says so directly and tells you the fix.
+
+### Not in this release
+- **No automatic cleanup.** Phyllum never removes a file on its own judgement — it cannot tell an old, unused file from one you added on purpose, so it always asks first.
+- **No background checking.** The skill-copy check only runs when you type `phyllum version`, the same as the version check next to it. Nothing checks in the background or nags you elsewhere.
+
+Update with `phyllum upgrade`.
+
 ## v0.7.0 — 2026-08-22
 
 > The dashboard is drawn light-first now — a neutral near-white canvas with white bordered panels, not a dark theme with light as the second option — and everything on it, from colour cards to number specimens, is checked against that surface rather than assumed. Panels, sections and the Backlog now wear one shared look: a bordered container with a count in the corner. And the Backlog panel itself is recut, grouped by the component each line is about, with an "Assess" button that hands your terminal session the word "assess" to run.

@@ -44,3 +44,66 @@ Two facts, then one sentence about what they mean together:
 
 `GET https://registry.npmjs.org/phyllum/latest`, with a short timeout, reading
 one field: `version`. Nothing is sent about the user or their project.
+
+## The skill copy (v0.7.1)
+
+`upgrade` exists to keep two things on the same version: the CLI, and the copy
+of this skill that `init` put in `.claude/skills/phyllum/`. A package manager
+replaces the CLI in place and has no business writing into a project, so a
+habitual `npm install --global phyllum@latest` leaves that copy exactly where
+it was. Nothing told the user their skill copy had fallen behind — until now.
+`version` prints a third row, always, reporting the state of the copy in the
+directory you are standing in:
+
+```
+phyllum 0.7.0 — a newer version has been published.
+  installed         0.7.0
+  latest published  0.7.1
+  skill copy        3 of 46 files differ from this install
+
+Run `phyllum upgrade` to move to 0.7.1 and re-sync the skill copy.
+```
+
+| Finding | Recognised by | Reported as |
+|---------|---------------|-------------|
+| in step | every file `init` would install is present and byte-identical | `in step with this install` |
+| differs | one or more files missing, changed, unreadable, or present in the copy but not enumerated by this install | `N of 46 files differ from this install` |
+| none here | `.claude/skills/phyllum/` does not exist | `none in this directory` |
+
+An extra file — one sitting in the copy that this install does not enumerate —
+counts as a difference, not as a match. It is usually a note the user added, or
+a ref file an older version shipped and this one dropped; the second case is
+exactly the drift this row exists to surface, because Claude reads whatever is
+in that directory as current guidance. Ignoring it would be quieter and would
+miss the case that matters most.
+
+The row reads `differs`, never "out of date" and never "behind". Phyllum cannot
+tell a stale copy from one the user edited on purpose, and a count is the only
+part the comparison can prove — the recommendation lives in the closing line,
+not in the row itself.
+
+Two rules govern that closing line: when the CLI is outdated **and** the copy
+differs, one sentence covers both, because `upgrade` does both jobs in one run
+and naming it twice would misdescribe the work; when the CLI is current and
+only the copy differs, the closing line names `upgrade` on its own account —
+re-syncing is worth doing even with no new version to fetch.
+
+**The signal is the bytes, not a stamp.** The row is answered by comparing the
+files on disk in `.claude/skills/phyllum/` against the files the installed
+package would write — the same enumeration `init` uses — never by writing or
+reading a version marker. A stamped `.phyllum-version` file would be cheaper to
+compare, and it was rejected on principle: it writes a file nobody asked for,
+which `init` and `upgrade` both refuse to do, and it reintroduces the exact
+thing `version` exists to avoid — a version string written down somewhere, free
+to drift from the code it claims to describe. The bytes are the truer signal
+anyway: a stamp says what version was *installed*, the bytes say what the file
+*is*.
+
+The comparison is a file read, so it costs no network and is fully answered
+under `--skip-registry`, where the registry rows are not. It looks only in the
+current working directory, mirroring `upgrade`, which re-syncs the project you
+are standing in — a global install serving five projects still has five copies,
+and `version` reports on the one in front of it. And it never fails the
+command: an unreadable file is reported as `differs`, not thrown, and `version`
+still exits 0 for every finding — a user with an edited skill copy has not done
+anything wrong.

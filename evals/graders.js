@@ -176,9 +176,15 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * a Backlog recut, both graded by the existing assertion suite rather than by
  * a conversational question, so the twenty evals from v0.6.0 carry forward
  * unchanged and only the baseline's stamp moves.
+ *
+ * v0.7.1 adds no eval and removes none either: the skill-drift detector, the
+ * `version` row and `upgrade`'s prune are all deterministic mechanics, graded
+ * by their own assertion suites rather than by a conversational question, so
+ * the twenty evals from v0.7.0 carry forward unchanged and only the baseline's
+ * stamp moves.
  */
-export const MILESTONE = 'v0.7.0 M5';
-export const RELEASE = 'v0.7.0';
+export const MILESTONE = 'v0.7.1 M4';
+export const RELEASE = 'v0.7.1';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
