@@ -317,12 +317,13 @@ are derived from the file: a slot the spec does not record gets no control, a `T
 stays in the unrendered list, and flipping one changes the projection only — never the
 spec, never the served payload.
 
-The page is styled along Notion lines — simpler, softer, rounder: rounded corners
-throughout on one two-step radius scale, quiet borders and low diffuse shadows, warm
-near-whites over soft greys in the light theme and soft charcoal in the dark one, one calm
-surface with no dark product header. You pick the theme yourself — **light, dark or
-system** — from a control in the shell; `system` is the default and follows your OS, and
-your choice is remembered in the browser and applied before the first paint, so the page
+The page is drawn light-first, Notion-shaped: rounded corners throughout on one
+two-step radius scale, 1px hairlines and low diffuse shadows on every raised
+surface, a neutral near-white canvas over white panels in the light theme and a
+neutral charcoal in the dark one, one calm surface with no dark product header.
+You pick the theme yourself — **light, dark or system** — from a control in the
+shell; `system` is the default and follows your OS, and your choice is
+remembered in the browser and applied before the first paint, so the page
 never flashes the wrong theme. It takes no dependency on Notion or anything else: the
 stylesheet is hand-written in the one file, the type stack asks for Geist and falls back
 to the system faces without fetching a webfont, and the page fetches nothing from the

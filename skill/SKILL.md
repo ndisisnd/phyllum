@@ -634,6 +634,92 @@ nothing yet for it to list. v0.6.0 M5 closes the release: the docs sweep,
 grouped list rather than first-class sections, and the 0.6.0 baseline
 re-recorded. Twenty evals, every one at 1.000, no threshold lowered.
 
+v0.7.0 M1 flips the dashboard to a **light-first surface**. The plain `:root`
+variable set stops being a second reading of the dark palette and becomes the
+one the design is drawn for: a neutral near-white canvas (`--bg`), white raised
+panels held by a 1px `--line` hairline, near-black ink with a mid-grey
+secondary, and a low diffuse `--shadow` that lifts rather than replaces the
+edge — on a dark page a background shift alone said "this is a surface", on a
+light one that shift is a couple of percent of luminance, so the hairline does
+the work now. `--accent` moves one step darker, from `#2383e2` to `#1a6fd4`,
+because the old value read 3.9:1 on white and the small-text floor is 4.5:1;
+`--ink-hover` is new, so the primary button gets a hover reading without
+inventing a second hue. The dark set stops being warm-toned too and becomes a
+neutral charcoal, so both themes are drawn to the same temperament rather than
+the light one alone. Every rendered artefact is re-verified against the light
+surface rather than assumed: the near-white swatch-border rule and the dark-ink
+label rule in `refs/gui/cards.md` are read against the new values, and every
+specimen — radius tile, spacing gap, shadow card — and every typography
+specimen stays legible on `--bg`.
+
+v0.7.0 M2 gives the page one **container idiom** instead of air alone. Every
+group of content — `.panel`, `.number-group`, `.container` — shares one rule:
+a 1px `--line` edge, `--radius-md`, the `--layer` fill on the `--bg` canvas,
+`--space-3` of padding, with `.panel` alone adding `--shadow` because it is the
+surface sitting directly on the page. A container that only holds containers
+takes `.panel--bare` — no edge, no fill, no lift — because a border drawn
+around borders says nothing, and each Library section becomes its own
+container inside the token panel rather than a heading followed by open air.
+Beside it comes one **chip idiom**: a section's count, a token's slot, and the
+`applied` badge all move onto `.chip` — `--type-01`, the `--layer-accent` fill,
+the `--muted` ink, a `--line` edge, `--radius-sm` — a label and never a
+control, so a chip never takes the ink of one. And one **button hierarchy**:
+`.btn--primary` is the single solid action a container may hold, filled with
+the page's own `--ink` and reading `--layer` as its text, with `--ink-hover` on
+hover and no hue invented for it; `.btn--ghost` stays transparent until the
+pointer is on it. The prompt box's submit button becomes the shell's first
+`.btn--primary`, so the hierarchy has a precedent before the Backlog needs one
+in M4.
+
+v0.7.0 M3 recuts the **Backlog panel by component**. It used to be one flat
+`<ul>` of every outstanding line; every line already names the component it is
+about, in the last `(...)` group the line carries, so the panel now renders one
+container per component instead. Three rules keep the parse honest rather than
+clever: the **last** parenthetical group in the line names the component, since
+an earlier one may be a quoted value carrying brackets of its own; the
+**longest leading run** of whitespace-separated words inside that group that
+exactly matches a recorded component name wins, tolerating scope words such as
+`background` or `selected font-weight` sitting in the same group; and anything
+the file does not record as a component is not one, however much it looks like
+one, and collects in one trailing `other` container instead of inventing a
+heading nobody wrote. Containers appear in the order their first line appears
+in the Backlog, lines keep their own file order inside a container, and every
+line renders verbatim — no prefix stripped, no punctuation reworded. The
+panel's own header carries the **total** issue count as a chip, counting every
+line in the Backlog regardless of container, and an empty Backlog still speaks:
+one container, a neutral label, a `0` count and a `(none yet)` line, the same
+answer Colours and Typography give to emptiness. The parse settings live in the
+page's `BACKLOG` constant, inside the region marked `phyllum:backlog-contract`,
+so `refs/gui/gui.md`'s table and the code that runs cannot drift apart quietly.
+
+v0.7.0 M4 puts an **Assess button** in the Backlog header, right of the count
+chip: a `.btn--primary` reading "Assess", `#backlog-assess`. A click posts the
+literal prompt `assess` to `POST /prompt` — the same relay `#prompt-form`
+already uses, the same payload shape (`{ text, view }`), the same endpoint — so
+the terminal Claude Code session picks it up exactly as it would a typed
+prompt. The button enqueues and nothing more: the page stays a viewer and a
+prompt relay, never an executor, and the queued item renders in the Workbench's
+own Queue panel through the existing `GET /state` poll rather than growing the
+Backlog a second queue of its own. The button gives its own feedback rather
+than a new idiom — it disables itself and reads "Queued…" for about a second,
+then both revert, because a click leaves no input to clear the way the prompt
+box's does. A failed request fails exactly the way the prompt box's does too:
+neither button wraps its `fetch` in error-specific UI, so a request that never
+reaches the server surfaces through the status line's existing "server gone"
+message once the next `poll()` runs, and the button's label reverts on its own
+timer regardless.
+
+v0.7.0 M5 closes the release: the docs sweep, the 0.7.0 baseline, and a
+coupled version bump. The sweep's job this time is the palette wording every
+doc still carried — "warm near-white", "soft warm greys", "a hairline gives
+way" — which stopped being true in M1 once the surface went neutral and the
+hairline became the rule rather than the exception; `README.md` and
+`refs/gui/gui.md` are rewritten to the light-first, bordered contract while the
+historical M1 lines under v0.5.1 stay exactly as they were written, because
+release history is a record and not a claim. `llms.txt` and `SKILL.md` gain the
+container, chip, button and Backlog-by-component facts this release adds.
+Twenty evals, every one at 1.000, no threshold lowered.
+
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest
 published version is — the only network call in the product, made only when the

@@ -26,22 +26,30 @@ decides anything.
    which values are still raw and therefore candidates for the next `tokenise`
    run.
 
-## Look and feel — Notion-like, not Notion
+## Look and feel — light-first, Notion-shaped
 
-The dashboard is styled along Notion lines: **simpler, softer, rounder**. It is
-an aesthetic followed as a direction, never as a dependency — there is no
-`@notion/*` package to take, no CDN, and no build step, which makes the point
-cleanly.
+The page is drawn light-first (v0.7.0 §1): the plain `:root` variable set is
+the one the design is drawn for, and dark is the second reading of the same
+palette rather than the default. The shape underneath is still the one Notion
+lines suggested in v0.5.1 — **rounder, simpler** — followed as a direction,
+never as a dependency: there is no `@notion/*` package to take, no CDN, and no
+build step.
 
 - **Rounder** — rounded corners are the default: tiles, chips, buttons, inputs,
   the preview stage, the colour-card swatch. Two CSS variables carry the whole
   scale (`--radius-sm`, `--radius-md`), so the page rounds from one place. Sharp
   corners are the departure that needs recording now, not the rule.
-- **Softer** — a hairline gives way wherever a background shift says the same
-  thing; where a surface needs lifting it takes one low, diffuse shadow
-  (`--shadow`) instead of an edge. The light palette is warm near-white over
-  soft warm greys with ink slightly off-black; the dark palette is soft
-  charcoal, not pure black. Both themes are drawn to the same temperament.
+- **Bordered** — every raised surface carries a 1px `--line` hairline as well
+  as the low, diffuse `--shadow` (v0.7.0 §1): on a dark page a background shift
+  alone said "this is a surface", but on a light one that shift is a couple of
+  percent of luminance, so the edge does the work the shift used to do alone
+  and the shadow only lifts it. The light palette is a neutral near-white
+  canvas under white raised surfaces, near-black ink with a mid-grey
+  secondary, and light-grey hairlines; the dark palette is a neutral charcoal,
+  not pure black. `--accent` sits one step darker than it did before v0.7.0,
+  so it clears the small-text contrast floor on the white surfaces it is
+  always drawn on now, and `--ink-hover` gives the primary button a hover
+  reading without inventing a second hue.
 - **Simpler** — one calm surface: no dark product header over a light body, and
   a quieter left rail on the page's own background with the selected view
   reading as a rounded resting place rather than a stripe. The five-step type
@@ -55,7 +63,7 @@ cleanly.
 | Webfont | **none** — Geist is used where it is already installed locally and nothing is fetched |
 | Network | the page makes same-origin requests to its own server only (`/state`, `/system`, `/prompt`, `/upload`); no external URL appears anywhere in the file |
 | Radius | two steps, `--radius-sm` and `--radius-md`; every rounded corner on the page reads one of them |
-| Themes | a warm near-white light theme and a soft-charcoal dark one, one CSS variable set each, picked by the theme control below |
+| Themes | a neutral near-white light theme (the design's default) and a neutral charcoal dark one, one CSS variable set each, picked by the theme control below |
 
 ## Page anatomy (v0.6.0 §3)
 

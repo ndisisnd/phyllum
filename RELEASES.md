@@ -2,6 +2,25 @@
 
 What's new for you, release by release.
 
+## v0.7.0 — 2026-08-22
+
+> The dashboard is drawn light-first now — a neutral near-white canvas with white bordered panels, not a dark theme with light as the second option — and everything on it, from colour cards to number specimens, is checked against that surface rather than assumed. Panels, sections and the Backlog now wear one shared look: a bordered container with a count in the corner. And the Backlog panel itself is recut, grouped by the component each line is about, with an "Assess" button that hands your terminal session the word "assess" to run.
+
+### ✨ New
+- **An "Assess" button in the Backlog.** Click it and Phyllum queues the prompt "assess" for your terminal session, the same way typing it into the prompt box and hitting send would. The button shows "Queued…" for a moment so you know it went through. The page never runs anything itself — it only asks your session to.
+- **The Backlog groups by component.** Instead of one long list, outstanding lines now sit in their own container per component, read from the name each line already carries. A line that doesn't name a component you've recorded collects in an "other" container at the end. The panel header shows the total count; each container shows its own.
+
+### 📈 Improved
+- **The dashboard is light-first.** The near-white surface is now the one the design is drawn for, not a fallback. Panels are white with a light border, ink is closer to black, and the accent colour is a shade darker so it reads clearly on white. Dark mode is the same palette read the other way, and both look intentional rather than one being an afterthought.
+- **Panels, sections and counts share one look.** Every bordered container on the page — a panel, a Library section, a group of tokens — now uses the same border-and-fill idiom. Every count, badge and status reads as the same small chip wherever it appears.
+- **Buttons now have a clear hierarchy.** One solid, filled button style for the primary action in a panel; a plain outlined one for anything secondary. The prompt box's send button and the new Assess button both use the solid style, since they are the one thing you'd do in that panel.
+
+### Not in this release
+- **Editing the Backlog from the page.** Grouping is read-only, the same as everywhere else on the dashboard. Nothing here writes to `DESIGN-SYSTEM.md`.
+- **Running "assess" for you.** The button queues the prompt; your terminal session still runs it, the same as if you had typed it yourself.
+
+Update with `phyllum upgrade`.
+
 ## v0.6.0 — 2026-08-22
 
 > The dashboard's token panel reads like a design-system site now, not a printout of your file. "Numbers" is gone as a heading — every different thing your tokens apply to, radius, spacing, shadow and anything else your file names, gets its own section, in your file's own words. And a token no longer just names its value: where Phyllum recognises the reading, it draws it.

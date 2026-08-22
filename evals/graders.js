@@ -171,9 +171,14 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * baseline, the baseline is re-recorded once per release, and this is that
  * milestone. Twenty evals now, every one at 1.000, no threshold lowered and
  * none ever has been.
+ *
+ * v0.7.0 adds no eval and removes none: the release is a dashboard restyle and
+ * a Backlog recut, both graded by the existing assertion suite rather than by
+ * a conversational question, so the twenty evals from v0.6.0 carry forward
+ * unchanged and only the baseline's stamp moves.
  */
-export const MILESTONE = 'v0.6.0 M5';
-export const RELEASE = 'v0.6.0';
+export const MILESTONE = 'v0.7.0 M5';
+export const RELEASE = 'v0.7.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
