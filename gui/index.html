@@ -12,17 +12,18 @@
     Workbench  the current create session, plus a box to prompt from here
     Tokens     a component's token usage, and which values are still raw
 
-  The look is Notion-like, not Notion (v0.5.1 §3): rounded corners by default,
-  quiet borders, low diffuse shadows, a warm near-white light theme and a
-  soft-grey dark one, one calm surface under a quieter left rail, and the same
-  five-step type ramp. Hand-written — there is no Notion package to depend on in
-  the first place, and taking any other dependency is out of scope by rule, not
+  The look is light-first (v0.7.0 §1): a neutral near-white canvas, white
+  raised surfaces held by 1px light-grey hairlines, near-black ink with a mid-
+  grey secondary, rounded corners by default and low diffuse shadows, one calm
+  surface under a quieter left rail, and the same five-step type ramp.
+  Hand-written — taking a dependency for any of it is out of scope by rule, not
   by omission.
 
-  Both themes are variable sets, and the viewer picks between them: light, dark,
-  or system (v0.5.1 §4). The choice lives in this browser's localStorage and is
-  applied before first paint, so the page never flashes the wrong theme. The
-  server learns nothing about it.
+  Light is the theme the page is drawn for; dark is the second reading of the
+  same palette, and the viewer picks between them: light, dark, or system
+  (v0.5.1 §4). The choice lives in this browser's localStorage and is applied
+  before first paint, so the page never flashes the wrong theme. The server
+  learns nothing about it.
 
   Values are shown, not merely printed: semantic colours are cards in a grid,
   primitive ramps are nine-step strips, typography tokens are live specimens,
@@ -40,10 +41,13 @@
     <style>
       /* --- palette ------------------------------------------------------
          Two variable sets, one per theme, drawn to the same temperament
-         (v0.5.1 §3): the light one warm near-white over soft warm greys with
-         ink slightly off-black, the dark one soft charcoal rather than pure
-         black. No webfont: Geist is named first so it is used where it is
-         already installed, and a system sans carries everyone else.
+         (v0.7.0 §1). The page is light-first: the plain `:root` set is the one
+         the design is drawn for — a neutral near-white canvas, white raised
+         surfaces, near-black ink, a mid-grey secondary ink, and 1px light-grey
+         hairlines. The dark set is the second reading of the same palette, a
+         neutral charcoal rather than pure black. No webfont: Geist is named
+         first so it is used where it is already installed, and a system sans
+         carries everyone else.
 
          The light set is the plain `:root` set. The dark set is written for the
          two ways a reader can be in dark: `system` (or no attribute at all)
@@ -52,16 +56,24 @@
          `system` deferring to the media query — see the theme contract in the
          head script. */
       :root {
-        --bg: #f8f7f4;
-        --layer: #fffefb;
-        --layer-accent: #f0eee9;
-        --ink: #33312d;
-        --muted: #7b776f;
-        --line: #e9e6e0;
-        --line-strong: #cdc9c1;
-        --accent: #2383e2;
+        /* The canvas is the near-white step and the raised surface is plain
+           white, never the other way round: a panel has to sit *above* the
+           page for its border and its shadow to mean anything, and a shadow
+           specimen drawn on a white card over a grey canvas is the one place
+           on the page where that difference is the content. */
+        --bg: #fafafa;
+        --layer: #ffffff;
+        --layer-accent: #f4f4f5;
+        --ink: #171717;
+        --muted: #71717a;
+        --line: #e5e5e5;
+        --line-strong: #d4d4d8;
+        /* The same blue family as before, one step darker: the old #2383e2
+           reads 3.9:1 on white, under the 4.5:1 small-text floor it has to
+           clear now that white is the surface it is always drawn on. */
+        --accent: #1a6fd4;
         --raw: #9a6a1a;
-        --shadow: 0 1px 2px rgba(28, 27, 25, 0.05), 0 2px 6px rgba(28, 27, 25, 0.04);
+        --shadow: 0 1px 2px rgba(9, 9, 11, 0.06), 0 2px 6px rgba(9, 9, 11, 0.05);
 
         --sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
         --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -110,13 +122,13 @@
       @media (prefers-color-scheme: dark) {
         :root[data-theme='system'],
         :root:not([data-theme]) {
-          --bg: #1c1b19;
-          --layer: #242320;
-          --layer-accent: #2f2d28;
-          --ink: #ecebe7;
-          --muted: #a19d95;
-          --line: #33312c;
-          --line-strong: #4b4741;
+          --bg: #18181b;
+          --layer: #212124;
+          --layer-accent: #2a2a2e;
+          --ink: #ededed;
+          --muted: #a1a1aa;
+          --line: #2e2e33;
+          --line-strong: #46464d;
           --accent: #7cb1ec;
           --raw: #d8b877;
           --shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.26);
@@ -124,13 +136,13 @@
       }
       /* dark, chosen in the page — the same set, whatever the OS says. */
       :root[data-theme='dark'] {
-        --bg: #1c1b19;
-        --layer: #242320;
-        --layer-accent: #2f2d28;
-        --ink: #ecebe7;
-        --muted: #a19d95;
-        --line: #33312c;
-        --line-strong: #4b4741;
+        --bg: #18181b;
+        --layer: #212124;
+        --layer-accent: #2a2a2e;
+        --ink: #ededed;
+        --muted: #a1a1aa;
+        --line: #2e2e33;
+        --line-strong: #46464d;
         --accent: #7cb1ec;
         --raw: #d8b877;
         --shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.26);
@@ -303,11 +315,14 @@
       }
 
       /* --- tiles ---------------------------------------------------------
-         A tile is a rounded, softly shadowed layer. The hairline it used to
-         carry is gone: a background shift and a low diffuse shadow already say
-         "this is a surface", and one fewer line is one less thing to read. */
+         A tile is a rounded, raised layer: white over the near-white canvas,
+         held by a 1px hairline (v0.7.0 §1). On a dark page a background shift
+         alone was enough to say "this is a surface"; on a light one the shift
+         is a couple of percent of luminance, so the edge does the work and the
+         low diffuse shadow only lifts it. */
       .panel {
         background: var(--layer);
+        border: 1px solid var(--line);
         border-radius: var(--radius-md);
         box-shadow: var(--shadow);
         padding: var(--space-3);
@@ -351,10 +366,13 @@
       p { margin: 0 0 1rem; }
       p:last-child { margin-bottom: 0; }
       code, pre { font-family: var(--mono); font-size: var(--type-02); }
+      /* A code block is a recessed surface, so it takes the grey fill rather
+         than the canvas colour: on a light page the canvas and the panel are
+         two percent of luminance apart, and a block that quiet is not a block. */
       pre {
         margin: 0 0 1rem;
         padding: 1rem;
-        background: var(--bg);
+        background: var(--layer-accent);
         border-radius: var(--radius-sm);
         white-space: pre-wrap;
         word-break: break-word;
