@@ -78,6 +78,70 @@ a container — an edge and a fill — with the air kept around it.
 Both themes hold throughout: every colour named above is a theme variable, so
 the dark set moves the whole anatomy without a second stylesheet.
 
+## The Backlog, cut by component (v0.7.0 §3)
+
+The Backlog panel used to be one flat `<ul>` of every outstanding line. Every
+line already names the component it is about, so since v0.7.0 §3 the panel is
+**one container per component** instead — the same container idiom the token
+sections wear, with the component's name in the header and the count of the
+lines it still owes as that header's chip. The panel's own header carries the
+**total** count beside the word "Backlog", in the same chip.
+
+The lines come from `lib/create.js`, which writes them in exactly two shapes:
+
+```
+TODO: tokenise `transparent` (Button/Rail background)
+TODO: fill contract slot `disabled` (Button/Rail)
+```
+
+The parse rule is stated rather than guessed at, and it is three steps:
+
+- **The last `(...)` group in the line names the component.** The scope words
+  that follow the name — `background`, `selected font-weight` — sit inside that
+  same group, and a value quoted earlier in the line may carry brackets of its
+  own, so it is the last group that is read.
+- **The longest leading run of words that matches a recorded component wins.**
+  What is inside the group is split on whitespace, and the longest run taken
+  from the front that exactly matches a component in `DESIGN-SYSTEM.md` is the
+  component. Recorded names carry no whitespace today, so in practice that is
+  the first word; the run is written that way so a name that grows one keeps
+  working.
+- **Anything else is unparsed.** A word the file does not record as a component
+  is not one, however much it looks like one — the dashboard shows the file, and
+  heading a container with a name nobody declared would be the page speaking
+  over it. Those lines collect in the one trailing container below.
+
+And three rules keep the rendering honest:
+
+- **File order, twice over.** Containers appear in the order their first line
+  appears in the Backlog, and the lines inside a container keep their own file
+  order. The unparsed container is always last.
+- **The line is rendered verbatim.** Nothing is stripped, split, re-worded or
+  re-punctuated — not the `TODO:` prefix, not the backticks, not the
+  parenthetical. It is escaped like every other string a hand-edited file
+  supplies, and that is all.
+- **An empty Backlog still speaks.** With no lines at all the panel renders one
+  container wearing the neutral label, a count of `0` and a `(none yet)` line —
+  the way Colours, Typography and the number sections answer emptiness — and the
+  header chip reads `0`.
+
+<!-- phyllum:backlog -->
+
+| setting | value | meaning |
+|---------|-------|---------|
+| ungrouped label | `other` | the label of the one trailing container holding every line that names no recorded component, and of the one empty container shown when the Backlog is empty |
+| empty line | `(none yet)` | what the one empty container says when there is no Backlog at all |
+| group source | `last (...) group` | the parenthetical read for a component name is the last bracketed group in the line, never an earlier one |
+| name match | `exact, against recorded components` | the longest leading run of whitespace-separated words inside that group that exactly matches a component name in `DESIGN-SYSTEM.md`; no normalising, lower-casing or stemming |
+| group order | `first appearance` | containers follow the order their first line appears in the Backlog, with the ungrouped container last |
+| line order | `file order` | lines keep the Backlog's own order inside their container |
+| line text | `verbatim` | the whole line as the file wrote it, escaped and otherwise untouched |
+| counts | `per container and total` | each container's header chip counts its own lines; the panel header's chip counts every line in the Backlog |
+
+Those settings are the page's `BACKLOG` constant, inside the region marked
+`phyllum:backlog-contract`, and the assertion suite reads both this table and
+that region — so the ref and the page cannot drift apart quietly.
+
 ## The on-page rail (v0.6.0 §4)
 
 GitBook's "On this page" pattern: a second, quieter rail — `nav.rail-toc`,

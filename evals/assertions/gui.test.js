@@ -463,6 +463,7 @@ test('a request with a foreign Host header is refused', { skip }, async () => {
 
 const GUI_PAGE = path.join(PACKAGE_ROOT, 'gui', 'index.html');
 const GUI_REF = path.join(PACKAGE_ROOT, 'skill', 'refs', 'gui', 'cards.md');
+const GUI_MAIN_REF = path.join(PACKAGE_ROOT, 'skill', 'refs', 'gui', 'gui.md');
 const readPage = () => fs.readFileSync(GUI_PAGE, 'utf8');
 
 /**
@@ -1229,6 +1230,233 @@ test('numbers show as sectioned lists and typography as live specimens', () => {
   for (const guard of ['safeSize', 'safeWeight', 'safeLeading']) {
     assert.ok(text.includes(guard), `${guard} guards what reaches a style attribute`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// The Backlog, cut by component (v0.7.0 §3)
+// ---------------------------------------------------------------------------
+
+/**
+ * The Backlog's own contract, lifted and run — the same trick the swatch and
+ * numbers regions above use. The region between the `phyllum:backlog-contract`
+ * markers is written pure on purpose, so the suite executes exactly the code
+ * the browser executes rather than a restatement of it; `esc` and `heading`
+ * are lifted out of the page too, because the region leans on the page's own
+ * escaping and the page's own header row rather than a second opinion.
+ */
+function backlogContract() {
+  const text = readPage();
+  const start = text.indexOf('// --- phyllum:backlog-contract');
+  const end = text.indexOf('// --- end phyllum:backlog-contract');
+  assert.ok(start !== -1 && end > start, 'the page marks its backlog-contract region');
+  const region = text.slice(start, end);
+  assert.ok(!/\b(document|window)\b/.test(region), 'the contract region touches no DOM');
+
+  const esc = text.match(/const esc = \(value\) =>[\s\S]*?;\n/);
+  const heading = text.match(/const heading = \(title, count, note\) =>[\s\S]*?;\n/);
+  assert.ok(esc && heading, 'the helpers the region leans on are the page\'s own');
+
+  const factory = new Function(
+    `${esc[0]}${heading[0]}${region}` +
+      '\nreturn { BACKLOG, backlogComponent, backlogGroups, backlogGroupHtml, backlogSections, heading };',
+  );
+  return factory();
+}
+
+/** The names `DESIGN-SYSTEM.md` records in these tests. */
+const BACKLOG_NAMES = ['Button/Rail', 'Button/Filter', 'Panel'];
+
+/** A backlog worth grouping — two components, interleaved, plus two strays. */
+const backlogLines = () => [
+  'TODO: fill contract slot `border-colour` (Panel)',
+  'TODO: tokenise `transparent` (Button/Rail background)',
+  'TODO: something nobody parsed',
+  'TODO: tokenise `0.5rem 0.75rem` (Button/Rail padding)',
+  'TODO: fill contract slot `disabled` (Button/Filter)',
+  'TODO: tokenise `1px` (Ghost/Thing border-width)',
+  'TODO: fill contract slot `border-colour` (Panel)',
+];
+
+test('a backlog line groups by the component its last parenthetical names', () => {
+  const contract = backlogContract();
+  const of = (line) => contract.backlogComponent(line, BACKLOG_NAMES);
+
+  // The two shapes `lib/create.js` writes, both read the same way.
+  assert.equal(of('TODO: tokenise `transparent` (Button/Rail background)'), 'Button/Rail');
+  assert.equal(of('TODO: fill contract slot `disabled` (Button/Rail)'), 'Button/Rail');
+  assert.equal(of('TODO: tokenise `600` (Button/Rail selected font-weight)'), 'Button/Rail');
+
+  // The *last* group wins, so a value carrying brackets of its own is not
+  // mistaken for the name.
+  assert.equal(of('TODO: tokenise `rgba(0, 0, 0, 0.2)` (Panel)'), 'Panel');
+  assert.equal(of('TODO: tokenise `x` (Panel) (Button/Filter)'), 'Button/Filter');
+
+  // A name the file does not record is not a component, however much it looks
+  // like one — and a line with no parenthetical at all names nothing.
+  assert.equal(of('TODO: tokenise `1px` (Ghost/Thing border-width)'), '');
+  assert.equal(of('TODO: something nobody parsed'), '');
+  assert.equal(of('TODO: tokenise `1px` ()'), '');
+  assert.equal(of(''), '');
+  assert.equal(of(undefined), '');
+
+  // With nothing recorded at all, nothing is a component.
+  assert.equal(contract.backlogComponent('TODO: x (Panel)', []), '');
+
+  // The match is exact — no lower-casing, no stemming, no prefix-of-a-name.
+  assert.equal(of('TODO: x (button/rail background)'), '');
+  assert.equal(of('TODO: x (Button)'), '');
+
+  // The longest leading run wins, so a recorded name carrying a space would
+  // beat the shorter name sitting inside it.
+  const spaced = ['Button', 'Button Rail'];
+  assert.equal(contract.backlogComponent('TODO: x (Button Rail background)', spaced), 'Button Rail');
+  assert.equal(contract.backlogComponent('TODO: x (Button background)', spaced), 'Button');
+});
+
+test('the backlog cuts into one group per component, in first-appearance and file order', () => {
+  const contract = backlogContract();
+  const groups = contract.backlogGroups(backlogLines(), BACKLOG_NAMES);
+
+  assert.deepEqual(
+    groups.map((group) => [group.label, group.lines.length]),
+    [['Panel', 2], ['Button/Rail', 2], ['Button/Filter', 1], [contract.BACKLOG.ungrouped, 2]],
+    'groups follow the order their first line appears, and `other` trails',
+  );
+  // Lines keep the file's order inside their group, verbatim.
+  assert.deepEqual(groups[1].lines, [
+    'TODO: tokenise `transparent` (Button/Rail background)',
+    'TODO: tokenise `0.5rem 0.75rem` (Button/Rail padding)',
+  ]);
+  // Every line lands in exactly one group, and none is lost or invented.
+  assert.equal(groups.reduce((total, group) => total + group.lines.length, 0), backlogLines().length);
+  // The unparsed group carries no component of its own.
+  assert.equal(groups.at(-1).component, '');
+  assert.deepEqual(groups.at(-1).lines, [
+    'TODO: something nobody parsed',
+    'TODO: tokenise `1px` (Ghost/Thing border-width)',
+  ]);
+  // With nothing unparsed there is no trailing group at all.
+  const clean = contract.backlogGroups(['TODO: x (Panel)'], BACKLOG_NAMES);
+  assert.deepEqual(clean.map((group) => group.label), ['Panel']);
+  // A non-array backlog is not a crash.
+  assert.deepEqual(contract.backlogGroups(null, BACKLOG_NAMES), []);
+});
+
+test('each backlog group renders as a container, headed by its component and its count', () => {
+  const contract = backlogContract();
+  const html = contract.backlogSections(backlogLines(), BACKLOG_NAMES);
+
+  // One container per group, each the page's own container idiom.
+  assert.equal((html.match(/<section class="container backlog-group"/g) ?? []).length, 4);
+  assert.ok(html.startsWith('<section class="container backlog-group"'), html.slice(0, 80));
+
+  // The headings are the page's own, so the count rides in the shared chip.
+  assert.deepEqual(
+    [...html.matchAll(/<h3>([^<]*) <span class="count">(\d+)<\/span><\/h3>/g)].map((m) => [m[1], m[2]]),
+    [['Panel', '2'], ['Button/Rail', '2'], ['Button/Filter', '1'], [contract.BACKLOG.ungrouped, '2']],
+  );
+  // The per-group counts add up to the total the panel header shows.
+  assert.equal(
+    [...html.matchAll(/<span class="count">(\d+)<\/span>/g)].reduce((sum, m) => sum + Number(m[1]), 0),
+    backlogLines().length,
+  );
+
+  // The component is on the container as data, and the trailing one has none.
+  assert.deepEqual(
+    [...html.matchAll(/data-component="([^"]*)"/g)].map((m) => m[1]),
+    ['Panel', 'Button/Rail', 'Button/Filter', ''],
+  );
+
+  // The line is the file's own words, whole — prefix, backticks, parenthetical.
+  assert.ok(html.includes('<li class="backlog__line">TODO: tokenise `transparent` (Button/Rail background)</li>'));
+  assert.equal((html.match(/<li class="backlog__line">/g) ?? []).length, backlogLines().length);
+});
+
+test('a hand-edited backlog line cannot write markup into the panel', () => {
+  const contract = backlogContract();
+  const hostile = contract.backlogSections(
+    ['TODO: tokenise `<img src=x onerror="alert(1)">` (Panel)', '<script>alert(2)</script>'],
+    ['Panel', '<b>evil</b>'],
+  );
+  // The angle brackets are what makes markup; the escaped text may still read
+  // the words `onerror=`, because that is what the file wrote.
+  assert.equal(/<img|<script/.test(hostile), false, hostile);
+  assert.ok(hostile.includes('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;'), hostile);
+  assert.ok(hostile.includes('&lt;script&gt;alert(2)&lt;/script&gt;'), hostile);
+
+  // A component name is escaped in the heading and in the attribute alike.
+  const named = contract.backlogSections(['TODO: x (<b>evil</b>)'], ['<b>evil</b>']);
+  assert.equal(/<b>/.test(named), false, named);
+  assert.ok(named.includes('data-component="&lt;b&gt;evil&lt;/b&gt;"'), named);
+});
+
+test('an empty backlog is still one honest container', () => {
+  const contract = backlogContract();
+  const empty = contract.backlogSections([], BACKLOG_NAMES);
+
+  assert.equal((empty.match(/<section class="container backlog-group"/g) ?? []).length, 1);
+  assert.ok(empty.includes(contract.heading(contract.BACKLOG.ungrouped, 0)), empty);
+  assert.ok(empty.includes('<p class="muted">' + contract.BACKLOG.empty + '</p>'), empty);
+  assert.equal(/<li/.test(empty), false, 'nothing is listed when there is nothing to list');
+  assert.deepEqual(contract.backlogSections([], BACKLOG_NAMES), contract.backlogSections(null, BACKLOG_NAMES));
+});
+
+test('the Backlog panel heads itself with the total count, and no flat list survives', () => {
+  const text = readPage();
+
+  // The total rides in the panel header, in the page's own count chip, beside
+  // the title — and the header row stays free for the action that comes next.
+  assert.ok(
+    text.includes('<div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2></div>'),
+    'the Backlog panel header carries a count chip beside its title',
+  );
+  assert.ok(
+    text.includes("el('backlog-count').textContent = String(backlog.length);"),
+    'and the render fills it with the whole backlog\'s length',
+  );
+  assert.ok(text.includes("el('backlog').innerHTML = backlogSections(backlog, componentNames);"));
+
+  // The old flat list is gone from the page, not merely unused.
+  assert.equal(text.includes('Nothing outstanding.'), false, 'the old empty line is gone');
+  assert.equal(/backlog\.map\(/.test(text), false, 'the flat `<ul>` renderer is gone');
+
+  // Both themes hold: the Backlog's own rules name no colour of their own, and
+  // the container it wears is the one every other group wears.
+  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
+  const rules = stylesheet.match(/\.backlog[^{]*\{[^}]*\}/g) ?? [];
+  assert.ok(rules.length >= 2, 'the Backlog list has rules of its own');
+  for (const rule of rules) {
+    assert.equal(/#[0-9a-fA-F]{3}|rgb\(|hsl\(/.test(rule), false, `${rule} names a raw colour`);
+  }
+  assert.match(stylesheet, /\.backlog-group \+ \.backlog-group \{ margin-top: var\(--space-3\); \}/);
+});
+
+test('the backlog settings are the ones skill/refs/gui/gui.md records', () => {
+  const contract = backlogContract();
+  const rows = tableAfter(fs.readFileSync(GUI_MAIN_REF, 'utf8'), '<!-- phyllum:backlog -->', 'refs/gui/gui.md');
+  const setting = (name) => {
+    const row = rows.find((row) => row[0] === name);
+    assert.ok(row, `the ref records the \`${name}\` setting`);
+    return stripTicks(row[1]);
+  };
+  assert.equal(setting('ungrouped label'), contract.BACKLOG.ungrouped);
+  assert.equal(setting('empty line'), contract.BACKLOG.empty);
+  // The label is the same neutral word the number sections already use, so the
+  // page says "ungrouped" in one word wherever it has to.
+  const numbers = numbersContract();
+  assert.equal(contract.BACKLOG.ungrouped, numbers.NUMBERS.ungrouped);
+});
+
+test('the fixture\'s own backlog groups under the component it names', () => {
+  const contract = backlogContract();
+  const system = systemJson(readFixture(POPULATED_FIXTURE));
+  const names = system.components.map((component) => component.name);
+  const groups = contract.backlogGroups(system.backlog, names);
+
+  assert.ok(system.backlog.length > 0, 'the fixture has a backlog to cut');
+  assert.deepEqual(groups.map((group) => group.label), ['Button/Primary']);
+  assert.equal(groups[0].lines.length, system.backlog.length, 'every fixture line found its component');
+  assert.ok(contract.backlogGroupHtml(groups[0]).includes('data-component="Button/Primary"'));
 });
 
 // ---------------------------------------------------------------------------

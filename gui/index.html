@@ -608,6 +608,17 @@
       .number__name { font-weight: 600; }
       .number__value { font-family: var(--mono); color: var(--muted); }
 
+      /* The Backlog as one container per component (v0.7.0 §3). A group is the
+         page's own container — the base rule above already gives it its edge,
+         its corner and its fill — so all that is left here is the step between
+         one group and the next, and the list of lines inside it. That list is
+         the number list's anatomy exactly: the same grid, the same gap, the
+         same air under the heading, because a stack of short lines under a
+         heading is one idiom on this page and not two. */
+      .backlog-group + .backlog-group { margin-top: var(--space-3); }
+      .backlog-list { display: grid; gap: 0.375rem; margin-top: var(--space-1); list-style: none; }
+      .backlog__line { font-size: var(--type-02); }
+
       /* A recognised reading draws its value beside the caption (v0.6.0 §2):
          the specimen leads, then the same name-and-value line as ever. The
          lead column has a floor rather than a fixed width, so the captions
@@ -867,7 +878,7 @@
             </div>
           </div>
           <div class="panel">
-            <div class="panel__header"><h2>Backlog</h2></div>
+            <div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2></div>
             <div id="backlog"></div>
           </div>
         </section>
@@ -2036,6 +2047,129 @@
         );
       }
 
+      // --- phyllum:backlog-contract -------------------------------------------
+      // The Backlog is a list of lines a person can read, and each of them
+      // already says which component it is about — in the parenthetical the
+      // writer in `lib/create.js` puts at the end of it:
+      //
+      //   TODO: tokenise `transparent` (Button/Rail background)
+      //   TODO: fill contract slot `disabled` (Button/Rail)
+      //
+      // So since v0.7.0 §3 the panel is no longer one flat list. It is one
+      // container per component — the same container idiom every other group
+      // on the page wears (v0.7.0 §2) — with the component's name in the
+      // header and the number of lines it still owes as that header's chip.
+      // The rule that finds the component is deliberately dull, and stated out
+      // loud here rather than guessed at:
+      //
+      //   1. Take the LAST `(...)` group in the line. The scope words that
+      //      follow the name — `background`, `selected font-weight` — sit
+      //      inside that same group, and a value quoted earlier in the line
+      //      may carry brackets of its own, so it is the last group that names
+      //      a component.
+      //   2. Split what is inside it on whitespace, then take the longest
+      //      leading run of those words that exactly matches a component the
+      //      file records. Recorded names carry no whitespace today, so in
+      //      practice that is the first word; the run is written anyway so a
+      //      name that one day grows one keeps working.
+      //   3. Anything else is unparsed. A name the file does not record is not
+      //      a component — the dashboard shows the file, and inventing a
+      //      heading for a word nobody declared would be the page speaking
+      //      over it — so the line falls to the one trailing container.
+      //
+      // Groups appear in the order their first line appears in the file, and
+      // lines keep their file order inside a group. The line itself is
+      // rendered verbatim: nothing is stripped, split or re-worded on the way
+      // to the page. The region is kept pure — `esc` and `heading` arrive from
+      // the surrounding scope and nothing here touches the DOM — because the
+      // assertion suite lifts it out and runs it.
+      const BACKLOG = {
+        // The label the trailing container of lines naming no component takes.
+        // It is the Numbers sections' own word for the same idea — a group
+        // that has no reading of its own — so the page says "ungrouped" once,
+        // in one word, wherever it has to.
+        ungrouped: 'other',
+        // What an empty Backlog says. `(none yet)` is the page's answer to an
+        // empty section everywhere else, and the Backlog gives the same one
+        // rather than inventing a second phrasing for nothing-to-show.
+        empty: '(none yet)',
+      };
+
+      /**
+       * The component one backlog line names, or `''` when it names none.
+       * `names` is the set of components the file records; a word it does not
+       * hold is not a component name, however much it looks like one.
+       */
+      function backlogComponent(line, names) {
+        const groups = [...String(line ?? '').matchAll(/\(([^()]*)\)/g)];
+        if (groups.length === 0) return '';
+        const words = groups[groups.length - 1][1].trim().split(/\s+/).filter(Boolean);
+        const recorded = names instanceof Set ? names : new Set(Array.isArray(names) ? names : []);
+        for (let take = words.length; take > 0; take -= 1) {
+          const candidate = words.slice(0, take).join(' ');
+          if (recorded.has(candidate)) return candidate;
+        }
+        return '';
+      }
+
+      /** The backlog cut into groups — one per component in first-appearance
+       *  order, lines in file order inside each, and `other` last. */
+      function backlogGroups(lines, names) {
+        const groups = [];
+        const byName = new Map();
+        const ungrouped = { label: BACKLOG.ungrouped, component: '', lines: [] };
+        for (const line of Array.isArray(lines) ? lines : []) {
+          const text = String(line ?? '');
+          const component = backlogComponent(text, names);
+          if (!component) {
+            ungrouped.lines.push(text);
+            continue;
+          }
+          if (!byName.has(component)) {
+            const group = { label: component, component, lines: [] };
+            byName.set(component, group);
+            groups.push(group);
+          }
+          byName.get(component).lines.push(text);
+        }
+        if (ungrouped.lines.length) groups.push(ungrouped);
+        return groups;
+      }
+
+      /**
+       * One group as a container: the component's name over the lines it still
+       * owes. The header is the page's own `heading`, so the count rides in the
+       * same chip every other section's count rides in, and the line text is
+       * escaped like everything else a hand-edited file supplies.
+       */
+      function backlogGroupHtml(group) {
+        const items = group.lines.map((line) => '<li class="backlog__line">' + esc(line) + '</li>').join('');
+        return (
+          '<section class="container backlog-group" data-component="' + esc(group.component) + '">' +
+          heading(group.label, group.lines.length) +
+          '<ul class="backlog-list">' + items + '</ul></section>'
+        );
+      }
+
+      /**
+       * The Backlog panel's body. An empty backlog is still one honest
+       * container wearing the neutral label, a count of `0` and the page's
+       * `(none yet)` line — the way Colours, Typography and the number
+       * sections all answer emptiness.
+       */
+      function backlogSections(lines, names) {
+        const groups = backlogGroups(lines, names);
+        if (groups.length === 0) {
+          return (
+            '<section class="container backlog-group" data-component="">' +
+            heading(BACKLOG.ungrouped, 0) +
+            '<p class="muted">' + BACKLOG.empty + '</p></section>'
+          );
+        }
+        return groups.map(backlogGroupHtml).join('');
+      }
+      // --- end phyllum:backlog-contract ---------------------------------------
+
       /** A heading's own text, its count span excluded — the rail's label. */
       function headingLabel(h) {
         const clone = h.cloneNode(true);
@@ -2170,10 +2304,18 @@
         el('component-list').innerHTML = list || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
         el('token-view-list').innerHTML = list || '<p class="muted">No components yet.</p>';
 
+        // The Backlog, cut into one container per component (v0.7.0 §3). The
+        // names a line is matched against are the ones the file records — the
+        // same list the buttons above were just built from — so a component
+        // the file does not declare never grows a heading of its own.
         const backlog = Array.isArray(system.backlog) ? system.backlog : [];
-        el('backlog').innerHTML = backlog.length
-          ? '<ul>' + backlog.map((item) => '<li>' + esc(item) + '</li>').join('') + '</ul>'
-          : '<p class="muted">Nothing outstanding.</p>';
+        const componentNames = new Set(
+          (Array.isArray(system.components) ? system.components : [])
+            .map((component) => component && component.name)
+            .filter(Boolean),
+        );
+        el('backlog-count').textContent = String(backlog.length);
+        el('backlog').innerHTML = backlogSections(backlog, componentNames);
 
         if (state.selected !== null) showComponent(state.selected);
       }
