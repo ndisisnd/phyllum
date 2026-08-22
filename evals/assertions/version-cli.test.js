@@ -23,6 +23,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { execute } from '../../lib/execute.js';
+import { installSkill } from '../../lib/init.js';
 import { tokenizeLine } from '../../lib/parse-args.js';
 import {
   compareVersions,
@@ -31,12 +32,15 @@ import {
   registryUrlFor,
 } from '../../lib/npm-registry.js';
 import { renderVersion, runVersion, statusFor } from '../../lib/version-command.js';
-import { packageVersion } from '../../lib/template.js';
+import { packageVersion, skillFiles } from '../../lib/template.js';
+import { SKILL_INSTALL_DIR } from '../../lib/write.js';
 import { PACKAGE_ROOT, POPULATED_FIXTURE, readFixture, snapshotPaths, withTempDir } from './helpers.js';
 
 const run = (line, ctx) => execute(tokenizeLine(line), ctx);
 const manifestVersion = () =>
   JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')).version;
+const installedPath = (root, rel) =>
+  path.join(root, ...SKILL_INSTALL_DIR.split('/'), ...rel.split('/'));
 
 /** A fetch that answers with one registry document, and counts its calls. */
 function stubFetch(version, { calls = [] } = {}) {
@@ -90,33 +94,44 @@ test('version works before init, and creates nothing', async () => {
 // The three verdicts
 // ---------------------------------------------------------------------------
 
+// Each verdict is checked from a directory with no skill copy, so the closing
+// line answers for the CLI alone. The skill copy has its own section below; a
+// verdict test must not depend on the state of whatever tree it happens to run
+// in.
+
 test('an install that matches the registry is reported as up to date', async () => {
-  const installed = manifestVersion();
-  const result = await runVersion({ fetch: stubFetch(installed) });
-  assert.equal(result.status, 'current');
-  assert.equal(result.code, 0);
-  assert.ok(result.out.includes('up to date'));
-  assert.ok(result.out.includes(`installed         ${installed}`));
-  assert.ok(result.out.includes(`latest published  ${installed}`));
-  assert.ok(!result.out.includes('phyllum upgrade'), 'nothing to suggest when there is nothing to do');
+  await withTempDir(async (dir) => {
+    const installed = manifestVersion();
+    const result = await runVersion({ cwd: dir, fetch: stubFetch(installed) });
+    assert.equal(result.status, 'current');
+    assert.equal(result.code, 0);
+    assert.ok(result.out.includes('up to date'));
+    assert.ok(result.out.includes(`installed         ${installed}`));
+    assert.ok(result.out.includes(`latest published  ${installed}`));
+    assert.ok(!result.out.includes('phyllum upgrade'), 'nothing to suggest when there is nothing to do');
+  });
 });
 
 test('an outdated install shows both versions and points at upgrade', async () => {
-  const installed = manifestVersion();
-  const result = await runVersion({ fetch: stubFetch('99.0.0') });
-  assert.equal(result.status, 'outdated');
-  assert.equal(result.code, 0, 'being behind is news, not a failure');
-  assert.ok(result.out.includes(`installed         ${installed}`), 'the installed version is shown');
-  assert.ok(result.out.includes('latest published  99.0.0'), 'and the published one');
-  assert.ok(result.out.includes('`phyllum upgrade`'), 'and what to do about it');
+  await withTempDir(async (dir) => {
+    const installed = manifestVersion();
+    const result = await runVersion({ cwd: dir, fetch: stubFetch('99.0.0') });
+    assert.equal(result.status, 'outdated');
+    assert.equal(result.code, 0, 'being behind is news, not a failure');
+    assert.ok(result.out.includes(`installed         ${installed}`), 'the installed version is shown');
+    assert.ok(result.out.includes('latest published  99.0.0'), 'and the published one');
+    assert.ok(result.out.includes('`phyllum upgrade`'), 'and what to do about it');
+  });
 });
 
 test('an install ahead of the registry says so instead of suggesting an update', async () => {
-  const result = await runVersion({ fetch: stubFetch('0.0.1') });
-  assert.equal(result.status, 'ahead');
-  assert.equal(result.code, 0);
-  assert.ok(result.out.includes('ahead of what is published'));
-  assert.ok(!result.out.includes('`phyllum upgrade`'));
+  await withTempDir(async (dir) => {
+    const result = await runVersion({ cwd: dir, fetch: stubFetch('0.0.1') });
+    assert.equal(result.status, 'ahead');
+    assert.equal(result.code, 0);
+    assert.ok(result.out.includes('ahead of what is published'));
+    assert.ok(!result.out.includes('`phyllum upgrade`'));
+  });
 });
 
 test('statusFor compares versions rather than strings', () => {
@@ -316,21 +331,189 @@ test('no help, menu or greeting hints at an available update', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// The skill copy row (plan v0.5.2 §3, §4 — built in v0.7.1)
+// ---------------------------------------------------------------------------
+
+test('a copy written by init is reported as in step with this install', async () => {
+  await withTempDir(async (dir) => {
+    installSkill(dir);
+    const result = await runVersion({ cwd: dir, fetch: stubFetch(manifestVersion()) });
+    assert.equal(result.code, 0);
+    assert.equal(result.skill.finding, 'in-step');
+    assert.ok(result.out.includes('  skill copy        in step with this install'));
+    assert.ok(!result.out.includes('phyllum upgrade'), 'nothing to re-sync when the copy matches');
+  });
+});
+
+test('a differing copy is reported as a neutral count, never as behind or out of date', async () => {
+  await withTempDir(async (dir) => {
+    installSkill(dir);
+    const changed = installedPath(dir, 'SKILL.md');
+    fs.writeFileSync(changed, `${fs.readFileSync(changed, 'utf8')}\nedited by hand\n`);
+    fs.rmSync(installedPath(dir, 'refs/apply/apply.md'));
+    fs.writeFileSync(installedPath(dir, 'refs/left-behind.md'), 'an orphan\n');
+
+    const total = skillFiles().length;
+    const result = await runVersion({ cwd: dir, fetch: stubFetch(manifestVersion()) });
+    assert.equal(result.code, 0, 'finding drift is news, not a failure');
+    assert.equal(result.skill.finding, 'differs');
+    assert.ok(
+      result.out.includes(`  skill copy        3 of ${total} files differ from this install`),
+      `the count is the whole claim; got:\n${result.out}`,
+    );
+    assert.ok(!/behind/i.test(result.out), '"behind" asserts staleness the comparison cannot prove');
+    assert.ok(!/out of date/i.test(result.out), 'nor can it tell a stale copy from a deliberate edit');
+  });
+});
+
+test('a single differing file agrees with its verb', async () => {
+  await withTempDir(async (dir) => {
+    installSkill(dir);
+    fs.rmSync(installedPath(dir, 'SKILL.md'));
+
+    const total = skillFiles().length;
+    const result = await runVersion({ cwd: dir, fetch: stubFetch(manifestVersion()) });
+    assert.ok(result.out.includes(`  skill copy        1 of ${total} files differs from this install`));
+  });
+});
+
+test('a directory with no copy at all still prints the row, and creates nothing', async () => {
+  await withTempDir(async (dir) => {
+    const result = await runVersion({ cwd: dir, fetch: stubFetch(manifestVersion()) });
+    assert.equal(result.code, 0);
+    assert.equal(result.skill.finding, 'none');
+    assert.ok(result.out.includes('  skill copy        none in this directory'));
+    assert.deepEqual(snapshotPaths(dir), [], 'reporting on a copy never makes one');
+  });
+});
+
+test('every skill-copy finding exits 0, through the command surface as well', async () => {
+  const arrange = {
+    'in-step': (dir) => installSkill(dir),
+    differs: (dir) => {
+      installSkill(dir);
+      fs.rmSync(installedPath(dir, 'SKILL.md'));
+    },
+    none: () => {},
+  };
+  for (const [finding, prepare] of Object.entries(arrange)) {
+    await withTempDir(async (dir) => {
+      prepare(dir);
+      const direct = await runVersion({ cwd: dir, fetch: stubFetch(manifestVersion()) });
+      assert.equal(direct.skill.finding, finding);
+      assert.equal(direct.code, 0, `${finding} must not fail the command`);
+
+      const viaCli = await run('version', { cwd: dir, fetch: stubFetch(manifestVersion()) });
+      assert.equal(viaCli.code, 0, `${finding} must not fail the command`);
+      assert.ok(viaCli.out.includes('  skill copy        '), `${finding} still prints the row`);
+    });
+  }
+});
+
+test('the skill row is fully answered under --skip-registry, which asks nobody', async () => {
+  await withTempDir(async (dir) => {
+    installSkill(dir);
+    fs.rmSync(installedPath(dir, 'SKILL.md'));
+
+    const original = globalThis.fetch;
+    const calls = [];
+    globalThis.fetch = async (url) => {
+      calls.push(String(url));
+      return { ok: true, status: 200, json: async () => ({ version: '0.0.0' }) };
+    };
+    try {
+      const result = await runVersion({ cwd: dir, skipRegistry: true });
+      assert.deepEqual(calls, [], 'the skill row costs no network');
+      assert.equal(result.code, 0);
+      assert.equal(result.status, 'unknown', 'the registry rows are the unknown ones');
+      assert.ok(result.out.includes('latest published  unknown'));
+      assert.ok(
+        result.out.includes(`  skill copy        1 of ${skillFiles().length} files differs from this install`),
+        'the skill row is answered even when the registry is not',
+      );
+      assert.ok(result.out.includes('`phyllum upgrade`'), 'and the fix is still named');
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});
+
+// The two closing-line rules (plan v0.5.2 §4).
+
+test('an outdated CLI and a differing copy are covered by one sentence', async () => {
+  await withTempDir(async (dir) => {
+    installSkill(dir);
+    fs.rmSync(installedPath(dir, 'SKILL.md'));
+
+    const result = await runVersion({ cwd: dir, fetch: stubFetch('99.0.0') });
+    assert.equal(result.status, 'outdated');
+    assert.equal(result.skill.finding, 'differs');
+    assert.ok(
+      result.out.includes('Run `phyllum upgrade` to move to 99.0.0 and re-sync the skill copy.'),
+      `one run does both jobs, so one sentence names it once; got:\n${result.out}`,
+    );
+    assert.equal(
+      result.out.split('`phyllum upgrade`').length - 1,
+      1,
+      'naming upgrade twice would misdescribe the work',
+    );
+  });
+});
+
+test('a current CLI with a differing copy names upgrade on its own account', async () => {
+  await withTempDir(async (dir) => {
+    installSkill(dir);
+    fs.rmSync(installedPath(dir, 'SKILL.md'));
+
+    const result = await runVersion({ cwd: dir, fetch: stubFetch(manifestVersion()) });
+    assert.equal(result.status, 'current');
+    assert.ok(!result.out.includes('Nothing to do.'), 'there is something to do');
+    assert.ok(
+      result.out.includes('Run `phyllum upgrade` to re-sync the skill copy with this install.'),
+      `re-syncing is worth doing with no new version to fetch; got:\n${result.out}`,
+    );
+    assert.ok(!/move to/.test(result.out), 'there is nowhere to move to');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The rendering itself
 // ---------------------------------------------------------------------------
 
-test('renderVersion always ends in one newline and always shows both rows', () => {
+test('renderVersion always ends in one newline and always shows all three rows', () => {
   for (const status of ['current', 'outdated', 'ahead', 'unknown']) {
-    const out = renderVersion({
-      installed: '1.0.0',
-      latest: status === 'unknown' ? null : '2.0.0',
-      status,
-      check: { reason: 'offline' },
-    });
-    assert.ok(out.endsWith('\n'));
-    assert.ok(!out.endsWith('\n\n'));
-    assert.ok(out.includes('installed'));
-    assert.ok(out.includes('latest published'));
-    assert.ok(out.startsWith('phyllum 1.0.0 — '));
+    for (const skill of [
+      { finding: 'in-step', total: 46, differing: 0 },
+      { finding: 'differs', total: 46, differing: 3 },
+      { finding: 'none', total: 46, differing: 0 },
+    ]) {
+      const out = renderVersion({
+        installed: '1.0.0',
+        latest: status === 'unknown' ? null : '2.0.0',
+        status,
+        check: { reason: 'offline' },
+        skill,
+      });
+      assert.ok(out.endsWith('\n'));
+      assert.ok(!out.endsWith('\n\n'));
+      assert.ok(out.includes('installed'));
+      assert.ok(out.includes('latest published'));
+      assert.ok(out.includes('skill copy'), 'the third row prints for every finding');
+      assert.ok(out.startsWith('phyllum 1.0.0 — '));
+    }
   }
+});
+
+test('the three rows are labelled in one column', () => {
+  const out = renderVersion({
+    installed: '1.0.0',
+    latest: '2.0.0',
+    status: 'outdated',
+    check: {},
+    skill: { finding: 'differs', total: 46, differing: 3 },
+  });
+  const rows = out.split('\n').filter((line) => line.startsWith('  '));
+  assert.equal(rows.length, 3);
+  const values = rows.map((line) => line.indexOf(line.trim().split(/ {2,}/)[1]));
+  assert.equal(new Set(values).size, 1, `the values start in one column:\n${out}`);
 });
