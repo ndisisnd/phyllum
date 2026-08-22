@@ -19,6 +19,12 @@
   Hand-written — taking a dependency for any of it is out of scope by rule, not
   by omission.
 
+  Everything on that surface is grouped one way (v0.7.0 §2): a container — an
+  edge, a corner, a fill and its padding — with its title on the left of a
+  header row and its count chip, and later its one action, on the right. Counts,
+  token slots and the `applied` badge are all the same chip. Actions are one
+  solid primary button and a ghost secondary, and nothing else.
+
   Light is the theme the page is drawn for; dark is the second reading of the
   same palette, and the viewer picks between them: light, dark, or system
   (v0.5.1 §4). The choice lives in this browser's localStorage and is applied
@@ -65,6 +71,12 @@
         --layer: #ffffff;
         --layer-accent: #f4f4f5;
         --ink: #171717;
+        /* The one step off the ink, and it exists for a single reason: the
+           solid primary button is filled with `--ink`, so its hover state has
+           nowhere else to go (v0.7.0 §2). It moves *towards* the muted ink in
+           either theme, so the press reads as a softening rather than as a
+           second colour. */
+        --ink-hover: #3f3f46;
         --muted: #71717a;
         --line: #e5e5e5;
         --line-strong: #d4d4d8;
@@ -91,10 +103,12 @@
         --radius-md: 0.625rem;
 
         /* the spacing scale — 8-based, and the page spaces from here alone
-           (v0.6.0 §3). Negative space is the grouping tool: a section is told
-           apart from its neighbour by the air above it, not by a rule drawn
-           between them, so the step between sections (`--space-6`) is several
-           times the step inside one (`--space-1`). */
+           (v0.6.0 §3). Air is still the grouping tool: the step between
+           sections (`--space-3`) is three times the step inside one
+           (`--space-1`). Since v0.7.0 §2 a section also carries an edge of its
+           own — it is a container — so the air and the border share the work
+           the air used to do alone, and the step between sections came down a
+           notch rather than growing to carry both. */
         --space-1: 0.5rem;
         --space-2: 1rem;
         --space-3: 1.5rem;
@@ -126,6 +140,7 @@
           --layer: #212124;
           --layer-accent: #2a2a2e;
           --ink: #ededed;
+          --ink-hover: #d4d4d8;
           --muted: #a1a1aa;
           --line: #2e2e33;
           --line-strong: #46464d;
@@ -140,6 +155,7 @@
         --layer: #212124;
         --layer-accent: #2a2a2e;
         --ink: #ededed;
+        --ink-hover: #d4d4d8;
         --muted: #a1a1aa;
         --line: #2e2e33;
         --line-strong: #46464d;
@@ -314,19 +330,66 @@
         nav.rail-toc { display: none; }
       }
 
-      /* --- tiles ---------------------------------------------------------
-         A tile is a rounded, raised layer: white over the near-white canvas,
-         held by a 1px hairline (v0.7.0 §1). On a dark page a background shift
-         alone was enough to say "this is a surface"; on a light one the shift
-         is a couple of percent of luminance, so the edge does the work and the
-         low diffuse shadow only lifts it. */
-      .panel {
+      /* --- containers -----------------------------------------------------
+         The container is the page's one grouping idiom (v0.7.0 §2), and every
+         group of content on the page is one: a 1px hairline, the medium
+         corner, the raised layer over the near-white canvas, and the medium
+         step of padding inside. On a dark page a background shift alone was
+         enough to say "this is a surface"; on a light one the shift is a
+         couple of percent of luminance, so the edge does the work.
+
+         Two names, one anatomy. `.panel` is a container that also sits on the
+         page itself, so it takes the low diffuse shadow that lifts it off the
+         canvas; `.container` is a container nested inside a panel or standing
+         in a stack of its own, and it stays flat — a shadow inside a shadow
+         reads as a mistake. `.number-group` is a container the numbers
+         contract already emits under a name of its own, so it is styled here
+         rather than made to grow a second class. */
+      .panel,
+      .number-group,
+      .container {
         background: var(--layer);
         border: 1px solid var(--line);
         border-radius: var(--radius-md);
-        box-shadow: var(--shadow);
         padding: var(--space-3);
       }
+      .panel { box-shadow: var(--shadow); }
+      /* A panel that is only a stack of containers is not itself a surface —
+         it would draw a second border around the borders it holds. The token
+         panel is the one of these: a title, and then one container per
+         section. */
+      .panel--bare {
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        padding: 0;
+      }
+      /* The container header row: the title on the left, and the count chip
+         and the container's one action on the right. Where the title is an
+         `h3` written by a contract region the heading itself is the row (see
+         `h2, h3` below); where the header needs to hold a button as well, it
+         is this element. */
+      .panel__header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+        margin-bottom: var(--space-2);
+      }
+      .panel__header > h2 { margin: 0; }
+      .panel__header > :first-child { margin-right: auto; }
+      /* A heading *is* a header row: the title, then whatever the section put
+         after it — today a count chip, tomorrow an action — pushed to the far
+         edge by the chip's own `margin-left`. No wrapper markup, so the
+         contract regions that emit these headings keep emitting exactly what
+         they emitted before. */
+      h2, h3 {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+      }
+      /* A chip in a header row is one of a row's items, not one of a wrapping
+         list's, so the spacing it carries for the list is dropped here. */
+      h2 > .chip, h3 > .chip, .panel__header > .chip { margin: 0; }
       h2 {
         font-size: var(--type-04);
         font-weight: 400;
@@ -346,10 +409,15 @@
         margin: var(--space-3) 0 var(--space-1);
       }
       h3:first-child { margin-top: 0; }
-      /* The token panel is a documentation page, so its sections are pushed
-         apart by the large step while the lines inside one stay close. */
-      #tokens-body > h3 { margin-top: var(--space-6); }
-      #tokens-body > h3:first-child { margin-top: 0; }
+      /* The token panel is a documentation page and every section in it is a
+         container of its own (v0.7.0 §2). A section is now told apart from
+         its neighbour by its own edge as well as by the air above it, so the
+         step between them comes down from the largest to the medium one: the
+         border is doing half the work the whitespace used to do alone. */
+      #tokens-body > .container,
+      #tokens-body > .number-group { margin-top: var(--space-3); }
+      #tokens-body > .container:first-child,
+      #tokens-body > .number-group:first-child { margin-top: 0; }
       /* The one-line description under a section heading (v0.6.0 §3): what
          the section shows, said once, in the muted ink and at the reading
          width prose wants. */
@@ -360,7 +428,6 @@
         color: var(--muted);
       }
       .lede h2 { font-size: var(--type-05); }
-      .count { color: var(--muted); font-weight: 400; font-size: var(--type-02); }
       .grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
       .muted { color: var(--muted); }
       p { margin: 0 0 1rem; }
@@ -379,19 +446,6 @@
       }
       ul { margin: 0; padding-left: 1.1rem; }
       li { margin: 0.25rem 0; }
-      button.tile-action {
-        font: inherit;
-        font-size: var(--type-02);
-        color: inherit;
-        background: transparent;
-        border: 1px solid var(--line);
-        border-radius: var(--radius-sm);
-        padding: 0.4rem 1rem;
-        cursor: pointer;
-      }
-      button.tile-action:hover { background: var(--layer-accent); }
-      button.tile-action[aria-selected='true'],
-      button.tile-action[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
       .list button {
         display: block;
         width: 100%;
@@ -541,12 +595,13 @@
       .ramp__strip .swatch__value { font-size: 0.6875rem; }
 
       /* --- number groups and type specimens ------------------------------ */
-      /* A number group is a section in its own right now (v0.6.0 §1), so it
-         carries the spacing an `h3` would have carried — the heading inside it
-         is a first child, and first children have their top margin removed. It
-         takes the same large step every other section on the page takes
-         (v0.6.0 §3), so the eye groups by air alone. */
-      .number-group { margin-top: var(--space-6); }
+      /* A number group is a section in its own right (v0.6.0 §1) and, since
+         v0.7.0 §2, a container like every other section on the page — the
+         base rule above gives it its edge, its corner and its fill. What is
+         left here is the step between it and the section before it, the same
+         medium step every token container takes now that each one carries an
+         edge of its own. */
+      .number-group { margin-top: var(--space-3); }
       .number-group:first-child { margin-top: 0; }
       .number-list { display: grid; gap: 0.375rem; margin-top: var(--space-1); list-style: none; }
       .number { display: flex; gap: 0.75rem; align-items: baseline; font-size: var(--type-02); }
@@ -604,21 +659,79 @@
       .specimen__meta code { font-size: var(--type-01); }
       .specimen__line { margin-top: 0.25rem; word-break: break-word; }
 
-      /* --- chips, form, drop --------------------------------------------- */
-      .chip {
-        display: inline-block;
-        padding: 0.15rem 0.6rem;
-        margin: 0 0.35rem 0.35rem 0;
+      /* --- chips, buttons, form, drop -------------------------------------
+         One chip idiom for everything small the page says about something
+         else (v0.7.0 §2): a section's count, a token's slot, a component's
+         `applied` badge, and any status that comes later. Small type, the
+         recessed grey fill, the muted ink and the small corner — a chip is a
+         label, never a control, so it never takes the ink of one. */
+      .chip,
+      .count {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.1rem 0.5rem;
         font-size: var(--type-01);
+        font-weight: 500;
+        line-height: 1.6;
+        color: var(--muted);
+        background: var(--layer-accent);
         border: 1px solid var(--line);
         border-radius: var(--radius-sm);
       }
+      /* Chips come in wrapping rows, so they carry their own spacing; a count
+         is one chip at the end of a header row, so it carries none and is
+         pushed to the far edge instead. */
+      .chip { margin: 0 0.35rem 0.35rem 0; }
+      .count { margin-left: auto; font-variant-numeric: tabular-nums; }
       /* The `applied` badge (v0.5.0 §3.4): the chip the page already has, in a
          colour the page already uses. A reading of the codebase is not a
-         warning and not a highlight, so it takes the quiet one. */
+         warning and not a highlight, so it takes the quiet one — which since
+         v0.7.0 §2 is simply the chip's own. */
       .chip.applied { color: var(--muted); }
       .chip.token { color: var(--accent); border-color: var(--accent); }
       .chip.raw { color: var(--raw); border-color: var(--raw); }
+
+      /* Two buttons and a hierarchy (v0.7.0 §2). `.btn--primary` is the one
+         solid, high-contrast action a container is allowed: the page's own ink
+         as the fill, the layer colour as the text, and no second hue invented
+         for it. `.btn--ghost` is everything else: no fill and no edge until
+         the pointer is on it, so a row of secondary actions stays quiet.
+         `button.tile-action` — the segmented filters and the preview toggles —
+         is the same button with an edge, and it shares this base rather than
+         restating it. */
+      .btn,
+      button.tile-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        font: inherit;
+        font-size: var(--type-02);
+        font-weight: 500;
+        padding: 0.4rem 1rem;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      .btn--primary {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: var(--layer);
+      }
+      .btn--primary:hover { background: var(--ink-hover); border-color: var(--ink-hover); }
+      .btn--ghost { color: var(--muted); }
+      .btn--ghost:hover { background: var(--layer-accent); color: var(--ink); }
+      /* The outlined member of the family: the base above, plus the hairline
+         that makes a segmented control read as one, and the accent it wears
+         while it is the live choice. */
+      button.tile-action { border-color: var(--line); }
+      button.tile-action:hover { background: var(--layer-accent); }
+      button.tile-action[aria-selected='true'],
+      button.tile-action[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
+      .btn:focus-visible,
+      button.tile-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       form.prompt { display: flex; gap: 0.5rem; margin-top: 1rem; }
       form.prompt input {
         flex: 1;
@@ -745,7 +858,7 @@
               <button class="tile-action" data-scope="components" aria-selected="false">components</button>
             </div>
           </div>
-          <div class="panel" id="tokens-panel"><h2>Tokens</h2><div id="tokens-body" class="muted">reading…</div></div>
+          <div class="panel panel--bare" id="tokens-panel"><h2>Tokens</h2><div id="tokens-body" class="muted">reading…</div></div>
           <div class="panel" id="components-panel">
             <h2>Components</h2>
             <div class="grid">
@@ -753,7 +866,10 @@
               <div id="component-detail" class="muted">Pick a component to see its spec and code.</div>
             </div>
           </div>
-          <div class="panel"><h2>Backlog</h2><div id="backlog"></div></div>
+          <div class="panel">
+            <div class="panel__header"><h2>Backlog</h2></div>
+            <div id="backlog"></div>
+          </div>
         </section>
 
         <section class="view" id="view-workbench" hidden>
@@ -763,7 +879,7 @@
               <div id="draft-input" class="muted">No create session is open.</div>
               <form class="prompt" id="prompt-form">
                 <input id="prompt-text" placeholder="Prompt an edit — it goes to your Claude Code session" />
-                <button class="tile-action" type="submit">Send</button>
+                <button class="btn btn--primary" type="submit">Send</button>
               </form>
               <div class="drop" id="drop">Drop an image here to start an image-mode create</div>
             </div>
@@ -1703,15 +1819,25 @@
         typography: 'Type tokens, each set in its own reading.',
       };
 
+      /**
+       * One token section as a container (v0.7.0 §2). Every section on the
+       * page is grouped the same way — an edge, a corner, the raised layer —
+       * so the wrapper is written once here rather than at each section, and
+       * the heading inside it is the container's own header row.
+       */
+      const container = (body) => '<section class="container">' + body + '</section>';
+
       function coloursSection(rows) {
-        if (!rows.length) return heading('Colours', 0, NOTES.colours) + '<p class="muted">(none yet)</p>';
+        if (!rows.length) return container(heading('Colours', 0, NOTES.colours) + '<p class="muted">(none yet)</p>');
         const cards = rows.map((row) => cardHtml(cell(row, 'token', 0), cell(row, 'value', 1))).join('');
-        return heading('Colours', rows.length, NOTES.colours) + '<div class="cards">' + cards + '</div>';
+        return container(heading('Colours', rows.length, NOTES.colours) + '<div class="cards">' + cards + '</div>');
       }
 
       function primitivesSection(rows) {
         if (!rows.length) return '';
-        return heading('Colours — Primitives', rows.length, NOTES.primitives) + rampGroups(rows).map(rampHtml).join('');
+        return container(
+          heading('Colours — Primitives', rows.length, NOTES.primitives) + rampGroups(rows).map(rampHtml).join(''),
+        );
       }
 
       // --- phyllum:numbers-contract -----------------------------------------
@@ -1878,7 +2004,9 @@
 
       /** Typography as live specimens — each token set in its own reading. */
       function typographySection(rows) {
-        if (!rows.length) return heading('Typography', 0, NOTES.typography) + '<p class="muted">(none yet)</p>';
+        if (!rows.length) {
+          return container(heading('Typography', 0, NOTES.typography) + '<p class="muted">(none yet)</p>');
+        }
         const specimens = rows
           .map((row) => {
             const token = cell(row, 'token', 0);
@@ -1903,7 +2031,9 @@
             );
           })
           .join('');
-        return heading('Typography', rows.length, NOTES.typography) + '<div class="specimens">' + specimens + '</div>';
+        return container(
+          heading('Typography', rows.length, NOTES.typography) + '<div class="specimens">' + specimens + '</div>',
+        );
       }
 
       /** A heading's own text, its count span excluded — the rail's label. */

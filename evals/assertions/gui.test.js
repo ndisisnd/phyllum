@@ -1179,9 +1179,14 @@ test('the page reads in a constrained column, spaced and headed from its own sca
   for (const [step, value] of steps) {
     assert.equal(value, step * 0.5, `--space-${step} is ${step} steps of the 8-based scale`);
   }
-  // A section is set apart by the large step; the lines inside one are not.
-  assert.match(stylesheet.match(/\.number-group \{([^}]*)\}/)[1], /margin-top: var\(--space-6\)/);
-  assert.match(stylesheet, /#tokens-body > h3 \{ margin-top: var\(--space-6\); \}/);
+  // A section is set apart by a step off the same scale; the lines inside one
+  // are not. Since v0.7.0 §2 each token section is a container with an edge of
+  // its own, so the step between sections is the medium one rather than the
+  // largest — the border carries half of what the whitespace used to carry
+  // alone, and the two together still say "new section" louder than the
+  // 0.5rem between two lines inside one.
+  assert.match(stylesheet.match(/\.number-group \{([^}]*)\}/)[1], /margin-top: var\(--space-3\)/);
+  assert.match(stylesheet, /#tokens-body > \.container,\n\s*#tokens-body > \.number-group \{ margin-top: var\(--space-3\); \}/);
   assert.match(stylesheet.match(/\.number-list \{([^}]*)\}/)[1], /margin-top: var\(--space-1\)/);
 
   // Three heading tiers and no more: the panel title, the section heading, and

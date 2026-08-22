@@ -60,16 +60,20 @@ cleanly.
 ## Page anatomy (v0.6.0 §3)
 
 The Library view is a documentation page, so it is laid out like one: a
-constrained column, a section that says what it shows, and grouping by air
-rather than by rules.
+constrained column, a section that says what it shows, and one grouping idiom
+used everywhere. Until v0.7.0 that grouping was air alone; since v0.7.0 §2 it is
+a container — an edge and a fill — with the air kept around it.
 
 | Part | The rule |
 |------|----------|
 | Content column | one reading measure, `--measure` (`68rem`), carried by `main`, which is centred in whatever is left of the window. Content wider than the column — a ramp strip, a long line of code — scrolls inside its own container rather than widening the column for everything else |
 | Section description | every token section carries **one muted line** under its heading, in a `p.section__note`, saying what the section shows. It describes the *rendering*, never the reader's system: `Semantic colours, drawn as cards.` A number section builds its line from its own reading — `Number tokens that apply to corner radius.` — and the trailing group says it has no reading of its own. The label inside the sentence is the file's own words, escaped like the heading above it |
-| Spacing scale | `--space-1` … `--space-6`, 8-based (`0.5rem` a step), and the page spaces from there alone. The step **between** sections is `--space-6`; the steps **inside** one are `--space-1` and `--space-2`. Negative space is the grouping tool — the page draws no rule between sections |
+| Spacing scale | `--space-1` … `--space-6`, 8-based (`0.5rem` a step), and the page spaces from there alone. The step **between** sections is `--space-3` and the steps **inside** one are `--space-1` and `--space-2`, so a section is still set apart by several times the step between its own lines. Since v0.7.0 §2 a section also carries an edge of its own, so the air and the border share the work the air used to do alone |
 | Heading tiers | **three, and no more.** Tier one is the panel title (`h2`, `--type-04`; the page title in a `.lede` takes `--type-05`). Tier two is the section heading (`h3`, `--type-03`), one size for every section — Colours, each `applies to` reading, Typography. Tier three is the small muted group label at `--type-01`: the rail label, a ramp's base name, a specimen's meta line. A card title sits at `--type-02`, under tier two, so it never reads as a section of its own |
 | Card idiom | one corner and one shadow across the page. Every *surface* — the panel, the colour card's swatch, the preview stage, the shadow specimen's card — takes `--radius-md`; the small parts inside one — chips, buttons, inputs, the spacing specimen's bars — take `--radius-sm`. Lift is `--shadow` and nothing else |
+| Container idiom (v0.7.0 §2) | every group of content is a **container**: a 1px `--line` edge, `--radius-md`, the `--layer` fill on the `--bg` canvas, `--space-3` of padding. `.panel` is a container sitting on the page, so it also takes `--shadow`; `.container` and `.number-group` are containers inside one or in a stack of their own, and stay flat. A container that only holds containers is `.panel--bare` — no edge, no fill, no lift — because a border drawn around borders says nothing. The header row is the heading itself (`h2`/`h3` are flex rows), or `.panel__header` where the row also holds a button: title left, count chip and action right |
+| Chip idiom (v0.7.0 §2) | one chip for everything small the page says *about* something else — a section's count (`.count`), a token's slot (`.chip.token`, `.chip.raw`), the `applied` badge (`.chip.applied`), and any status added later. `--type-01`, the `--layer-accent` fill, the `--muted` ink, a `--line` edge and `--radius-sm`. A chip is a label, never a control, so it never takes the ink of one |
+| Button hierarchy (v0.7.0 §2) | one base (`.btn`, shared with `button.tile-action`) and three readings. `.btn--primary` is the single solid action a container may hold: the page's own `--ink` as the fill, `--layer` as the text, `--ink-hover` on hover, and no hue invented for it. `.btn--ghost` is transparent until the pointer is on it. `button.tile-action` is the base plus a `--line` edge, wearing `--accent` while `aria-selected` or `aria-pressed` is true |
 
 Both themes hold throughout: every colour named above is a theme variable, so
 the dark set moves the whole anatomy without a second stylesheet.
