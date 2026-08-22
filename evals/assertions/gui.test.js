@@ -564,7 +564,12 @@ test('the card dimensions are the ones skill/refs/gui/cards.md records, in the t
   // v0.5.1 §3.1 inverts the old rule: rounded corners are the default, and the
   // whole page rounds from the two-step scale rather than from a value typed
   // wherever a corner happened to be needed.
-  const radii = [...text.matchAll(/border-radius:\s*([^;]+);/g)].map((match) => match[1].trim());
+  // Only the stylesheet is read. Since v0.6.0 §2 the page also writes a corner
+  // in JS — a radius specimen wears the *token's* value, which is the whole
+  // point of drawing it — and that corner is by definition not a step on the
+  // page's own scale.
+  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
+  const radii = [...stylesheet.matchAll(/border-radius:\s*([^;]+);/g)].map((match) => match[1].trim());
   assert.ok(radii.length >= 8, `only ${radii.length} rounded corners — the page is meant to round by default`);
   for (const value of radii) {
     // The one exception, and it is a shape rather than a corner: the preview's
@@ -788,9 +793,22 @@ function numbersContract() {
   const heading = text.match(/const heading = \(title, count\) =>[\s\S]*?;\n/);
   assert.ok(esc && cell && heading, 'the helpers the region leans on are the page\'s own');
 
+  // The shape gates a specimen passes its value through (v0.6.0 §2) are the
+  // page's own too — the region never writes a second opinion on what a length
+  // is, so they are lifted rather than restated here.
+  const isLength = text.match(/const isLength = \(value\) =>[^\n]*\n/);
+  const isLengths = text.match(/const isLengths = \(value\) => \{[\s\S]*?\n {6}\};\n/);
+  const isShadow = text.match(/const isShadow = \(value\) => \{[\s\S]*?\n {6}\};\n/);
+  const isShadowList = text.match(/const isShadowList = \(value\) => \{[\s\S]*?\n {6}\};\n/);
+  const splitTopLevel = text.match(/function splitTopLevel\(text\) \{[\s\S]*?\n {6}\}\n/);
+  assert.ok(
+    isLength && isLengths && isShadow && isShadowList && splitTopLevel,
+    'the shape gates a specimen leans on are the page\'s own',
+  );
+
   const factory = new Function(
-    `${esc[0]}${cell[0]}${heading[0]}${region}` +
-      '\nreturn { NUMBERS, numberGroups, numberGroupHtml, numbersSections, heading };',
+    `${esc[0]}${cell[0]}${heading[0]}${isLength[0]}${isLengths[0]}${isShadow[0]}${isShadowList[0]}${splitTopLevel[0]}${region}` +
+      '\nreturn { NUMBERS, numberGroups, numberGroupHtml, numbersSections, heading, specimenKind, specimenHtml };',
   );
   return factory();
 }
@@ -859,7 +877,7 @@ test('each number group renders as its own section — no bar, no track', () => 
   const groups = contract.numberGroups(numberRows(), 'applies to');
   const html = groups.map(contract.numberGroupHtml).join('');
 
-  const items = html.match(/<li class="number" data-token="[^"]+">/g) ?? [];
+  const items = html.match(/<li class="number[^"]*" data-token="[^"]+"/g) ?? [];
   assert.equal(items.length, numberRows().length, 'one line per token, and only one');
   assert.equal((html.match(/<section class="number-group"/g) ?? []).length, groups.length);
 
@@ -871,17 +889,23 @@ test('each number group renders as its own section — no bar, no track', () => 
     'the group is its verbatim label, at the shared tier, over its list',
   );
   assert.ok(html.includes('<h3>corner radius <span class="count">2</span></h3>'), html.slice(0, 200));
+  // `Border Width` is a reading the specimen table does not recognise, so its
+  // token stays exactly the line it has always been.
   assert.ok(
-    html.includes('<li class="number" data-token="rounded-sm">' +
-      '<span class="number__name">rounded-sm</span><code class="number__value">4px</code></li>'),
+    html.includes('<li class="number" data-token="hairline">' +
+      '<span class="number__name">hairline</span><code class="number__value">1px</code></li>'),
     'and a line is the name in the page ink then the value in the mono face',
   );
   assert.ok(html.includes('data-applies=""'), 'the trailing group carries no reading of its own');
 
-  // Nothing here is a picture of a number any more: no bar element, no track,
-  // and no inline width to size one with.
+  // Nothing here is a picture of a *ratio* any more: no bar element, no track,
+  // and no inline width sizing one token against another. The inline styles a
+  // specimen writes are the token's own property and nothing else.
   assert.equal(/bar__|class="bar\b|track|fill/.test(html), false, html.slice(0, 160));
-  assert.equal(html.match(/style=/g), null, 'no line is sized by an inline style');
+  for (const style of html.match(/style="([^"]*)"/g) ?? []) {
+    assert.match(style, /^style="(border-radius|gap|box-shadow):/, `${style} is the token's own property`);
+    assert.equal(/width:|height:/.test(style), false, `${style} sizes nothing`);
+  }
 
   // A hand-edited file cannot write markup into the list, heading included.
   const hostile = contract.numberGroupHtml(
@@ -924,6 +948,169 @@ test('the ungrouped label is the one skill/refs/gui/cards.md records', () => {
   const recorded = rows.find((row) => row[0] === 'ungrouped label');
   assert.ok(recorded, 'the ref records the label a blank `applies to` cell falls to');
   assert.equal(stripTicks(recorded[1]), contract.NUMBERS.ungrouped);
+});
+
+// ---------------------------------------------------------------------------
+// Specimens: a recognised reading draws its value (v0.6.0 §2)
+// ---------------------------------------------------------------------------
+
+/** One row per specimen kind, plus a reading the table does not recognise. */
+const specimenRows = () => [
+  { token: 'radius-md', value: '0.625rem', 'applies to': 'radius' },
+  { token: 'space-lg', value: '1rem', 'applies to': 'spacing' },
+  { token: 'shadow-panel', value: '0 1px 2px rgba(28, 27, 25, 0.05), 0 2px 6px rgba(28, 27, 25, 0.04)', 'applies to': 'shadow' },
+  { token: 'fade-fast', value: '120ms', 'applies to': 'duration' },
+];
+
+test('a recognised reading earns its specimen by the substring rule, and nothing else does', () => {
+  const contract = numbersContract();
+
+  // The rule is a lower-cased substring test, so the file's own wording is
+  // read without being normalised first.
+  for (const [reading, kind] of [
+    ['radius', 'radius'],
+    ['corner radius', 'radius'],
+    ['Border-Radius', 'radius'],
+    ['spacing', 'spacing'],
+    ['padding', 'spacing'],
+    ['gap', 'spacing'],
+    ['inner margin', 'spacing'],
+    ['shadow', 'shadow'],
+    ['Elevation', 'shadow'],
+  ]) {
+    assert.equal(contract.specimenKind(reading), kind, `${reading} draws a ${kind}`);
+  }
+
+  // Anything the words do not match draws nothing at all — including the
+  // trailing group, whose reading is empty by definition.
+  for (const reading of ['duration', 'z-index', 'opacity', 'breakpoint', '', undefined]) {
+    assert.equal(contract.specimenKind(reading), '', `${reading} draws nothing`);
+  }
+});
+
+test('each specimen draws the token\'s own property, and only that property', () => {
+  const contract = numbersContract();
+  const html = contract.numbersSections(specimenRows(), 'applies to');
+
+  assert.ok(
+    html.includes('<li class="number number--specimen" data-token="radius-md" data-specimen="radius">' +
+      '<span class="number__specimen"><span class="specimen-tile" style="border-radius:0.625rem"></span></span>'),
+    'a radius is a tile wearing that corner',
+  );
+  assert.ok(
+    html.includes('<span class="specimen-gap" style="gap:1rem">' +
+      '<span class="specimen-gap__block"></span><span class="specimen-gap__block"></span></span>'),
+    'a spacing is the real gap between two blocks',
+  );
+  assert.ok(
+    html.includes('<span class="specimen-card" style="box-shadow:0 1px 2px rgba(28, 27, 25, 0.05), ' +
+      '0 2px 6px rgba(28, 27, 25, 0.04)"></span>'),
+    'a shadow is a card carrying it, stacked layers and all',
+  );
+
+  // The caption is the line the list has always had, kept verbatim beneath the
+  // drawing rather than replaced by it.
+  assert.ok(html.includes('<span class="number__name">radius-md</span><code class="number__value">0.625rem</code>'));
+
+  // The unrecognised reading is untouched: no class, no data attribute, no
+  // drawing, no style.
+  assert.ok(
+    html.includes('<li class="number" data-token="fade-fast">' +
+      '<span class="number__name">fade-fast</span><code class="number__value">120ms</code></li>'),
+    'an unrecognised reading keeps the plain name-and-value line',
+  );
+  assert.equal((html.match(/style=/g) ?? []).length, 3, 'one style per drawn token, and no more');
+});
+
+test('a value the page cannot read falls back to the plain line, never to an unchecked style', () => {
+  const contract = numbersContract();
+
+  // Every one of these is a value a person could type into DESIGN-SYSTEM.md:
+  // an escape out of the attribute, a second declaration, a comment, a fetch.
+  const hostile = [
+    ['radius', '4px;background:url(http://x/y)'],
+    ['radius', '4px" onmouseover="alert(1)'],
+    ['radius', 'var(--brand)'],
+    ['radius', 'expression(alert(1))'],
+    ['spacing', '1rem;color:red'],
+    ['spacing', 'calc(100% - 2px)'],
+    ['spacing', '/* */16px'],
+    ['shadow', '0 1px 2px red;background:url(x)'],
+    ['shadow', 'none'],
+    ['shadow', '0 1px 2px rgba(0,0,0,0.2), url(x)'],
+  ];
+  for (const [applies, value] of hostile) {
+    const html = contract.numberGroupHtml(
+      contract.numberGroups([{ token: 'suspect', value, 'applies to': applies }], 'applies to')[0],
+    );
+    assert.equal(/style=/.test(html), false, `${value} never reaches a style attribute`);
+    assert.equal(/number--specimen|number__specimen/.test(html), false, `${value} draws nothing`);
+    assert.ok(html.includes('<li class="number" data-token="suspect">'), html);
+    // The value is still shown — the dashboard shows the file — but only ever
+    // as escaped text inside the caption, where it can open no attribute and
+    // start no tag. Strip the markup and nothing that could be markup is left.
+    assert.equal(/[<>"]/.test(html.replace(/<[^>]*>/g, '')), false, html);
+  }
+
+  // A bad row does not take its neighbours down with it: the section still
+  // draws every value it can read.
+  const mixed = contract.numberGroupHtml(
+    contract.numberGroups(
+      [
+        { token: 'good', value: '4px', 'applies to': 'radius' },
+        { token: 'bad', value: 'var(--brand)', 'applies to': 'radius' },
+      ],
+      'applies to',
+    )[0],
+  );
+  assert.equal((mixed.match(/style=/g) ?? []).length, 1, 'the readable row still draws');
+  assert.ok(mixed.includes('<li class="number" data-token="bad">'), 'and the unreadable one is a plain line');
+});
+
+test('the specimen mapping is the one skill/refs/gui/cards.md records', () => {
+  const contract = numbersContract();
+  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:numbers -->', 'refs/gui/cards.md');
+  const recorded = (name) => {
+    const row = rows.find((entry) => entry[0] === name);
+    assert.ok(row, `the ref records ${name}`);
+    return stripTicks(row[1]);
+  };
+
+  for (const kind of Object.keys(contract.NUMBERS.specimens)) {
+    assert.deepEqual(
+      recorded(`${kind} readings`).split(',').map((word) => word.trim()),
+      contract.NUMBERS.specimens[kind],
+      `the ${kind} keywords in the ref are the page's own`,
+    );
+  }
+  assert.deepEqual(
+    rows.filter((row) => row[0].endsWith(' readings')).map((row) => row[0].replace(' readings', '')),
+    Object.keys(contract.NUMBERS.specimens),
+    'the ref records every kind the page draws, in the page\'s own order — the first match wins',
+  );
+
+  // The rule itself is written down, not left as a hidden heuristic, and so is
+  // the gate each kind holds its values to.
+  assert.equal(recorded('reading match'), 'lower-case substring');
+  const page = readPage();
+  for (const [kind, gate] of [['radius', 'isLengths'], ['spacing', 'isLength'], ['shadow', 'isShadowList']]) {
+    assert.equal(recorded(`${kind} gate`), gate, `the ref names the gate ${kind} uses`);
+    assert.ok(page.includes(`const ${gate} = `), `${gate} is a shape gate the page defines once`);
+  }
+});
+
+test('the specimens are drawn in the page\'s own surfaces, so both themes get them', () => {
+  const text = readPage();
+  for (const rule of ['.specimen-tile', '.specimen-card', '.specimen-gap', '.specimen-gap__block', '.number__specimen']) {
+    assert.ok(text.includes(rule + ' '), `${rule} is styled by the page`);
+  }
+  // Every colour a specimen wears is a theme variable, so the dark set moves
+  // it without a second stylesheet — the same way a swatch or a card works.
+  const block = text.slice(text.indexOf('.specimen-tile {'), text.indexOf('.specimens {'));
+  for (const colour of block.match(/(background|border|border-color):\s*([^;]+);/g) ?? []) {
+    assert.match(colour, /var\(--/, `${colour.trim()} is drawn from the page's own variables`);
+  }
+  assert.equal(/#[0-9a-f]{3,8}|rgba?\(/i.test(block), false, 'no specimen hard-codes a colour');
 });
 
 test('the fixture\'s own Numbers row groups under the reading the file gives it', () => {

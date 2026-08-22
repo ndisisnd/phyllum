@@ -434,6 +434,48 @@
       .number__name { font-weight: 600; }
       .number__value { font-family: var(--mono); color: var(--muted); }
 
+      /* A recognised reading draws its value beside the caption (v0.6.0 §2):
+         the specimen leads, then the same name-and-value line as ever. The
+         lead column has a floor rather than a fixed width, so the captions
+         line up while a `2rem` gap is still allowed to be twice a `1rem` one.
+         The rows breathe a little more than a plain list does, because each
+         one is now a drawing rather than a line of text. */
+      .number--specimen { align-items: center; }
+      .number-list:has(.number--specimen) { gap: 0.75rem; }
+      .number__specimen { flex: none; display: flex; align-items: center; min-width: 5rem; }
+
+      /* Every specimen is drawn in the page's own surfaces, so both themes get
+         it for free: the fills are `--layer-accent` over `--layer`, and the
+         edges are the same hairlines every other surface wears. Only the one
+         property the token is about — the corner, the gap, the shadow — comes
+         from the value itself. */
+      .specimen-tile {
+        display: block;
+        width: 3rem;
+        height: 3rem;
+        background: var(--layer-accent);
+        border: 1px solid var(--line-strong);
+      }
+      .specimen-card {
+        display: block;
+        width: 4.5rem;
+        height: 2.5rem;
+        background: var(--layer);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+      }
+      /* The gap is the drawing here, so the two blocks either side of it stay
+         deliberately plain — a pair of bars, the space between them true to
+         scale. */
+      .specimen-gap { display: flex; align-items: center; }
+      .specimen-gap__block {
+        display: block;
+        width: 0.75rem;
+        height: 2rem;
+        background: var(--line-strong);
+        border-radius: var(--radius-sm);
+      }
+
       .specimens { display: grid; gap: 1.25rem; }
       .specimen__meta { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
       .specimen__meta code { font-size: var(--type-01); }
@@ -953,13 +995,47 @@
 
       /**
        * A box-shadow, read conservatively: two to four lengths and one colour,
-       * optionally inset. A comma-separated stack of shadows is not read at
-       * all — it is listed unrendered rather than guessed at.
+       * optionally inset. A length may be a bare `0` — almost every real
+       * shadow starts with one, and a unitless zero is a length in CSS. A
+       * comma-separated stack of shadows is not read here at all; see
+       * `isShadowList` below for the one caller that reads a whole stack.
        */
       const isShadow = (value) => {
         const text = String(value ?? '').trim();
-        return /^(inset\s+)?(-?\d*\.?\d+(px|rem|em)\s+){2,4}(#[0-9a-f]{3,8}|rgba?\(\s*[\d.\s,%]+\))$/i.test(text);
+        return /^(inset\s+)?((-?\d*\.?\d+(px|rem|em)|0)\s+){2,4}(#[0-9a-f]{3,8}|rgba?\(\s*[\d.\s,%]+\))$/i.test(text);
       };
+
+      /**
+       * A stack of shadows — the shape a real `shadow-*` token usually wears,
+       * two or three layers deep. The preview still refuses a stack (a spec
+       * that writes one is describing an element the page cannot project), but
+       * a token specimen is drawing the token's own value, so it reads the
+       * whole stack: split at the commas that sit outside every bracket, then
+       * hold every layer to `isShadow` above. One bad layer fails the lot.
+       */
+      const isShadowList = (value) => {
+        const parts = splitTopLevel(String(value ?? ''));
+        return parts.length >= 1 && parts.every((part) => isShadow(part));
+      };
+
+      /** A value cut at its top-level commas, so `rgba(1, 2, 3)` stays whole. */
+      function splitTopLevel(text) {
+        const parts = [];
+        let depth = 0;
+        let current = '';
+        for (const character of text) {
+          if (character === '(') depth += 1;
+          else if (character === ')') depth -= 1;
+          if (character === ',' && depth === 0) {
+            parts.push(current);
+            current = '';
+            continue;
+          }
+          current += character;
+        }
+        parts.push(current);
+        return parts.map((part) => part.trim()).filter((part) => part !== '');
+      }
 
       /** Every shape gate, by the name the projection table gives it. */
       const PREVIEW_SHAPES = {
@@ -1453,16 +1529,69 @@
       // groups and the rows inside them keep the order the file gives them. A
       // label is the file's own words, never a normalised category name — the
       // dashboard shows the file. A row whose `applies to` cell is empty joins
-      // one trailing group labelled `NUMBERS.ungrouped`. The region is kept
-      // pure — `esc`, `cell` and `heading` arrive from the surrounding scope,
-      // and nothing here touches the DOM — because the assertion suite lifts
-      // it out and runs it.
+      // one trailing group labelled `NUMBERS.ungrouped`. Since v0.6.0 §2 a
+      // reading the page recognises also *draws* its values — a radius as a
+      // tile with that corner, a shadow as a card carrying it, a spacing as
+      // the real gap at scale — with the name-and-value line kept as the
+      // caption beneath. The region is kept pure — `esc`, `cell`, `heading`
+      // and the shape gates `isLength`, `isLengths` and `isShadowList` arrive
+      // from the surrounding scope, and nothing here touches the DOM —
+      // because the assertion suite lifts it out and runs it.
       const NUMBERS = {
         // The label the trailing group of rows with no `applies to` reading takes.
         // It is also the label the one empty section wears when the table has
         // no rows at all: an honest "nothing here" beats an invented heading.
         ungrouped: 'other',
+        // Which readings draw their value, and on what words (v0.6.0 §2). The
+        // rule is deliberately dull and stated out loud rather than guessed at:
+        // lower-case the reading, and if it *contains* one of these words the
+        // section draws that specimen. `corner radius`, `radius` and
+        // `border-radius` therefore all draw a tile; an unlisted reading such
+        // as `duration` draws nothing and keeps the plain line. The first
+        // matching kind in this order wins, so a reading that names two things
+        // still has one answer.
+        specimens: {
+          radius: ['radius', 'corner', 'rounding'],
+          spacing: ['spacing', 'space', 'padding', 'gap', 'margin', 'inset'],
+          shadow: ['shadow', 'elevation'],
+        },
       };
+
+      /** The specimen kind a reading earns, or `''` for a reading with none. */
+      function specimenKind(reading) {
+        const text = String(reading ?? '').toLowerCase();
+        for (const [kind, words] of Object.entries(NUMBERS.specimens)) {
+          if (words.some((word) => text.includes(word))) return kind;
+        }
+        return '';
+      }
+
+      /**
+       * The specimen for one token, or `''` when the value is not a shape the
+       * page is willing to draw. The value comes out of a file a person edits
+       * by hand, so it reaches a `style` attribute only through the same gates
+       * the typography specimens and the preview use — a radius is one to four
+       * lengths, a gap is one length, a shadow is a stack of layers each read
+       * conservatively. Anything else is not drawn at all, and the caller falls
+       * back to the plain name-and-value line rather than inlining a value the
+       * page could not read.
+       */
+      function specimenHtml(kind, value) {
+        const text = String(value ?? '').trim();
+        if (kind === 'radius' && isLengths(text)) {
+          return '<span class="specimen-tile" style="border-radius:' + esc(text) + '"></span>';
+        }
+        if (kind === 'spacing' && isLength(text)) {
+          return (
+            '<span class="specimen-gap" style="gap:' + esc(text) + '">' +
+            '<span class="specimen-gap__block"></span><span class="specimen-gap__block"></span></span>'
+          );
+        }
+        if (kind === 'shadow' && isShadowList(text)) {
+          return '<span class="specimen-card" style="box-shadow:' + esc(text) + '"></span>';
+        }
+        return '';
+      }
 
       /** The Numbers rows cut into labelled groups, groups and rows in file order. */
       function numberGroups(rows, note) {
@@ -1488,19 +1617,29 @@
       }
 
       /**
-       * One group as its own section — the file's label over a plain
-       * name-and-value list. The heading is the page's `heading`, so the
-       * reading sits at the same tier as Colours and Typography rather than
-       * one rung under a shared title.
+       * One group as its own section — the file's label over its tokens. The
+       * heading is the page's `heading`, so the reading sits at the same tier
+       * as Colours and Typography rather than one rung under a shared title.
+       *
+       * The specimen is decided once for the whole section, from the reading,
+       * and then per row from the value: a row whose value the page cannot
+       * read keeps the plain name-and-value line while its neighbours draw,
+       * because a value that fails a gate is never inlined.
        */
       function numberGroupHtml(group) {
+        const kind = specimenKind(group.applies);
         const items = group.rows
-          .map(
-            (entry) =>
-              '<li class="number" data-token="' + esc(entry.token) + '">' +
+          .map((entry) => {
+            const specimen = kind ? specimenHtml(kind, entry.value) : '';
+            return (
+              '<li class="number' + (specimen ? ' number--specimen' : '') + '"' +
+              ' data-token="' + esc(entry.token) + '"' +
+              (specimen ? ' data-specimen="' + esc(kind) + '"' : '') + '>' +
+              (specimen ? '<span class="number__specimen">' + specimen + '</span>' : '') +
               '<span class="number__name">' + esc(entry.token) + '</span>' +
-              '<code class="number__value">' + esc(entry.value) + '</code></li>',
-          )
+              '<code class="number__value">' + esc(entry.value) + '</code></li>'
+            );
+          })
           .join('');
         return (
           '<section class="number-group" data-applies="' + esc(group.applies) + '">' +

@@ -7,7 +7,7 @@ The Library view renders each token in the thing it describes:
 |---------|-----------|
 | Colours | one **card** per token — a filled, rounded swatch, with the token name and then its value printed *beneath* the swatch (v0.4.0 §5.5, below) |
 | Colours — Primitives | **swatches** in **ramp strips**: one strip per base name, its steps side by side in file order, each step's label sitting on the swatch itself |
-| Numbers | **no section of its own** — the table is cut by the `applies to` column into one first-class section per distinct reading, sections and tokens in file order, each token a plain name-and-value line (v0.6.0, below) |
+| Numbers | **no section of its own** — the table is cut by the `applies to` column into one first-class section per distinct reading, sections and tokens in file order, a recognised reading drawing each value as a **specimen** — a radius tile, a spacing gap, a shadow card — with the name-and-value line as its caption, and an unrecognised one keeping the plain line (v0.6.0, below) |
 | Typography | a **live specimen** per token, set in that token's own size, weight and line-height |
 
 Two rules decide how a swatch is drawn, and both are numbers rather than
@@ -127,22 +127,62 @@ rung underneath a shared title:
 - **An empty table still speaks.** With no number rows at all the page renders
   one section wearing that same neutral label, a count of `0` and a
   `(none yet)` line — the way Colours and Typography answer emptiness.
-- **Each token is one plain line** — the name in the page's own ink, then the
+- **Each token is one line** — the name in the page's own ink, then the
   value in the mono face in the muted ink, the same idiom the colour card's
-  value line uses. No bar, no track, no visualisation.
+  value line uses. No bar, no track, no measurement.
+
+### Specimens: a recognised reading draws its value (v0.6.0 §2)
+
+A `radius` section that prints `0.625rem` has told you a fact and shown you
+nothing. So a reading the page recognises **draws** its values, the way a
+colour token is a swatch and a typography token is a live line of text:
+
+| specimen | what is drawn | the property the value fills |
+|----------|---------------|------------------------------|
+| radius | a small tile in the page's own surface | `border-radius` |
+| spacing | two plain bars with the real gap between them, at scale | `gap` |
+| shadow | a card in the page's own surface, carrying the shadow | `box-shadow` |
+
+Three rules keep this honest:
+
+- **The reading decides the specimen, by a stated rule.** Lower-case the
+  `applies to` cell; if it **contains** one of the words below, the section
+  draws that specimen. So `radius`, `corner radius` and `border-radius` all
+  draw a tile, and no reading is normalised on the way in. A reading matching
+  more than one kind takes the first in the table's own order.
+- **An unrecognised reading changes nothing.** `duration`, `z-index`, `other` —
+  anything the words below do not match keeps the plain name-and-value list
+  exactly as it was.
+- **The value is gated before it is drawn.** `DESIGN-SYSTEM.md` is hand-edited,
+  so a value reaches a `style` attribute only through the page's existing shape
+  gates — the same ones the typography specimens and the preview projection
+  use. A value that fails its gate renders as the plain line, never as an
+  unchecked style, so one unreadable row sits quietly among neighbours that
+  draw.
+- **The caption is unchanged.** The name and the mono value still read beneath
+  the drawing, in the same `.number__name` / `.number__value` idiom.
 
 <!-- phyllum:numbers -->
 
 | setting | value | meaning |
 |---------|-------|---------|
 | ungrouped label | `other` | the label of the one trailing section holding every row with an empty `applies to` cell, and of the one empty section shown when the table has no rows |
+| reading match | `lower-case substring` | how a reading earns a specimen: the cell is lower-cased and tested for containing one of the words below — never normalised, stemmed or guessed at |
+| radius readings | `radius`, `corner`, `rounding` | a section whose reading contains one of these draws each value as a tile with that corner radius |
+| spacing readings | `spacing`, `space`, `padding`, `gap`, `margin`, `inset` | a section whose reading contains one of these draws each value as the real gap between two bars |
+| shadow readings | `shadow`, `elevation` | a section whose reading contains one of these draws each value as a card carrying that shadow |
+| radius gate | `isLengths` | one to four lengths — anything else is not drawn |
+| spacing gate | `isLength` | a single length — anything else is not drawn |
+| shadow gate | `isShadowList` | one or more comma-separated layers, each two to four lengths and one colour — anything else is not drawn |
 
-That word is the page's `NUMBERS` constant, inside the region marked
+Those settings are the page's `NUMBERS` constant, inside the region marked
 `phyllum:numbers-contract`, and the assertion suite reads both this table and
 that region so the two cannot drift.
 
 The markup is one `section.number-group` per reading, carrying `data-applies`
 (the verbatim reading, empty for the trailing section), holding the page's own
 `h3` heading and then a `.number-list`; each token is one `li.number` carrying
-`data-token`, holding `.number__name` and `.number__value`. The sections are
-siblings in the token panel — there is no wrapper around them.
+`data-token`, holding `.number__name` and `.number__value`. A token that draws
+adds `number--specimen` and `data-specimen` (the kind), and leads with a
+`.number__specimen` holding the drawing. The sections are siblings in the token
+panel — there is no wrapper around them.
