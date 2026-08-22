@@ -181,7 +181,8 @@ that region so the two cannot drift.
 
 The markup is one `section.number-group` per reading, carrying `data-applies`
 (the verbatim reading, empty for the trailing section), holding the page's own
-`h3` heading and then a `.number-list`; each token is one `li.number` carrying
+`h3` heading, then the `p.section__note` describing the section (see "Page
+anatomy" in `refs/gui/gui.md`), then a `.number-list`; each token is one `li.number` carrying
 `data-token`, holding `.number__name` and `.number__value`. A token that draws
 adds `number--specimen` and `data-specimen` (the kind), and leads with a
 `.number__specimen` holding the drawing. The sections are siblings in the token

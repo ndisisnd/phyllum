@@ -790,7 +790,7 @@ function numbersContract() {
 
   const esc = text.match(/const esc = \(value\) =>[\s\S]*?;\n/);
   const cell = text.match(/const cell = \(row, name, index\) =>[^\n]*\n/);
-  const heading = text.match(/const heading = \(title, count\) =>[\s\S]*?;\n/);
+  const heading = text.match(/const heading = \(title, count, note\) =>[\s\S]*?;\n/);
   assert.ok(esc && cell && heading, 'the helpers the region leans on are the page\'s own');
 
   // The shape gates a specimen passes its value through (v0.6.0 §2) are the
@@ -808,7 +808,8 @@ function numbersContract() {
 
   const factory = new Function(
     `${esc[0]}${cell[0]}${heading[0]}${isLength[0]}${isLengths[0]}${isShadow[0]}${isShadowList[0]}${splitTopLevel[0]}${region}` +
-      '\nreturn { NUMBERS, numberGroups, numberGroupHtml, numbersSections, heading, specimenKind, specimenHtml };',
+      '\nreturn { NUMBERS, numberGroups, numberGroupHtml, numbersSections, heading, readingNote,' +
+      ' specimenKind, specimenHtml };',
   );
   return factory();
 }
@@ -885,7 +886,7 @@ test('each number group renders as its own section — no bar, no track', () => 
   // tier as Colours and Typography and carries its own count (v0.6.0 §1).
   assert.ok(
     html.includes('<section class="number-group" data-applies="corner radius">' +
-      contract.heading('corner radius', 2) + '<ul class="number-list">'),
+      contract.heading('corner radius', 2, contract.readingNote('corner radius')) + '<ul class="number-list">'),
     'the group is its verbatim label, at the shared tier, over its list',
   );
   assert.ok(html.includes('<h3>corner radius <span class="count">2</span></h3>'), html.slice(0, 200));
@@ -937,7 +938,10 @@ test('the number sections stand at the top level, with no "Numbers" umbrella', (
   // Typography answer emptiness — a heading and a "(none yet)" line.
   const empty = contract.numbersSections([], 'applies to');
   assert.equal((empty.match(/<section class="number-group"/g) ?? []).length, 1);
-  assert.ok(empty.includes(contract.heading(contract.NUMBERS.ungrouped, 0)), empty);
+  assert.ok(
+    empty.includes(contract.heading(contract.NUMBERS.ungrouped, 0, contract.readingNote(''))),
+    empty,
+  );
   assert.ok(empty.includes('<p class="muted">(none yet)</p>'), empty);
   assert.equal(/>Numbers</.test(empty), false, 'not even when empty is it called "Numbers"');
 });
@@ -1111,6 +1115,86 @@ test('the specimens are drawn in the page\'s own surfaces, so both themes get th
     assert.match(colour, /var\(--/, `${colour.trim()} is drawn from the page's own variables`);
   }
   assert.equal(/#[0-9a-f]{3,8}|rgba?\(/i.test(block), false, 'no specimen hard-codes a colour');
+});
+
+/**
+ * The page's documentation anatomy (v0.6.0 §3).
+ *
+ * A design-system page is read, not scanned. So each section says in one line
+ * what it shows, the content sits in a column narrow enough to track back
+ * along, and sections are told apart by the air above them rather than by a
+ * rule drawn between them. What is checked here is the contract — the
+ * description line, the bounded column, the scale the rhythm is drawn from,
+ * the three heading tiers. The taste is not checked; only the anatomy is.
+ */
+test('every token section carries a heading and a one-line description', () => {
+  const contract = numbersContract();
+  const html = contract.numbersSections(numberRows(), 'applies to');
+
+  // One description per section, each sitting directly under its own heading.
+  const notes = [...html.matchAll(/<\/h3><p class="section__note">([^<]*)<\/p>/g)].map((match) => match[1]);
+  assert.equal(notes.length, 4, 'every section describes itself once, right under its heading');
+  assert.ok(notes[0].includes('corner radius'), 'a reading describes its section in the file\'s own words');
+  assert.equal(notes.at(-1), contract.readingNote(''), 'and the trailing group says it has no reading of its own');
+  assert.equal(
+    contract.readingNote('corner radius'),
+    contract.NUMBERS.note.reading[0] + 'corner radius' + contract.NUMBERS.note.reading[1],
+    'the sentence is the reading quoted back — nothing is invented about the tokens under it',
+  );
+
+  // A description is escaped like every other thing a hand-edited file supplies.
+  const hostile = contract.numbersSections([{ token: 'x', value: '4px', 'applies to': '<i>r</i>' }], 'applies to');
+  assert.equal(/<i>/.test(hostile), false, hostile);
+
+  // Colours, primitives and typography carry theirs too, from one place.
+  const text = readPage();
+  const notesConstant = text.match(/const NOTES = \{[\s\S]*?\};/);
+  assert.ok(notesConstant, 'the page states its section descriptions in one place');
+  for (const section of ['colours', 'primitives', 'typography']) {
+    assert.match(notesConstant[0], new RegExp(`${section}: '`), `${section} says what it shows`);
+  }
+  assert.ok(text.includes("heading('Colours', rows.length, NOTES.colours)"), 'and the section renders it');
+  assert.ok(text.includes("heading('Typography', rows.length, NOTES.typography)"));
+});
+
+test('the page reads in a constrained column, spaced and headed from its own scales', () => {
+  const text = readPage();
+  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
+
+  // One reading measure, declared once, carried by the content column.
+  const measure = stylesheet.match(/--measure:\s*([^;]+);/);
+  assert.ok(measure, 'the stylesheet declares a reading measure');
+  assert.match(measure[1].trim(), /^\d+rem$/, 'the measure is one length, not an expression');
+  const wide = parseFloat(measure[1]);
+  assert.ok(wide >= 60 && wide <= 72, `${wide}rem is outside the readable column width`);
+  const main = stylesheet.match(/\n {6}main \{([\s\S]*?)\n {6}\}/);
+  assert.ok(main, 'the stylesheet styles the content column');
+  assert.match(main[1], /max-width: var\(--measure\)/, 'the column is bounded by the measure');
+  assert.match(main[1], /margin: 0 auto/, 'and centred in whatever is left of the window');
+
+  // The rhythm comes off a scale rather than being typed at each site, and the
+  // scale is 8-based — every step is a whole number of half-rems.
+  const steps = [...stylesheet.matchAll(/--space-(\d): ([\d.]+)rem;/g)].map((m) => [Number(m[1]), parseFloat(m[2])]);
+  assert.ok(steps.length >= 4, 'the page declares a spacing scale');
+  for (const [step, value] of steps) {
+    assert.equal(value, step * 0.5, `--space-${step} is ${step} steps of the 8-based scale`);
+  }
+  // A section is set apart by the large step; the lines inside one are not.
+  assert.match(stylesheet.match(/\.number-group \{([^}]*)\}/)[1], /margin-top: var\(--space-6\)/);
+  assert.match(stylesheet, /#tokens-body > h3 \{ margin-top: var\(--space-6\); \}/);
+  assert.match(stylesheet.match(/\.number-list \{([^}]*)\}/)[1], /margin-top: var\(--space-1\)/);
+
+  // Three heading tiers and no more: the panel title, the section heading, and
+  // the small muted group label. A card title stays under the section tier.
+  assert.match(stylesheet.match(/\n {6}h2 \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-04\)/);
+  assert.match(stylesheet.match(/\n {6}h3 \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-03\)/);
+  assert.match(stylesheet.match(/\.card__name \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-02\)/);
+  for (const label of ['.ramp__base', '.section__note']) {
+    const rule = stylesheet.match(new RegExp(`\\${label} \\{([\\s\\S]*?)\\n {6}\\}`));
+    assert.ok(rule, `${label} is styled by the page`);
+    assert.match(rule[1], /color: var\(--muted\)/, `${label} is muted, and only ever from a theme variable`);
+  }
+  assert.match(stylesheet.match(/\.ramp__base \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-01\)/);
 });
 
 test('the fixture\'s own Numbers row groups under the reading the file gives it', () => {

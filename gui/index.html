@@ -78,8 +78,24 @@
         --radius-sm: 0.375rem;
         --radius-md: 0.625rem;
 
+        /* the spacing scale — 8-based, and the page spaces from here alone
+           (v0.6.0 §3). Negative space is the grouping tool: a section is told
+           apart from its neighbour by the air above it, not by a rule drawn
+           between them, so the step between sections (`--space-6`) is several
+           times the step inside one (`--space-1`). */
+        --space-1: 0.5rem;
+        --space-2: 1rem;
+        --space-3: 1.5rem;
+        --space-4: 2rem;
+        --space-6: 3rem;
+
         --rail: 15rem;
-        --gap: 2rem;
+        --gap: var(--space-4);
+        /* the reading measure (v0.6.0 §3): the widest the content column gets
+           before a line of prose becomes tiring to track back. Content wider
+           than this — a ramp strip, a long table — scrolls inside its own
+           container rather than widening the column for everything else. */
+        --measure: 68rem;
 
         /* colour cards (v0.4.0 §5.5) — the numbers the `phyllum:cards` table
            in skill/refs/gui/cards.md records. The swatch takes the medium step
@@ -225,7 +241,9 @@
         display: grid;
         gap: var(--gap);
         align-content: start;
-        max-width: 76rem;
+        max-width: var(--measure);
+        width: 100%;
+        margin: 0 auto;
       }
       section.view[hidden] { display: none; }
       section.view { display: grid; gap: var(--gap); align-content: start; }
@@ -238,7 +256,7 @@
         background: var(--layer);
         border-radius: var(--radius-md);
         box-shadow: var(--shadow);
-        padding: 1.5rem;
+        padding: var(--space-3);
       }
       h2 {
         font-size: var(--type-04);
@@ -246,13 +264,32 @@
         letter-spacing: 0;
         margin: 0 0 1rem;
       }
+      /* Tier two of three (v0.6.0 §3): the section heading, one size for
+         every section on the page. Tier one is the panel title (`h2`, and the
+         page title in a `.lede`); tier three is the small muted group label
+         — the rail label, a ramp's base name, a specimen's meta line. Nothing
+         else is a heading, and a card title stays under this tier so it never
+         reads as a section of its own. */
       h3 {
-        font-size: var(--type-02);
+        font-size: var(--type-03);
         font-weight: 600;
-        letter-spacing: 0.02em;
-        margin: 1.5rem 0 0.75rem;
+        letter-spacing: 0;
+        margin: var(--space-3) 0 var(--space-1);
       }
       h3:first-child { margin-top: 0; }
+      /* The token panel is a documentation page, so its sections are pushed
+         apart by the large step while the lines inside one stay close. */
+      #tokens-body > h3 { margin-top: var(--space-6); }
+      #tokens-body > h3:first-child { margin-top: 0; }
+      /* The one-line description under a section heading (v0.6.0 §3): what
+         the section shows, said once, in the muted ink and at the reading
+         width prose wants. */
+      .section__note {
+        margin: 0 0 var(--space-2);
+        max-width: 44rem;
+        font-size: var(--type-02);
+        color: var(--muted);
+      }
       .lede h2 { font-size: var(--type-05); }
       .count { color: var(--muted); font-weight: 400; font-size: var(--type-02); }
       .grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
@@ -407,9 +444,17 @@
       }
       .swatch__value { font-family: var(--mono); font-size: var(--type-01); opacity: 0.85; }
 
-      .ramp { margin-bottom: 1.5rem; }
+      .ramp { margin-bottom: var(--space-3); }
       .ramp:last-child { margin-bottom: 0; }
-      .ramp__base { margin: 0 0 0.5rem; font-size: var(--type-02); font-weight: 600; letter-spacing: 0.02em; }
+      /* Tier three: a small muted group label, drawn like the rail's own
+         label and the specimen meta line rather than like a heading. */
+      .ramp__base {
+        margin: 0 0 var(--space-1);
+        font-size: var(--type-01);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
       /* A ramp reads as one thing, so the strip rounds at its ends and the
          steps inside it stay flush against each other. */
       .ramp__strip {
@@ -426,10 +471,12 @@
       /* --- number groups and type specimens ------------------------------ */
       /* A number group is a section in its own right now (v0.6.0 §1), so it
          carries the spacing an `h3` would have carried — the heading inside it
-         is a first child, and first children have their top margin removed. */
-      .number-group { margin-top: 1.5rem; }
+         is a first child, and first children have their top margin removed. It
+         takes the same large step every other section on the page takes
+         (v0.6.0 §3), so the eye groups by air alone. */
+      .number-group { margin-top: var(--space-6); }
       .number-group:first-child { margin-top: 0; }
-      .number-list { display: grid; gap: 0.375rem; margin-top: 0.375rem; list-style: none; }
+      .number-list { display: grid; gap: 0.375rem; margin-top: var(--space-1); list-style: none; }
       .number { display: flex; gap: 0.75rem; align-items: baseline; font-size: var(--type-02); }
       .number__name { font-weight: 600; }
       .number__value { font-family: var(--mono); color: var(--muted); }
@@ -456,13 +503,17 @@
         background: var(--layer-accent);
         border: 1px solid var(--line-strong);
       }
+      /* A card is a card wherever it appears (v0.6.0 §3): the shadow specimen
+         wears the same medium corner the colour card's swatch, the preview
+         stage and the panel wear, so one idiom carries every surface on the
+         page and only the bars below round smaller. */
       .specimen-card {
         display: block;
         width: 4.5rem;
         height: 2.5rem;
         background: var(--layer);
         border: 1px solid var(--line);
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-md);
       }
       /* The gap is the drawing here, so the two blocks either side of it stay
          deliberately plain — a pair of bars, the space between them true to
@@ -476,7 +527,7 @@
         border-radius: var(--radius-sm);
       }
 
-      .specimens { display: grid; gap: 1.25rem; }
+      .specimens { display: grid; gap: var(--space-3); }
       .specimen__meta { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
       .specimen__meta code { font-size: var(--type-01); }
       .specimen__line { margin-top: 0.25rem; word-break: break-word; }
@@ -1505,20 +1556,34 @@
 
       // --- rendering ---------------------------------------------------------
 
-      const heading = (title, count) =>
-        '<h3>' + esc(title) + ' <span class="count">' + count + '</span></h3>';
+      // A section heading and, beneath it, the one line that says what the
+      // section shows (v0.6.0 §3). The note is optional and it is always a
+      // description of the *rendering* — never a claim about the reader's
+      // design system that the file did not already make — so it stays true
+      // whatever `DESIGN-SYSTEM.md` happens to hold.
+      const heading = (title, count, note) =>
+        '<h3>' + esc(title) + ' <span class="count">' + count + '</span></h3>' +
+        (note ? '<p class="section__note">' + esc(note) + '</p>' : '');
 
       const cell = (row, name, index) => String(row[name] ?? (row.cells ?? [])[index] ?? '');
 
+      // The one-line descriptions the token sections carry. Each says what its
+      // section draws and stops there.
+      const NOTES = {
+        colours: 'Semantic colours, drawn as cards.',
+        primitives: 'The primitive ramps behind them, one strip per base.',
+        typography: 'Type tokens, each set in its own reading.',
+      };
+
       function coloursSection(rows) {
-        if (!rows.length) return heading('Colours', 0) + '<p class="muted">(none yet)</p>';
+        if (!rows.length) return heading('Colours', 0, NOTES.colours) + '<p class="muted">(none yet)</p>';
         const cards = rows.map((row) => cardHtml(cell(row, 'token', 0), cell(row, 'value', 1))).join('');
-        return heading('Colours', rows.length) + '<div class="cards">' + cards + '</div>';
+        return heading('Colours', rows.length, NOTES.colours) + '<div class="cards">' + cards + '</div>';
       }
 
       function primitivesSection(rows) {
         if (!rows.length) return '';
-        return heading('Colours — Primitives', rows.length) + rampGroups(rows).map(rampHtml).join('');
+        return heading('Colours — Primitives', rows.length, NOTES.primitives) + rampGroups(rows).map(rampHtml).join('');
       }
 
       // --- phyllum:numbers-contract -----------------------------------------
@@ -1536,7 +1601,10 @@
       // caption beneath. The region is kept pure — `esc`, `cell`, `heading`
       // and the shape gates `isLength`, `isLengths` and `isShadowList` arrive
       // from the surrounding scope, and nothing here touches the DOM —
-      // because the assertion suite lifts it out and runs it.
+      // because the assertion suite lifts it out and runs it. Since v0.6.0 §3
+      // a section also carries a one-line description under its heading, built
+      // from the reading itself rather than from anything the page presumes
+      // about the tokens underneath it.
       const NUMBERS = {
         // The label the trailing group of rows with no `applies to` reading takes.
         // It is also the label the one empty section wears when the table has
@@ -1555,7 +1623,21 @@
           spacing: ['spacing', 'space', 'padding', 'gap', 'margin', 'inset'],
           shadow: ['shadow', 'elevation'],
         },
+        // The one-line description a section carries under its heading
+        // (v0.6.0 §3). A reading is quoted straight back into the sentence, so
+        // the line describes the section and invents nothing about the tokens
+        // in it; the trailing group, which has no reading, says exactly that.
+        note: {
+          reading: ['Number tokens that apply to ', '.'],
+          ungrouped: 'Number tokens with no reading of their own.',
+        },
       };
+
+      /** The description under one section's heading. */
+      function readingNote(applies) {
+        const reading = String(applies ?? '').trim();
+        return reading ? NUMBERS.note.reading[0] + reading + NUMBERS.note.reading[1] : NUMBERS.note.ungrouped;
+      }
 
       /** The specimen kind a reading earns, or `''` for a reading with none. */
       function specimenKind(reading) {
@@ -1643,7 +1725,7 @@
           .join('');
         return (
           '<section class="number-group" data-applies="' + esc(group.applies) + '">' +
-          heading(group.label, group.rows.length) +
+          heading(group.label, group.rows.length, readingNote(group.applies)) +
           '<ul class="number-list">' + items + '</ul></section>'
         );
       }
@@ -1658,7 +1740,7 @@
         if (!rows.length) {
           return (
             '<section class="number-group" data-applies="">' +
-            heading(NUMBERS.ungrouped, 0) +
+            heading(NUMBERS.ungrouped, 0, readingNote('')) +
             '<p class="muted">(none yet)</p></section>'
           );
         }
@@ -1668,7 +1750,7 @@
 
       /** Typography as live specimens — each token set in its own reading. */
       function typographySection(rows) {
-        if (!rows.length) return heading('Typography', 0) + '<p class="muted">(none yet)</p>';
+        if (!rows.length) return heading('Typography', 0, NOTES.typography) + '<p class="muted">(none yet)</p>';
         const specimens = rows
           .map((row) => {
             const token = cell(row, 'token', 0);
@@ -1693,7 +1775,7 @@
             );
           })
           .join('');
-        return heading('Typography', rows.length) + '<div class="specimens">' + specimens + '</div>';
+        return heading('Typography', rows.length, NOTES.typography) + '<div class="specimens">' + specimens + '</div>';
       }
 
       function renderLibrary() {

@@ -57,6 +57,23 @@ cleanly.
 | Radius | two steps, `--radius-sm` and `--radius-md`; every rounded corner on the page reads one of them |
 | Themes | a warm near-white light theme and a soft-charcoal dark one, one CSS variable set each, picked by the theme control below |
 
+## Page anatomy (v0.6.0 §3)
+
+The Library view is a documentation page, so it is laid out like one: a
+constrained column, a section that says what it shows, and grouping by air
+rather than by rules.
+
+| Part | The rule |
+|------|----------|
+| Content column | one reading measure, `--measure` (`68rem`), carried by `main`, which is centred in whatever is left of the window. Content wider than the column — a ramp strip, a long line of code — scrolls inside its own container rather than widening the column for everything else |
+| Section description | every token section carries **one muted line** under its heading, in a `p.section__note`, saying what the section shows. It describes the *rendering*, never the reader's system: `Semantic colours, drawn as cards.` A number section builds its line from its own reading — `Number tokens that apply to corner radius.` — and the trailing group says it has no reading of its own. The label inside the sentence is the file's own words, escaped like the heading above it |
+| Spacing scale | `--space-1` … `--space-6`, 8-based (`0.5rem` a step), and the page spaces from there alone. The step **between** sections is `--space-6`; the steps **inside** one are `--space-1` and `--space-2`. Negative space is the grouping tool — the page draws no rule between sections |
+| Heading tiers | **three, and no more.** Tier one is the panel title (`h2`, `--type-04`; the page title in a `.lede` takes `--type-05`). Tier two is the section heading (`h3`, `--type-03`), one size for every section — Colours, each `applies to` reading, Typography. Tier three is the small muted group label at `--type-01`: the rail label, a ramp's base name, a specimen's meta line. A card title sits at `--type-02`, under tier two, so it never reads as a section of its own |
+| Card idiom | one corner and one shadow across the page. Every *surface* — the panel, the colour card's swatch, the preview stage, the shadow specimen's card — takes `--radius-md`; the small parts inside one — chips, buttons, inputs, the spacing specimen's bars — take `--radius-sm`. Lift is `--shadow` and nothing else |
+
+Both themes hold throughout: every colour named above is a theme variable, so
+the dark set moves the whole anatomy without a second stylesheet.
+
 ## The theme control (v0.5.1 §4)
 
 The page ships both themes, and the viewer picks between them. Three choices and
