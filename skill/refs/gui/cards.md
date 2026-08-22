@@ -7,7 +7,7 @@ The Library view renders each token in the thing it describes:
 |---------|-----------|
 | Colours | one **card** per token — a filled, rounded swatch, with the token name and then its value printed *beneath* the swatch (v0.4.0 §5.5, below) |
 | Colours — Primitives | **swatches** in **ramp strips**: one strip per base name, its steps side by side in file order, each step's label sitting on the swatch itself |
-| Numbers | a **grouped list**, cut by the `applies to` column — one labelled group per distinct reading, groups and tokens in file order, each token a plain name-and-value line (v0.5.1, below) |
+| Numbers | **no section of its own** — the table is cut by the `applies to` column into one first-class section per distinct reading, sections and tokens in file order, each token a plain name-and-value line (v0.6.0, below) |
 | Typography | a **live specimen** per token, set in that token's own size, weight and line-height |
 
 Two rules decide how a swatch is drawn, and both are numbers rather than
@@ -100,24 +100,33 @@ Two consequences worth stating as contract:
 - **A gradient is never near-white.** It has no single luminance, so it takes
   the plain variant, and its label reads off the fill like every other card's.
 
-## Numbers as a grouped list (v0.5.1)
+## Numbers as first-class sections (v0.6.0)
 
 A number token is **not** drawn as a measurement. The bar that used to size each
 token against the largest value in the section is gone, along with its track: a
 `4px` radius beside a `64px` control size made a picture of a ratio nobody
 asked about, and the reading a person wants is the value itself.
 
-The Numbers section is now **cut into groups by the `applies to` column**:
+There is also **no "Numbers" section any more**. The umbrella said nothing a
+reader needed; the `applies to` column already says what each token is for. So
+the table is **cut into one section per distinct `applies to` reading**, and
+each of those sections stands beside Colours and Typography rather than one
+rung underneath a shared title:
 
-- **One group per distinct reading.** Every distinct `applies to` cell — `corner
-  radius`, `padding`, `border width`, `control size` — is one labelled group.
+- **One section per distinct reading.** Every distinct `applies to` cell —
+  `corner radius`, `padding`, `border width`, `control size` — is one section,
+  headed at the same tier as Colours, with its own row count.
 - **The label is the file's own words, verbatim.** Nothing is normalised,
   title-cased, singularised or invented. The dashboard shows the file.
-- **File order, twice over.** Groups appear in the order their first row appears
-  in the table, and the tokens inside a group keep their own file order.
-- **An empty cell falls to one trailing group.** Rows whose `applies to` cell is
-  blank collect in a single group at the end, labelled with the neutral word
-  below rather than with a guess at what they apply to.
+- **File order, twice over.** Sections appear in the order their first row
+  appears in the table, and the tokens inside a section keep their own file
+  order.
+- **An empty cell falls to one trailing section.** Rows whose `applies to` cell
+  is blank collect in a single section at the end, labelled with the neutral
+  word below rather than with a guess at what they apply to.
+- **An empty table still speaks.** With no number rows at all the page renders
+  one section wearing that same neutral label, a count of `0` and a
+  `(none yet)` line — the way Colours and Typography answer emptiness.
 - **Each token is one plain line** — the name in the page's own ink, then the
   value in the mono face in the muted ink, the same idiom the colour card's
   value line uses. No bar, no track, no visualisation.
@@ -126,14 +135,14 @@ The Numbers section is now **cut into groups by the `applies to` column**:
 
 | setting | value | meaning |
 |---------|-------|---------|
-| ungrouped label | `other` | the label of the one trailing group holding every row with an empty `applies to` cell |
+| ungrouped label | `other` | the label of the one trailing section holding every row with an empty `applies to` cell, and of the one empty section shown when the table has no rows |
 
 That word is the page's `NUMBERS` constant, inside the region marked
 `phyllum:numbers-contract`, and the assertion suite reads both this table and
 that region so the two cannot drift.
 
-The markup is one `section.number-group` per group, carrying `data-applies`
-(the verbatim reading, empty for the trailing group), holding a
-`.number-group__label` and then a `.number-list`; each token is one
-`li.number` carrying `data-token`, holding `.number__name` and `.number__value`.
-The groups sit in one `.numbers` container.
+The markup is one `section.number-group` per reading, carrying `data-applies`
+(the verbatim reading, empty for the trailing section), holding the page's own
+`h3` heading and then a `.number-list`; each token is one `li.number` carrying
+`data-token`, holding `.number__name` and `.number__value`. The sections are
+siblings in the token panel — there is no wrapper around them.

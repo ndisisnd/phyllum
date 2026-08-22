@@ -424,8 +424,11 @@
       .ramp__strip .swatch__value { font-size: 0.6875rem; }
 
       /* --- number groups and type specimens ------------------------------ */
-      .numbers { display: grid; gap: 1.25rem; }
-      .number-group__label { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
+      /* A number group is a section in its own right now (v0.6.0 §1), so it
+         carries the spacing an `h3` would have carried — the heading inside it
+         is a first child, and first children have their top margin removed. */
+      .number-group { margin-top: 1.5rem; }
+      .number-group:first-child { margin-top: 0; }
       .number-list { display: grid; gap: 0.375rem; margin-top: 0.375rem; list-style: none; }
       .number { display: flex; gap: 0.75rem; align-items: baseline; font-size: var(--type-02); }
       .number__name { font-weight: 600; }
@@ -1443,16 +1446,21 @@
       }
 
       // --- phyllum:numbers-contract -----------------------------------------
-      // Numbers are a grouped list, not a measurement. The section is cut into
-      // one group per distinct `applies to` reading, and both the groups and
-      // the rows inside them keep the order the file gives them. A label is
-      // the file's own words, never a normalised category name — the dashboard
-      // shows the file. A row whose `applies to` cell is empty joins one
-      // trailing group labelled `NUMBERS.ungrouped`. The region is kept pure —
-      // `esc` and `cell` arrive from the surrounding scope, and nothing here
-      // touches the DOM — because the assertion suite lifts it out and runs it.
+      // Numbers are a grouped list, not a measurement — and since v0.6.0 there
+      // is no "Numbers" umbrella above them at all. Each distinct `applies to`
+      // reading is its own first-class section, headed by the page's own
+      // `heading` at the same tier as Colours and Typography, and both the
+      // groups and the rows inside them keep the order the file gives them. A
+      // label is the file's own words, never a normalised category name — the
+      // dashboard shows the file. A row whose `applies to` cell is empty joins
+      // one trailing group labelled `NUMBERS.ungrouped`. The region is kept
+      // pure — `esc`, `cell` and `heading` arrive from the surrounding scope,
+      // and nothing here touches the DOM — because the assertion suite lifts
+      // it out and runs it.
       const NUMBERS = {
         // The label the trailing group of rows with no `applies to` reading takes.
+        // It is also the label the one empty section wears when the table has
+        // no rows at all: an honest "nothing here" beats an invented heading.
         ungrouped: 'other',
       };
 
@@ -1479,7 +1487,12 @@
         return groups;
       }
 
-      /** One labelled group — its tokens as a plain name-and-value list. */
+      /**
+       * One group as its own section — the file's label over a plain
+       * name-and-value list. The heading is the page's `heading`, so the
+       * reading sits at the same tier as Colours and Typography rather than
+       * one rung under a shared title.
+       */
       function numberGroupHtml(group) {
         const items = group.rows
           .map(
@@ -1491,18 +1504,28 @@
           .join('');
         return (
           '<section class="number-group" data-applies="' + esc(group.applies) + '">' +
-          '<h4 class="number-group__label">' + esc(group.label) + '</h4>' +
+          heading(group.label, group.rows.length) +
           '<ul class="number-list">' + items + '</ul></section>'
         );
       }
-      // --- end phyllum:numbers-contract --------------------------------------
 
-      /** Numbers as a plain list per `applies to` group — the file's own words. */
-      function numbersSection(rows, columns) {
-        if (!rows.length) return heading('Numbers', 0) + '<p class="muted">(none yet)</p>';
-        const groups = numberGroups(rows, columns[2] ?? '').map(numberGroupHtml).join('');
-        return heading('Numbers', rows.length) + '<div class="numbers">' + groups + '</div>';
+      /**
+       * Every number group, each as a first-class section — no "Numbers"
+       * heading above them. An empty table still says so out loud, in one
+       * section wearing the neutral label, rather than rendering nothing at
+       * all; that is how every other section here handles emptiness.
+       */
+      function numbersSections(rows, applies) {
+        if (!rows.length) {
+          return (
+            '<section class="number-group" data-applies="">' +
+            heading(NUMBERS.ungrouped, 0) +
+            '<p class="muted">(none yet)</p></section>'
+          );
+        }
+        return numberGroups(rows, applies).map(numberGroupHtml).join('');
       }
+      // --- end phyllum:numbers-contract --------------------------------------
 
       /** Typography as live specimens — each token set in its own reading. */
       function typographySection(rows) {
@@ -1561,7 +1584,9 @@
           // Primitives are Colours' own subsection in the file, so their strips
           // sit right under it (v0.3.0 §5.3, §6.5).
           primitivesSection(rowsOf('primitives')),
-          numbersSection(rowsOf('numbers'), Array.isArray(columns.numbers) ? columns.numbers : []),
+          // Numbers have no umbrella of their own: each `applies to` reading
+          // is a section beside Colours and Typography (v0.6.0 §1).
+          numbersSections(rowsOf('numbers'), (Array.isArray(columns.numbers) ? columns.numbers : [])[2] ?? ''),
           typographySection(rowsOf('typography')),
         ].join('');
 

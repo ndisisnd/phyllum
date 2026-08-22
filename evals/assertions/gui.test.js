@@ -767,12 +767,13 @@ test('the type stack names Geist first and falls back to system sans', () => {
 });
 
 /**
- * The Numbers section's own contract, lifted and run (v0.5.1).
+ * The number sections' own contract, lifted and run (v0.5.1, recut v0.6.0).
  *
  * The region between the `phyllum:numbers-contract` markers reads its rows
- * through the page's `cell` helper and escapes with the page's `esc`, so both
- * are lifted out of the page too rather than restated here — the suite runs
- * the code the browser runs.
+ * through the page's `cell` helper, escapes with the page's `esc` and heads
+ * each section with the page's `heading`, so all three are lifted out of the
+ * page too rather than restated here — the suite runs the code the browser
+ * runs.
  */
 function numbersContract() {
   const text = readPage();
@@ -784,10 +785,12 @@ function numbersContract() {
 
   const esc = text.match(/const esc = \(value\) =>[\s\S]*?;\n/);
   const cell = text.match(/const cell = \(row, name, index\) =>[^\n]*\n/);
-  assert.ok(esc && cell, 'the helpers the region leans on are the page\'s own');
+  const heading = text.match(/const heading = \(title, count\) =>[\s\S]*?;\n/);
+  assert.ok(esc && cell && heading, 'the helpers the region leans on are the page\'s own');
 
   const factory = new Function(
-    `${esc[0]}${cell[0]}${region}\nreturn { NUMBERS, numberGroups, numberGroupHtml };`,
+    `${esc[0]}${cell[0]}${heading[0]}${region}` +
+      '\nreturn { NUMBERS, numberGroups, numberGroupHtml, numbersSections, heading };',
   );
   return factory();
 }
@@ -851,7 +854,7 @@ test('numbers group by their `applies to` reading, in the file\'s own words and 
   assert.equal(columnless[0].rows.length, rows.length);
 });
 
-test('a number group renders as a plain name-and-value list — no bar, no track', () => {
+test('each number group renders as its own section — no bar, no track', () => {
   const contract = numbersContract();
   const groups = contract.numberGroups(numberRows(), 'applies to');
   const html = groups.map(contract.numberGroupHtml).join('');
@@ -860,11 +863,14 @@ test('a number group renders as a plain name-and-value list — no bar, no track
   assert.equal(items.length, numberRows().length, 'one line per token, and only one');
   assert.equal((html.match(/<section class="number-group"/g) ?? []).length, groups.length);
 
+  // The heading is the page's own `heading`, so a reading sits at the same
+  // tier as Colours and Typography and carries its own count (v0.6.0 §1).
   assert.ok(
     html.includes('<section class="number-group" data-applies="corner radius">' +
-      '<h4 class="number-group__label">corner radius</h4><ul class="number-list">'),
-    'the group is its verbatim label over its list',
+      contract.heading('corner radius', 2) + '<ul class="number-list">'),
+    'the group is its verbatim label, at the shared tier, over its list',
   );
+  assert.ok(html.includes('<h3>corner radius <span class="count">2</span></h3>'), html.slice(0, 200));
   assert.ok(
     html.includes('<li class="number" data-token="rounded-sm">' +
       '<span class="number__name">rounded-sm</span><code class="number__value">4px</code></li>'),
@@ -877,12 +883,39 @@ test('a number group renders as a plain name-and-value list — no bar, no track
   assert.equal(/bar__|class="bar\b|track|fill/.test(html), false, html.slice(0, 160));
   assert.equal(html.match(/style=/g), null, 'no line is sized by an inline style');
 
-  // A hand-edited file cannot write markup into the list.
+  // A hand-edited file cannot write markup into the list, heading included.
   const hostile = contract.numberGroupHtml(
     contract.numberGroups([{ token: '<b>x</b>', value: '"4px"', 'applies to': '<i>r</i>' }], 'applies to')[0],
   );
   assert.equal(/<b>|<i>/.test(hostile), false, hostile);
   assert.ok(hostile.includes('&lt;b&gt;x&lt;/b&gt;') && hostile.includes('&quot;4px&quot;'));
+  assert.ok(hostile.includes('&lt;i&gt;r&lt;/i&gt;'), 'the label is escaped in the heading too');
+});
+
+test('the number sections stand at the top level, with no "Numbers" umbrella', () => {
+  const contract = numbersContract();
+  const html = contract.numbersSections(numberRows(), 'applies to');
+
+  // Every section is a sibling — nothing wraps them, and nothing heads them.
+  assert.ok(html.startsWith('<section class="number-group"'), html.slice(0, 80));
+  assert.equal(html.includes('<div class="numbers">'), false, 'no container around the sections');
+  assert.equal(/>Numbers</.test(html), false, 'no section is titled "Numbers"');
+  assert.equal((html.match(/<section class="number-group"/g) ?? []).length, 4);
+
+  // The headings read in file order, and the blank cells trail behind them.
+  assert.deepEqual(
+    [...html.matchAll(/<h3>([^<]*) <span class="count">(\d+)<\/span><\/h3>/g)].map((m) => [m[1], m[2]]),
+    [['corner radius', '2'], ['padding', '1'], ['Border Width', '1'], [contract.NUMBERS.ungrouped, '2']],
+    'one heading per reading, verbatim, in file order, `other` last',
+  );
+
+  // An empty table is still one honest section, the way Colours and
+  // Typography answer emptiness — a heading and a "(none yet)" line.
+  const empty = contract.numbersSections([], 'applies to');
+  assert.equal((empty.match(/<section class="number-group"/g) ?? []).length, 1);
+  assert.ok(empty.includes(contract.heading(contract.NUMBERS.ungrouped, 0)), empty);
+  assert.ok(empty.includes('<p class="muted">(none yet)</p>'), empty);
+  assert.equal(/>Numbers</.test(empty), false, 'not even when empty is it called "Numbers"');
 });
 
 test('the ungrouped label is the one skill/refs/gui/cards.md records', () => {
@@ -902,10 +935,12 @@ test('the fixture\'s own Numbers row groups under the reading the file gives it'
   assert.ok(contract.numberGroupHtml(groups[0]).includes('<code class="number__value">12px</code>'));
 });
 
-test('numbers show as a grouped list and typography as live specimens', () => {
+test('numbers show as sectioned lists and typography as live specimens', () => {
   const text = readPage();
-  assert.ok(text.includes('function numbersSection'), 'numbers have their own renderer');
-  assert.ok(text.includes('numberGroups('), 'and it renders them grouped');
+  assert.ok(text.includes('function numbersSections'), 'numbers have their own renderer');
+  assert.ok(text.includes('numberGroups('), 'and it renders them cut by their reading');
+  // The umbrella heading is gone from the renderer, not merely unused.
+  assert.equal(/heading\('Numbers'/.test(text), false, 'nothing still heads a section "Numbers"');
   assert.ok(text.includes('function typographySection'), 'typography has its own renderer');
   assert.ok(text.includes('specimen__line'), 'and a specimen line set in the token itself');
 
