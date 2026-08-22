@@ -1407,7 +1407,7 @@ test('the Backlog panel heads itself with the total count, and no flat list surv
   // The total rides in the panel header, in the page's own count chip, beside
   // the title — and the header row stays free for the action that comes next.
   assert.ok(
-    text.includes('<div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2></div>'),
+    text.includes('<div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2>'),
     'the Backlog panel header carries a count chip beside its title',
   );
   assert.ok(
@@ -1429,6 +1429,52 @@ test('the Backlog panel heads itself with the total count, and no flat list surv
     assert.equal(/#[0-9a-fA-F]{3}|rgb\(|hsl\(/.test(rule), false, `${rule} names a raw colour`);
   }
   assert.match(stylesheet, /\.backlog-group \+ \.backlog-group \{ margin-top: var\(--space-3\); \}/);
+});
+
+test('the Backlog header carries a solid-primary Assess button, right of the count chip', () => {
+  const text = readPage();
+
+  assert.ok(
+    text.includes(
+      '<div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2>' +
+        '<button class="btn btn--primary" id="backlog-assess" type="button">Assess</button></div>',
+    ),
+    'the Assess button sits in the panel header, after the title and its count chip',
+  );
+});
+
+test('the Assess button posts the literal prompt `assess` to /prompt, same shape as the prompt box', () => {
+  const text = readPage();
+
+  const handler = text.slice(
+    text.indexOf("el('backlog-assess').addEventListener('click',"),
+    text.indexOf("const drop = el('drop');"),
+  );
+  assert.ok(handler, 'the page wires a click handler to the Assess button');
+  assert.ok(handler.includes("fetch('/prompt'"), 'it posts to the same relay endpoint the prompt box uses');
+  assert.ok(handler.includes("method: 'POST'"));
+  assert.ok(
+    handler.includes("body: JSON.stringify({ text: 'assess', view: state.view })"),
+    'the payload is the same shape as the prompt form\'s — `text` and `view` — with `text` fixed to `assess`',
+  );
+
+  // Visible feedback that the prompt is queued: the button disables and its
+  // label changes, then both are restored — no DOM is left stuck disabled.
+  assert.match(handler, /button\.disabled = true/);
+  assert.match(handler, /button\.textContent = 'Queued…'/);
+  assert.match(handler, /button\.disabled = false/);
+  assert.match(handler, /button\.textContent = label/);
+
+  // It runs nothing itself: the queued prompt reaches the terminal session
+  // only through the existing relay, and the page re-polls afterwards rather
+  // than rendering a queue entry of its own.
+  assert.ok(handler.includes('poll();'), 'the handler re-polls state after enqueuing, like the prompt form does');
+
+  // No error-specific UI is invented: the handler carries no second `fetch`
+  // catch block or status message beyond the one the prompt box also omits —
+  // a failed request is left to the existing status line, updated by the next
+  // scheduled `poll()`.
+  assert.equal(/catch\s*\(/.test(handler), false, 'no bespoke error handling is invented for this button');
 });
 
 test('the backlog settings are the ones skill/refs/gui/gui.md records', () => {

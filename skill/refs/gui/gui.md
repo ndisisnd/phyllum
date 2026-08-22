@@ -142,6 +142,30 @@ Those settings are the page's `BACKLOG` constant, inside the region marked
 `phyllum:backlog-contract`, and the assertion suite reads both this table and
 that region — so the ref and the page cannot drift apart quietly.
 
+### The "Assess" button (v0.7.0 §4)
+
+The Backlog panel's header carries one action, right of the count chip: a
+solid-primary **Assess** button, `#backlog-assess`. A click posts the literal
+prompt `assess` to `POST /prompt` — the same relay `#prompt-form` already
+uses, with the same payload shape (`{ text, view }`) and the same endpoint —
+so the terminal Claude Code session picks it up exactly as it would a typed
+prompt. The button enqueues and nothing more:
+
+- **It never runs anything itself.** The page is a viewer and a prompt relay
+  (see "Three views" above); clicking Assess queues a prompt the way typing
+  one and pressing Send does, and the queued item then renders in the
+  Workbench's own Queue panel through the existing `GET /state` polling — the
+  Backlog does not grow a second queue view of its own.
+- **The button gives its own feedback, not a new idiom.** For about a second
+  after the click it disables itself and its label reads "Queued…", then both
+  revert — visible confirmation that sits on the button, since a click (unlike
+  the prompt box) leaves no input to clear.
+- **A failed request fails exactly the way the prompt box's does.** Neither
+  button wraps its `fetch` in error-specific UI; a request that does not reach
+  the server surfaces through the status line's existing "server gone" message
+  once the next `poll()` runs, and the Assess button's label still reverts on
+  its own timer either way — no second error idiom is invented for it.
+
 ## The on-page rail (v0.6.0 §4)
 
 GitBook's "On this page" pattern: a second, quieter rail — `nav.rail-toc`,

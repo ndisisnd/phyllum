@@ -21,9 +21,11 @@
 
   Everything on that surface is grouped one way (v0.7.0 §2): a container — an
   edge, a corner, a fill and its padding — with its title on the left of a
-  header row and its count chip, and later its one action, on the right. Counts,
-  token slots and the `applied` badge are all the same chip. Actions are one
-  solid primary button and a ghost secondary, and nothing else.
+  header row and its count chip, and where a container has one, its action, on
+  the right. Counts, token slots and the `applied` badge are all the same chip.
+  Actions are one solid primary button and a ghost secondary, and nothing
+  else — the Backlog's "Assess" button (v0.7.0 §4) is the primary, since it is
+  the one thing that container's header does.
 
   Light is the theme the page is drawn for; dark is the second reading of the
   same palette, and the viewer picks between them: light, dark, or system
@@ -878,7 +880,7 @@
             </div>
           </div>
           <div class="panel">
-            <div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2></div>
+            <div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2><button class="btn btn--primary" id="backlog-assess" type="button">Assess</button></div>
             <div id="backlog"></div>
           </div>
         </section>
@@ -2494,6 +2496,35 @@
           body: JSON.stringify({ text, view: state.view }),
         });
         poll();
+      });
+
+      // The Backlog's "Assess" button (v0.7.0 §4): the same relay the prompt
+      // box uses, with the prompt fixed to the one word `assess` rather than
+      // typed. Same endpoint, same payload shape, same `poll()` afterwards —
+      // no second idiom for "a prompt was sent" and no second idiom for "the
+      // server did not answer" either; a failed `fetch` here fails exactly the
+      // way it fails in the prompt box, silently, and the next poll's status
+      // line is what tells the reader the server is gone. The label swap is
+      // the one thing this button adds: a click has no input box to clear, so
+      // the button itself says "queued" for a moment and then reverts.
+      el('backlog-assess').addEventListener('click', async () => {
+        const button = el('backlog-assess');
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Queued…';
+        try {
+          await fetch('/prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: 'assess', view: state.view }),
+          });
+        } finally {
+          poll();
+          setTimeout(() => {
+            button.disabled = false;
+            button.textContent = label;
+          }, 1200);
+        }
       });
 
       const drop = el('drop');
