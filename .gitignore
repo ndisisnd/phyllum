@@ -7,3 +7,5 @@ node_modules/
 phyllum-v*.md
 DESIGN-SYSTEM.md.bak
 .nxtup/
+/DESIGN-SYSTEM.md
+/.agents/
