@@ -37,8 +37,9 @@ import {
   updateCommandFor,
 } from '../../lib/install-method.js';
 import { runUpgrade } from '../../lib/upgrade-command.js';
+import { inspectSkillCopy } from '../../lib/skill-drift.js';
 import { skillFiles } from '../../lib/template.js';
-import { SKILL_INSTALL_DIR } from '../../lib/write.js';
+import { PermissionError, SKILL_INSTALL_DIR, removeGuarded } from '../../lib/write.js';
 import { PACKAGE_ROOT, diffSnapshots, snapshotContents, snapshotPaths, withTempDir } from './helpers.js';
 
 const run = (line, ctx) => execute(tokenizeLine(line), ctx);
@@ -435,6 +436,283 @@ test('with no skill copy installed, upgrade creates none and says so', async () 
     assert.ok(result.out.includes('phyllum init'), 'it points at the command that installs one');
     assert.ok(!fs.existsSync(path.join(dir, ...SKILL_INSTALL_DIR.split('/'))));
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The prune (v0.7.1 §3)
+// ---------------------------------------------------------------------------
+
+/**
+ * A skill copy as `init` would have left it, plus whatever an older version is
+ * pretending to have left behind. The stale SKILL.md is there so the re-sync has
+ * something to correct as well as something to leave alone.
+ */
+function plantSkillCopy(dir, extras = []) {
+  const skillDir = path.join(dir, ...SKILL_INSTALL_DIR.split('/'));
+  fs.mkdirSync(skillDir, { recursive: true });
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), 'a stale copy from an older version\n');
+  for (const rel of extras) {
+    const abs = path.join(skillDir, ...rel.split('/'));
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, `an orphan left by an older version: ${rel}\n`);
+  }
+  return skillDir;
+}
+
+/** A confirmation that records what it was asked and always answers the same. */
+function recordingConfirm(answer) {
+  const asked = [];
+  const confirm = async (question) => {
+    asked.push(question);
+    return answer;
+  };
+  confirm.asked = asked;
+  return confirm;
+}
+
+const ORPHANS = ['refs/gone/legacy.md', 'stray-note.md'];
+
+test('upgrade lists every extra file by name, and asks once before removing any', async () => {
+  await withTempDir(async (dir) => {
+    const skillDir = plantSkillCopy(dir, ORPHANS);
+    const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
+    const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
+    const confirm = recordingConfirm(true);
+
+    const result = await runUpgrade({
+      cwd: dir,
+      env: NO_ENV,
+      install,
+      binPath: '/opt/bin/npm',
+      run: recordingRunner(),
+      confirm,
+    });
+
+    assert.equal(result.code, 0);
+    assert.equal(confirm.asked.length, 1, 'one question, not one per file');
+
+    // Every name is on screen, and every one of them is on screen *above* the
+    // line reporting the removal — the point of asking once is that the whole
+    // list can be read before the answer is given.
+    const removedAt = result.out.indexOf('  removed  ');
+    for (const rel of ORPHANS) {
+      const at = result.out.indexOf(rel);
+      assert.ok(at > -1, `${rel} was removed without ever being named`);
+      assert.ok(at < removedAt, `${rel} was named only after it had gone`);
+    }
+    assert.ok(result.out.includes('2 files in .claude/skills/phyllum/ this version does not ship'));
+    assert.ok(confirm.asked[0].includes(SKILL_INSTALL_DIR), 'the question names the directory it prunes');
+    assert.ok(result.out.includes('removed    2 extra files'));
+
+    // Exactly those, and nothing else: every enumerated file is still there and
+    // still byte-identical to this install's own copy.
+    for (const rel of ORPHANS) {
+      assert.ok(!fs.existsSync(path.join(skillDir, ...rel.split('/'))), `${rel} survived the prune`);
+    }
+    for (const rel of skillFiles()) {
+      const installed = path.join(skillDir, ...rel.split('/'));
+      assert.equal(
+        fs.readFileSync(installed, 'utf8'),
+        fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', ...rel.split('/')), 'utf8'),
+        `the prune disturbed ${rel}`,
+      );
+    }
+  });
+});
+
+test('an accepted prune leaves the copy in step, and takes the emptied folder with it', async () => {
+  await withTempDir(async (dir) => {
+    const skillDir = plantSkillCopy(dir, ORPHANS);
+    const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
+    const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
+
+    assert.equal(inspectSkillCopy(dir).finding, 'differs', 'the orphans are a difference to begin with');
+
+    await runUpgrade({
+      cwd: dir,
+      env: NO_ENV,
+      install,
+      binPath: '/opt/bin/npm',
+      run: recordingRunner(),
+      confirm: recordingConfirm(true),
+    });
+
+    // The whole reason the prune exists: after it, the detector has nothing left
+    // to report.
+    const after = inspectSkillCopy(dir);
+    assert.equal(after.finding, 'in-step');
+    assert.deepEqual(after.extra, []);
+    assert.equal(after.differing, 0);
+
+    // `refs/gone/` held one file this version does not ship, so the folder goes
+    // with it — while `refs/`, which still holds plenty, stays exactly as it is.
+    assert.ok(!fs.existsSync(path.join(skillDir, 'refs', 'gone')));
+    assert.ok(fs.existsSync(path.join(skillDir, 'refs')));
+  });
+});
+
+test('declining the prune removes nothing, says so, and is not a failure', async () => {
+  await withTempDir(async (dir) => {
+    const skillDir = plantSkillCopy(dir, ORPHANS);
+    const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
+    const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
+    const confirm = recordingConfirm(false);
+
+    const result = await runUpgrade({
+      cwd: dir,
+      env: NO_ENV,
+      install,
+      binPath: '/opt/bin/npm',
+      run: recordingRunner(),
+      confirm,
+    });
+
+    assert.equal(result.code, 0, 'a no is an answer, not an error');
+    assert.equal(confirm.asked.length, 1);
+    assert.deepEqual(result.pruned.removed, []);
+    assert.ok(result.out.includes('kept       nothing was removed'));
+    for (const rel of ORPHANS) {
+      assert.ok(fs.existsSync(path.join(skillDir, ...rel.split('/'))), `${rel} was removed after a no`);
+    }
+    // And the re-sync still happened — a declined prune is not a declined upgrade.
+    assert.ok(result.out.includes('re-synced'));
+    assert.equal(
+      fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8'),
+      fs.readFileSync(path.join(PACKAGE_ROOT, 'skill', 'SKILL.md'), 'utf8'),
+    );
+  });
+});
+
+test('with no way to ask, upgrade removes nothing — `--yes` does not answer a deletion', async () => {
+  await withTempDir(async (dir) => {
+    const skillDir = plantSkillCopy(dir, ORPHANS);
+    const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
+    const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
+
+    // A findable `npm`, so the command gets past the PATH lookup. It is never
+    // executed: the runner is injected.
+    const binDir = path.join(dir, 'fake-bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.writeFileSync(path.join(binDir, 'npm'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+
+    // No `confirm` at all, which is what a non-interactive run looks like.
+    const { out, code } = await run('upgrade', {
+      cwd: dir,
+      env: { PATH: binDir },
+      install,
+      run: recordingRunner(),
+      yes: true,
+    });
+
+    assert.equal(code, 0);
+    assert.ok(out.includes('this version does not ship'), 'the extras are still reported');
+    assert.ok(out.includes('kept       nothing was removed'));
+    for (const rel of ORPHANS) {
+      assert.ok(fs.existsSync(path.join(skillDir, ...rel.split('/'))), `${rel} was removed unasked`);
+    }
+  });
+});
+
+test('a copy with nothing extra is never asked about at all', async () => {
+  await withTempDir(async (dir) => {
+    plantSkillCopy(dir);
+    const { packageRoot } = layout(dir, { relPath: 'usr/local/lib/node_modules/phyllum' });
+    const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
+    const confirm = recordingConfirm(true);
+
+    const result = await runUpgrade({
+      cwd: dir,
+      env: NO_ENV,
+      install,
+      binPath: '/opt/bin/npm',
+      run: recordingRunner(),
+      confirm,
+    });
+
+    assert.equal(result.code, 0);
+    assert.deepEqual(confirm.asked, [], 'nothing to remove is not a question');
+    assert.ok(!result.out.includes('does not ship'));
+    assert.ok(!result.out.includes('kept'));
+    assert.deepEqual(result.pruned.extra, []);
+    assert.ok(result.out.includes('re-synced'));
+  });
+});
+
+test('a refused install prunes nothing, because it never gets that far', async () => {
+  await withTempDir(async (dir) => {
+    plantSkillCopy(dir, ORPHANS);
+    const { packageRoot } = layout(dir, { relPath: 'code/phyllum' });
+    const install = detectInstall({ packageRoot, env: NO_ENV, cwd: dir });
+    const confirm = recordingConfirm(true);
+    const before = snapshotContents(dir);
+
+    const result = await runUpgrade({ cwd: dir, env: NO_ENV, install, run: recordingRunner(), confirm });
+
+    assert.equal(result.code, 1);
+    assert.equal(result.pruned, undefined, 'a refusal has no prune to report');
+    assert.deepEqual(confirm.asked, []);
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), { added: [], changed: [], removed: [] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The funnel's one delete
+// ---------------------------------------------------------------------------
+
+test('removeGuarded deletes inside the skill install, and refuses everywhere else', async () => {
+  await withTempDir(async (dir) => {
+    const skillDir = plantSkillCopy(dir, ['refs/gone/legacy.md']);
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), '# Design System\n');
+    fs.mkdirSync(path.join(dir, '.phyllum'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.phyllum', 'session.json'), '{}');
+
+    // Inside, with the skill-install flag: removed, and every folder the removal
+    // emptied goes with it — but the climb stops dead at the install root, which
+    // still holds SKILL.md and would never be removed even if it did not.
+    const removed = removeGuarded(dir, `${SKILL_INSTALL_DIR}/refs/gone/legacy.md`, { init: true });
+    assert.deepEqual(removed, [
+      `${SKILL_INSTALL_DIR}/refs/gone/legacy.md`,
+      `${SKILL_INSTALL_DIR}/refs/gone`,
+      `${SKILL_INSTALL_DIR}/refs`,
+    ]);
+    assert.ok(!fs.existsSync(path.join(skillDir, 'refs')));
+
+    // Every other path is refused, including the ones Phyllum may freely *write*.
+    // Writable and deletable are not the same permission.
+    for (const target of [
+      'DESIGN-SYSTEM.md',
+      'DESIGN-SYSTEM.md.bak',
+      '.phyllum/session.json',
+      '.phyllum',
+      '.gitignore',
+      'src/App.jsx',
+      '../outside.md',
+      SKILL_INSTALL_DIR,
+    ]) {
+      assert.throws(
+        () => removeGuarded(dir, target, { init: true }),
+        PermissionError,
+        `removeGuarded should refuse ${target}`,
+      );
+    }
+    assert.ok(fs.existsSync(path.join(dir, 'DESIGN-SYSTEM.md')), 'the design system is untouched');
+    assert.ok(fs.existsSync(path.join(dir, '.phyllum', 'session.json')));
+    assert.ok(fs.existsSync(skillDir), 'the install root itself is never removed');
+
+    // And without the skill-install flag, even the right directory is refused.
+    assert.throws(
+      () => removeGuarded(dir, `${SKILL_INSTALL_DIR}/SKILL.md`, {}),
+      PermissionError,
+      'a delete outside a skill-install context is still a delete',
+    );
+    assert.ok(fs.existsSync(path.join(skillDir, 'SKILL.md')));
+
+    // The refusal says "remove", not "write" — it names the act it refused.
+    assert.throws(
+      () => removeGuarded(dir, 'DESIGN-SYSTEM.md', { init: true }),
+      /refused to remove "DESIGN-SYSTEM\.md"/,
+    );
   });
 });
 
