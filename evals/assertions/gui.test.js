@@ -1227,6 +1227,131 @@ test('numbers show as sectioned lists and typography as live specimens', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The on-page rail (v0.6.0 §4)
+// ---------------------------------------------------------------------------
+
+/**
+ * The rail's own pure contract, lifted and run — the same split as the
+ * swatch and numbers regions above: an id is only ever a slug plus a dedupe
+ * rule, no DOM involved, so the suite runs exactly the code the browser runs.
+ */
+function railContract() {
+  const text = readPage();
+  const start = text.indexOf('// --- phyllum:rail-contract');
+  const end = text.indexOf('// --- end phyllum:rail-contract');
+  assert.ok(start !== -1 && end > start, 'the page marks its rail-contract region');
+  const region = text.slice(start, end);
+  assert.ok(!/\b(document|window)\b/.test(region), 'the contract region touches no DOM');
+
+  const factory = new Function(`${region}\nreturn { slugify, dedupeId };`);
+  return factory();
+}
+
+test('a heading title becomes a stable, URL-safe slug', () => {
+  const contract = railContract();
+  assert.equal(contract.slugify('Colours'), 'colours');
+  assert.equal(contract.slugify('Colours — Primitives'), 'colours-primitives');
+  assert.equal(contract.slugify('corner radius'), 'corner-radius');
+  assert.equal(contract.slugify('Border Width'), 'border-width');
+  // Punctuation-only and empty titles still earn an id — never an empty href.
+  assert.equal(contract.slugify('—'), 'section');
+  assert.equal(contract.slugify(''), 'section');
+  assert.equal(contract.slugify(undefined), 'section');
+  // A hand-edited label cannot smuggle markup into an id or an href.
+  assert.equal(contract.slugify('<i>hover</i>'), 'i-hover-i');
+});
+
+test('two sections sharing a label still get two distinct, working ids', () => {
+  const contract = railContract();
+  const used = new Set();
+  const ids = ['corner radius', 'padding', 'corner radius', 'corner radius'].map((title) =>
+    contract.dedupeId(title, used),
+  );
+  assert.deepEqual(ids, ['corner-radius', 'padding', 'corner-radius-2', 'corner-radius-3']);
+  // Every id handed out this pass is unique, by construction.
+  assert.equal(new Set(ids).size, ids.length);
+
+  // A fresh `used` set starts the count over — one pass never remembers the
+  // last one, which is what lets the rail rebuild from scratch every render.
+  assert.equal(contract.dedupeId('corner radius', new Set()), 'corner-radius');
+});
+
+test('the rail is a labelled nav, built after every render, torn down and reobserved each time', () => {
+  const text = readPage();
+
+  // The markup: one `<nav>`, the aria-label GitBook's pattern is named for,
+  // and a plain `<ul>` of anchors underneath — the part that still works with
+  // every script on the page removed.
+  assert.match(text, /<nav class="rail-toc" id="rail-toc" aria-label="On this page" hidden>/);
+  assert.ok(text.includes('<ul id="rail-toc-list"></ul>'), 'the links live in one plain list');
+
+  // `buildRail` runs at the end of every branch `renderLibrary` can take —
+  // loading, a server that answered with the wrong shape, and the ordinary
+  // render — never only the last one.
+  const renderLibrary = text.slice(text.indexOf('function renderLibrary()'), text.indexOf('function appliedBadge'));
+  assert.equal((renderLibrary.match(/buildRail\(\);/g) ?? []).length, 3, 'buildRail() runs on every branch');
+
+  // The ids and the list are built from `#tokens-body` itself, not from a
+  // list carried over from a previous render.
+  assert.ok(text.includes("container.querySelectorAll('h3')"), 'the rail reads the headings just rendered');
+  assert.ok(text.includes('const used = new Set();'), 'a fresh dedupe set every call — no state survives a rebuild');
+
+  // The observer is disconnected before it is ever reattached, so a heading a
+  // previous render replaced is never still being watched.
+  const observeRail = text.slice(text.indexOf('function observeRail'), text.indexOf('function setActiveRailLink'));
+  assert.match(observeRail, /if \(railObserver\) railObserver\.disconnect\(\);/);
+  assert.match(observeRail, /railObserver = null;/);
+  // And its absence is a graceful one — no observer, still working anchors.
+  assert.match(observeRail, /typeof IntersectionObserver !== 'function'/);
+});
+
+test('the rail shows only while the token panel is on screen', () => {
+  const text = readPage();
+  const fn = text.match(/function updateRailVisibility\(\) \{[\s\S]*?\n {6}\}\n/);
+  assert.ok(fn, 'visibility is decided in one place');
+  assert.match(fn[0], /state\.view === 'library' && state\.scope !== 'components'/);
+  // It is consulted on a filter change (inside buildRail, via renderLibrary)
+  // and on a plain view switch, which never calls renderLibrary at all.
+  const viewsHandler = text.slice(text.indexOf("el('views').addEventListener"), text.indexOf("el('filters').addEventListener"));
+  assert.ok(viewsHandler.includes('updateRailVisibility();'), 'switching views alone still updates the rail');
+});
+
+test('the rail scrolls smoothly, and defers to a reader who has asked for less motion', () => {
+  const text = readPage();
+  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
+  assert.match(stylesheet, /html \{ scroll-behavior: smooth; \}/);
+  const reduced = stylesheet.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n {6}\}/);
+  assert.ok(reduced, 'a reduced-motion override exists');
+  assert.match(reduced[1], /scroll-behavior: auto/);
+});
+
+test('the rail sits outside the content column, sticky, and steps aside on narrow viewports', () => {
+  const text = readPage();
+  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
+  const rule = stylesheet.match(/nav\.rail-toc \{([\s\S]*?)\n {6}\}/);
+  assert.ok(rule, 'the rail is styled by the page');
+  assert.match(rule[1], /position: sticky/);
+  assert.match(rule[1], /top: 3rem/);
+
+  const active = stylesheet.match(/nav\.rail-toc a\.active \{([\s\S]*?)\n {6}\}/);
+  assert.ok(active, 'the active link is styled');
+  assert.match(active[1], /color: var\(--accent\)/, 'the active mark is the page\'s own accent, not a new colour');
+
+  const narrow = stylesheet.match(/@media \(max-width: 75rem\) \{([\s\S]*?)\n {6}\}/);
+  assert.ok(narrow, 'the rail steps aside before the layout gets cramped');
+  assert.match(narrow[1], /nav\.rail-toc \{ display: none; \}/);
+});
+
+test('the rail\'s own contract is the one skill/refs/gui/gui.md records', () => {
+  const rows = tableAfter(fs.readFileSync(GUI_MD, 'utf8'), '<!-- phyllum:rail -->', 'refs/gui/gui.md');
+  const recorded = (fact) => stripTicks(rows.find((row) => row[0] === fact)?.[1] ?? '');
+  assert.ok(recorded('Source').includes('buildRail'), 'the ref names the function that reads the DOM');
+  assert.ok(recorded('Ids').includes('slugify') && recorded('Ids').includes('dedupeId'));
+  assert.ok(recorded('Active link').includes('IntersectionObserver'));
+  assert.ok(recorded('Visibility').toLowerCase().includes('workbench'));
+});
+
+// ---------------------------------------------------------------------------
 // The restyle and the theme toggle (v0.5.1 §3, §4)
 // ---------------------------------------------------------------------------
 

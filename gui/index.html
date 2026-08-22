@@ -137,6 +137,14 @@
       }
 
       * { box-sizing: border-box; }
+      /* Anchor scrolling for the on-page rail (v0.6.0 §4): CSS carries the
+         smoothing rather than a scroll handler, and a reader who has asked
+         the OS for less motion gets the browser's default jump instead — the
+         one media query the rule needs to behave. */
+      html { scroll-behavior: smooth; }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+      }
       body {
         margin: 0;
         background: var(--bg);
@@ -207,7 +215,11 @@
         align-self: flex-start;
         height: calc(100vh - 3rem);
       }
-      nav#views .rail-label {
+      /* Tier three's own label styling (v0.6.0 §3), shared by both rails on
+         the page: the view rail on the left, the on-page outline rail on the
+         right. One rule, so a reader who has seen one has seen the other. */
+      nav#views .rail-label,
+      .rail-toc .rail-label {
         display: block;
         padding: 0.5rem 0.75rem;
         font-size: var(--type-01);
@@ -247,6 +259,48 @@
       }
       section.view[hidden] { display: none; }
       section.view { display: grid; gap: var(--gap); align-content: start; }
+
+      /* --- on-page rail (v0.6.0 §4) ---------------------------------------
+         GitBook's "On this page" pattern: a second, quieter rail outside the
+         content column, on the margin the view rail does not use, so it never
+         fights `nav#views` for the reader's eye. It is built fresh after
+         every render from the headings `#tokens-body` was just given — see
+         `buildRail` — and it shows only while the token panel is the thing on
+         screen. With no JS at all it is still a plain list of working
+         anchors; the highlight below is the one part that needs the script. */
+      nav.rail-toc {
+        width: 12rem;
+        flex: 0 0 12rem;
+        padding: 1rem 0.75rem;
+        position: sticky;
+        top: 3rem;
+        align-self: flex-start;
+        height: calc(100vh - 3rem);
+        overflow-y: auto;
+      }
+      nav.rail-toc[hidden] { display: none; }
+      nav.rail-toc ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.125rem; }
+      nav.rail-toc a {
+        display: block;
+        padding: 0.35rem 0.75rem;
+        border-radius: var(--radius-sm);
+        font-size: var(--type-02);
+        color: var(--muted);
+        text-decoration: none;
+      }
+      nav.rail-toc a:hover { background: var(--layer-accent); color: var(--ink); }
+      /* The active link (v0.6.0 §4): the accent ink, like every other "you are
+         here" mark on the page — the selected theme button, the selected
+         view — carries; nothing here invents a second way of saying it. */
+      nav.rail-toc a.active { color: var(--accent); font-weight: 600; }
+
+      /* Below this the view rail, the measure and the outline rail no longer
+         fit side by side without squeezing the reading column, so the
+         outline steps aside first — it is the least load-bearing of the
+         three. */
+      @media (max-width: 75rem) {
+        nav.rail-toc { display: none; }
+      }
 
       /* --- tiles ---------------------------------------------------------
          A tile is a rounded, softly shadowed layer. The hairline it used to
@@ -711,6 +765,11 @@
           </div>
         </section>
       </main>
+
+      <nav class="rail-toc" id="rail-toc" aria-label="On this page" hidden>
+        <span class="rail-label">On this page</span>
+        <ul id="rail-toc-list"></ul>
+      </nav>
     </div>
 
     <script>
@@ -1522,6 +1581,7 @@
         state.view = view;
         select(el('views'), 'view', view);
         for (const name of ['library', 'workbench', 'tokens']) el('view-' + name).hidden = name !== view;
+        updateRailVisibility();
       });
 
       el('filters').addEventListener('click', (event) => {
@@ -1564,6 +1624,56 @@
       const heading = (title, count, note) =>
         '<h3>' + esc(title) + ' <span class="count">' + count + '</span></h3>' +
         (note ? '<p class="section__note">' + esc(note) + '</p>' : '');
+
+      // --- phyllum:rail-contract --------------------------------------------
+      // The on-page rail (v0.6.0 §4): one anchor link per section heading in
+      // `#tokens-body`, rebuilt from that DOM after every render — never a
+      // hard-coded list, because the sections themselves come and go with the
+      // file (v0.6.0 §1 already made that true of the headings; the rail just
+      // has to keep up with it). Only the two pure facts a heading's id rests
+      // on live in this marked region: turning a title into a slug, and
+      // making that slug unique against the ones already handed out earlier
+      // in the same pass. The DOM work that reads `#tokens-body` and writes
+      // the ids and the list — `buildRail`, `headingLabel`, `observeRail`,
+      // below — stays outside it, the same split every other contract region
+      // on this page draws between what the suite can lift and run and what
+      // needs a browser to mean anything.
+      /**
+       * A URL-safe id: lower-cased, everything but letters and digits
+       * collapsed to one hyphen, no leading or trailing one. A title with
+       * nothing left after that — punctuation only, or empty — still gets an
+       * id rather than an empty `href`.
+       */
+      function slugify(title) {
+        const slug = String(title ?? '')
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        return slug || 'section';
+      }
+
+      /**
+       * The id one heading earns, made unique against `used` — the ids
+       * already claimed earlier in the same pass. Two sections sharing a
+       * label is not an error the file has to avoid; it is a `-2`, a `-3` …
+       * the second and third time the same slug comes up. `used` is mutated
+       * as the id is claimed, so a caller walking a list of titles in order
+       * gets one unique id per call for free, with no state of its own to
+       * remember between calls.
+       */
+      function dedupeId(title, used) {
+        const base = slugify(title);
+        let id = base;
+        let suffix = 2;
+        while (used.has(id)) {
+          id = base + '-' + suffix;
+          suffix += 1;
+        }
+        used.add(id);
+        return id;
+      }
+      // --- end phyllum:rail-contract ------------------------------------------
 
       const cell = (row, name, index) => String(row[name] ?? (row.cells ?? [])[index] ?? '');
 
@@ -1778,12 +1888,97 @@
         return heading('Typography', rows.length, NOTES.typography) + '<div class="specimens">' + specimens + '</div>';
       }
 
+      /** A heading's own text, its count span excluded — the rail's label. */
+      function headingLabel(h) {
+        const clone = h.cloneNode(true);
+        const count = clone.querySelector('.count');
+        if (count) count.remove();
+        return (clone.textContent ?? '').trim();
+      }
+
+      let railObserver = null;
+
+      /**
+       * Active-section highlight (v0.6.0 §4), via `IntersectionObserver`.
+       * Disconnected and rebuilt on every call, never merely added to: a
+       * stale observer left watching a heading `renderLibrary` already
+       * replaced would fire on a node nobody can see any more. Its absence —
+       * an old browser, a headless test run — costs nothing but the
+       * highlight; the links underneath already work as plain anchors.
+       */
+      function observeRail(headings) {
+        if (railObserver) railObserver.disconnect();
+        railObserver = null;
+        if (typeof IntersectionObserver !== 'function' || headings.length === 0) return;
+        railObserver = new IntersectionObserver(
+          (entries) => {
+            const visible = entries.filter((entry) => entry.isIntersecting);
+            if (!visible.length) return;
+            // The topmost heading currently inside the band wins — the one a
+            // reader scrolling down has most recently reached.
+            const top = visible.reduce((a, b) =>
+              a.boundingClientRect.top <= b.boundingClientRect.top ? a : b);
+            setActiveRailLink(top.target.id);
+          },
+          // A band near the top of the viewport, not the whole page: a
+          // heading only counts as "current" once it has actually reached
+          // reading position.
+          { rootMargin: '0px 0px -70% 0px', threshold: 0 },
+        );
+        for (const target of headings) railObserver.observe(target);
+      }
+
+      function setActiveRailLink(id) {
+        const list = el('rail-toc-list');
+        if (!list) return;
+        for (const a of list.querySelectorAll('a')) {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        }
+      }
+
+      /**
+       * The rail shows only while the token panel is the thing on screen
+       * (v0.6.0 §4) — not the Workbench view, and not the Components half of
+       * the Library view when the token filter is switched off.
+       */
+      function updateRailVisibility() {
+        const nav = el('rail-toc');
+        if (!nav) return;
+        nav.hidden = !(state.view === 'library' && state.scope !== 'components');
+      }
+
+      /**
+       * The rail itself: one link per heading `#tokens-body` was just given,
+       * read straight from that DOM rather than from a list anyone wrote down
+       * — the sections it lists come and go with the file (v0.6.0 §1, §4).
+       * Every heading earns a stable, deduplicated id along the way, so a
+       * click always lands on the section it named even when two sections
+       * share a label.
+       */
+      function buildRail() {
+        updateRailVisibility();
+        const container = el('tokens-body');
+        const list = el('rail-toc-list');
+        if (!container || !list) return;
+        const headings = Array.from(container.querySelectorAll('h3'));
+        const used = new Set();
+        list.innerHTML = headings
+          .map((h) => {
+            const label = headingLabel(h);
+            h.id = dedupeId(label, used);
+            return '<li><a href="#' + esc(h.id) + '">' + esc(label) + '</a></li>';
+          })
+          .join('');
+        observeRail(headings);
+      }
+
       function renderLibrary() {
         const system = state.system;
         el('tokens-panel').hidden = state.scope === 'components';
         el('components-panel').hidden = state.scope === 'tokens';
         if (!system || system.error) {
           el('tokens-body').textContent = system ? system.message : 'reading…';
+          buildRail();
           return;
         }
         // A payload that is missing the shape it promised is the same class of
@@ -1794,6 +1989,7 @@
         if (!system.tokens || typeof system.tokens !== 'object') {
           el('tokens-body').textContent =
             'The server answered with something that is not a design system. Check DESIGN-SYSTEM.md, then reload.';
+          buildRail();
           return;
         }
         // Each section renders from whatever list it was actually given; a
@@ -1810,6 +2006,9 @@
           numbersSections(rowsOf('numbers'), (Array.isArray(columns.numbers) ? columns.numbers : [])[2] ?? ''),
           typographySection(rowsOf('typography')),
         ].join('');
+        // The rail rebuilds from the DOM the line above just wrote — never
+        // from a list carried over from the last render (v0.6.0 §4).
+        buildRail();
 
         // The `applied` badge (v0.5.0 §3.4). It is the page's own chip — no new
         // colour, no new shape — and it is drawn for `applied: true` alone: a
