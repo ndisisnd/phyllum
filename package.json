@@ -1,6 +1,6 @@
 {
   "name": "phyllum",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Design system companion — turns prose, images, or your codebase into tokens and components, recorded in DESIGN-SYSTEM.md",
   "type": "module",
   "license": "Apache-2.0",
@@ -34,7 +34,9 @@
     "evals": "node evals/run-evals.js",
     "evals:record": "node evals/run-evals.js --record",
     "evals:record-model": "node evals/record-model.js",
-    "check": "npm test && npm run evals"
+    "check": "npm test && npm run evals",
+    "release:patch": "node evals/release.js patch",
+    "release:minor": "node evals/release.js minor"
   },
   "engines": {
     "node": ">=20.0.0"

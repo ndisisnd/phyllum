@@ -4,6 +4,16 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-23
 
+### [13] — 0.7.2: the suite sheds its paperwork
+
+- `evals/assertions/gui.test.js`, `evals/assertions/gui-preview.test.js`: Changed — **the GUI trim**: 31 assertions removed (1,219 -> 1,188), every one a presentation pin rather than a promise about user data — card/radius geometry, the near-white border threshold and its class names, ramp-vs-card treatment, ramp/type specimens. Kept whole: server lifecycle (localhost-only binding, PID/port record, reuse, `kill` on live and stale paths), the JSON API and its one parse contract, delivery (no webfont, no CDN, no `src=`, no external URL, no network call), the escape gates (the sixteen hostile values and the swatch's hex-literal-only contract), the page-vs-ref equalities (`PREVIEW` constants, projection map, `THEME` table), and the theme-persistence tests (the `localStorage` round-trip and the system-default fallback)
+- `evals/run.md`: Changed — the ~200-line "What is covered today" per-file coverage table is gone; the test names are the coverage record now. The how-to-run half, the harness explanation, the two responders, recording, and the baseline rules are untouched
+- `evals/run.md`: Changed — definition-of-done rule 1 narrows: every change ships its assertions; a new eval only when the change adds behaviour that must be scored rather than pass/failed. Rules 2–4 unchanged
+- `evals/run.md`: Changed — the "count only grows" sentence is replaced: the assertions bar now reads "100% — no failures; a removed assertion is a visible, explained act, named in the change that removes it"
+- `package.json`, `evals/release.js`, `evals/assertions/release-script.test.js`: Added — **`release:patch` and `release:minor`**: bump `package.json`'s version, run `npm run evals:record` so the baseline carries the new version, then `npm run check` so the coupled pair is proven green — one act instead of two, closing the gap where a forgotten re-record cost a diagnose-and-repair loop per release. Neither script nor the module it calls ever runs `git`; committing and tagging stay the orchestrator's decision, made after this exits
+- `evals/baseline.json`: Changed — re-recorded as `release: v0.7.2`, 20 evals at 1.000, no threshold lowered
+- `package.json`: version → 0.7.2
+
 ### [12] — 0.7.1: version learns to see the skill copy, and upgrade learns to prune
 
 - `lib/skill-drift.js`, `evals/assertions/skill-drift.test.js`: Added — **the drift check**: `inspectSkillCopy(root)` compares the bytes of every file `init` would install in `.claude/skills/phyllum/` against the bytes on disk, and returns one of three findings — `in-step` (every file present and byte-identical), `differs` (one or more missing, changed, unreadable, or present but not enumerated by this install), or `none` (no copy in this directory); pure and read-only, in its own module, so the registry import graph stays untouched

@@ -2,6 +2,25 @@
 
 What's new for you, release by release.
 
+## v0.7.2 — 2026-08-23
+
+> A suite-and-process release, with nothing changed in what Phyllum does for your
+> project. The dashboard's test suite sheds 31 assertions that were pinning down
+> presentation — exact corner radii, border colours, layout geometry — rather than
+> guarding anything about your data; every promise about your data is still kept
+> and still checked. The docs lose a coverage table that repeated what the test
+> names already said. And cutting a release is now one command instead of two
+> easy-to-forget ones.
+
+### 📈 Improved
+- **Releasing is one command now.** `npm run release:patch` (or `release:minor`) bumps the version, re-records the test baseline against it, and re-runs the full check, in that order. Before this, the version bump and the baseline re-record were two separate manual steps, and forgetting the second one meant the next check failed for a reason that had nothing to do with the change that triggered it.
+
+### Not in this release
+- **No behaviour change.** Nothing about how `init`, `create`, `tokenise`, `assess`, `apply`, `update`, `delete`, `version` or `upgrade` work has moved. This release is entirely about the suite that checks them and the docs that describe that suite.
+- **No eval removed, no threshold lowered.** The 31 removed assertions were presentation pins, not promises about your data — every eval and every threshold from v0.7.1 still holds.
+
+Update with `phyllum upgrade`.
+
 ## v0.7.1 — 2026-08-23
 
 > `phyllum version` now checks more than just the CLI. It looks at the copy of the skill sitting in your project and tells you if it has fallen out of step with what you have installed — something that used to happen silently whenever you upgraded Phyllum the ordinary way. And `phyllum upgrade` can now clean up old files that copy leaves behind, so a leftover from a past version never sits there being read as if it were current.
