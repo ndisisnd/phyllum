@@ -2,6 +2,25 @@
 
 What's new for you, release by release.
 
+## v0.6.0 — 2026-08-22
+
+> The dashboard's token panel reads like a design-system site now, not a printout of your file. "Numbers" is gone as a heading — every different thing your tokens apply to, radius, spacing, shadow and anything else your file names, gets its own section, in your file's own words. And a token no longer just names its value: where Phyllum recognises the reading, it draws it.
+
+### ✨ New
+- **Your number tokens draw themselves.** A radius token draws a tile with that exact corner rounded. A shadow token draws a card carrying that exact shadow. A spacing token draws a gap at that exact size. The name and the value still sit underneath as a caption — nothing is hidden, just shown as well as told. A reading Phyllum does not recognise still gets the plain name-and-value line it always had; nothing is guessed.
+- **A sticky "On this page" rail.** The token panel now lists its own sections in a quiet rail on the margin, and highlights the one you're scrolled to. Click a section to jump straight to it. It only appears where there is something to list, and it steps aside on a narrower window rather than crowding the reading column.
+
+### 📈 Improved
+- **"Numbers" is gone as a single section.** What used to be one long list grouped under one heading is now one section per distinct thing your tokens apply to — the same first-class treatment Colours and Typography already had. Nothing is renamed or regrouped behind the scenes: the label is still your file's own words, and the order is still your file's own order.
+- **The page reads like documentation, not a table dump.** A constrained column keeps lines a comfortable width to read. Every section now carries a one-line note under its heading saying what it shows. Spacing between sections is now clearly more generous than spacing within one, so the eye knows where a section ends without needing a rule drawn between them.
+- **One card look, everywhere.** The rounded corner and the soft shadow that already marked a colour card now mark every surface on the page — including the new specimens — so nothing on the token panel looks like it arrived from a different design.
+
+### Not in this release
+- **Editing a token from the page.** Specimens and sections are still read-only, on localhost only. Nothing here writes to `DESIGN-SYSTEM.md`.
+- **New number categories.** Radius, spacing and shadow are the readings Phyllum recognises today; a category it does not recognise still renders as a plain line rather than a guessed drawing.
+
+Update with `phyllum upgrade`.
+
 ## v0.5.1 — 2026-08-17
 
 > The dashboard gets a new look — simpler, softer, rounder — and you get to choose whether it is light or dark. The component preview gains a third row of controls: where your spec records a button's leading or trailing icon, you can flip that slot on and off and watch the drawing change. Nothing new is written, no new command exists, and the page still fetches nothing from the network.

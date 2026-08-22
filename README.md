@@ -290,8 +290,12 @@ on top, the token name beneath it, and the value on its own line under that — 
 the swatch where a near-white would otherwise vanish against the page, and a gradient
 painted as the swatch fill. A primitives ramp keeps its nine-step strip, because a ramp
 reads as one thing rather than as nine cards; typography tokens render as live specimens in
-their own size, weight and line-height; and numbers render as a plain list grouped by what
-each one applies to, in the file's own words. Only a value
+their own size, weight and line-height; and number tokens no longer share one heading —
+each distinct thing they apply to, in the file's own words, is its own section, and a
+reading the page recognises draws as a **specimen** — a radius token as a rounded tile, a
+spacing token as its own gap at scale, a shadow token as a card carrying that shadow — name
+and value still underneath as the caption, an unrecognised reading falling back to the
+plain line. Only a value
 the page recognises as a colour or a gradient is ever painted — anything else is shown as
 text on an unfilled swatch, so a hand-edited file can never write CSS into the page.
 

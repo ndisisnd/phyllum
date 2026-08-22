@@ -604,6 +604,36 @@ still self-contained — no webfont, no CDN, no `src=` attribute and no external
 URL anywhere in `gui/index.html`. Twenty evals, every one at 1.000, no threshold
 lowered.
 
+v0.6.0 M1 retires the **Numbers umbrella**. The dashboard used to cut the
+Numbers table into groups under one shared heading; every distinct `applies to`
+reading — `radius`, `spacing`, `shadow` today, whatever a file names tomorrow —
+now renders as its own first-class section on the same single page, same
+verbatim label, same file order, and the same trailing `other` group for a
+blank cell. No section is titled "Numbers" any more, and the bar and track
+`refs/gui/cards.md` had already dropped in v0.5.1 stay gone; this milestone
+re-verifies rather than re-removes them. v0.6.0 M2 gives a recognised reading a
+**specimen** instead of a bare value: a radius token draws a tile carrying that
+corner radius, a shadow token draws a card carrying that shadow, a spacing
+token draws its own gap at scale — the name and the mono value ride along as
+the caption underneath. Every value reaches the specimen through the same
+shape gate the colour cards already used, widened rather than duplicated, so an
+unrecognised reading still falls back to the plain name-and-value line instead
+of guessing. v0.6.0 M3 gives the page **documentation anatomy**: one
+`--measure` column the content is centred in, three heading tiers and no more,
+a one-line `section__note` under every section heading describing what it
+shows, and a spacing rhythm that separates sections more than it separates the
+rows inside one — all drawn from the page's own tokens, not a new scale
+invented for the occasion. v0.6.0 M4 adds the **on-page rail**: a sticky
+`nav.rail-toc` outside the content column, rebuilt from the live section
+headings on every render rather than a hard-coded list, each id slugged and
+deduplicated, the active section tracked with an `IntersectionObserver` and
+degrading to plain anchors with reduced motion or no script at all; it hides
+below `75rem` and outside the Library view's token panel, where there is
+nothing yet for it to list. v0.6.0 M5 closes the release: the docs sweep,
+`llms.txt` and this file rewritten wherever they still described numbers as one
+grouped list rather than first-class sections, and the 0.6.0 baseline
+re-recorded. Twenty evals, every one at 1.000, no threshold lowered.
+
 v0.2.0 M1 ships `version` and `update` (now `upgrade`), the self-maintenance pair. `version`
 reads the installed version from the package itself and asks npm what the latest
 published version is — the only network call in the product, made only when the

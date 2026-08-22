@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-22
+
+### [10] — 0.6.0: the dashboard reads like a design system, not a printout
+
+- `gui/index.html`, `evals/assertions/gui.test.js`, `skill/refs/gui/cards.md`: Changed — **the Numbers umbrella retires**: the one grouped list the v0.5.1 cut left behind is gone, and every distinct `applies to` reading in the file — `radius`, `spacing`, `shadow` today, whatever a file names tomorrow — becomes its own first-class section on the same single page, same heading tier as Colours and Typography; labels stay the file's own words verbatim, sections and tokens stay in file order, and a blank cell still falls to one trailing `other` section rather than inventing a reading nobody wrote; no section titled "Numbers" renders, and the bar and track `cards.md` had already dropped in v0.5.1 stay dropped — this release re-verifies that removal rather than re-doing it
+- `gui/index.html`, `evals/assertions/gui.test.js`, `skill/refs/gui/cards.md`: Added — **specimens**: a recognised reading draws its value rather than printing it — a radius token as a tile carrying that corner radius, a shadow token as a card carrying that shadow, a spacing token as its own gap drawn at scale — with the token's name and mono value riding along underneath as the caption; every value reaches the page through the same shape gate the colour cards already used, widened rather than duplicated, so a category the page cannot classify falls back to the plain name-and-value line instead of guessing
+- `gui/index.html`: Changed — the shape gate widens twice for the specimens: `isShadow` now accepts a bare `0` length (a real, if flat, shadow) instead of reading it as absent, and a new `isShadowList` reads a comma-joined stack of shadows so a token layering more than one still draws
+- `gui/index.html`, `evals/assertions/gui.test.js`, `skill/refs/gui/cards.md`, `skill/refs/gui/gui.md`: Added — **documentation anatomy**: the Library view's token panel gets a `--measure` column (`68rem`) centred in whatever space is left, a `--space-1`…`--space-6` rhythm carried from the page's own scale that separates sections more than it separates the rows inside one, exactly three heading tiers, and a one-line `p.section__note` under every section heading naming what the section shows — a colour section says it draws cards, a number section builds its line from its own `applies to` reading; one card radius and one shadow now hold across every surface, colour and number token alike
+- `gui/index.html`, `evals/assertions/gui.test.js`, `skill/refs/gui/gui.md`: Added — **the on-page rail**, GitBook's "On this page" pattern: a sticky `nav.rail-toc` on the margin outside the content column, rebuilt from the live `#tokens-body h3` headings on every render rather than a hard-coded list, so the rail always matches whatever sections the file produces; each id is a slug of its heading, deduplicated against every id already handed out in the same pass, the active section tracked with an `IntersectionObserver` that is disconnected and rebuilt rather than merely appended to, smooth scroll dropped to plain jumps under `prefers-reduced-motion: reduce`, and the whole rail degrading to working anchor links with no script at all; it hides below a `75rem` viewport and outside the Library view's token panel, where it would have nothing to list
+- `evals/baseline.json`: Changed — re-recorded as `release: v0.6.0`, 20 evals at 1.000, no threshold lowered
+- `package.json`: version → 0.6.0
+- `llms.txt`, `skill/SKILL.md`, `RELEASES.md`: docs updated for the 0.6.0 surface, including every line that still described numbers as one list grouped under a shared heading rather than as first-class sections
+
 ## 2026-08-17
 
 ### [9] — 0.5.1: the dashboard softens, and the preview answers back
