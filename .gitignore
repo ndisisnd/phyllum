@@ -5,3 +5,5 @@ basal-v*.md
 .claude/
 node_modules/
 phyllum-v*.md
+DESIGN-SYSTEM.md.bak
+.nxtup/
