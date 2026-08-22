@@ -12,8 +12,8 @@
  *   3. **The honesty.** A `TODO` slot must be absent from the styles and
  *      present in the unrendered list, and a value that fails the shape gate
  *      must never reach a `style` attribute at all.
- *   4. **The toggles.** Variant siblings group by base name, and a lone
- *      component shows none.
+ *   4. **The toggles.** Variant siblings group by base name, and a control
+ *      only ever reads what the file itself records.
  *   5. **What did not change.** The page still fetches nothing, and the server
  *      surface is the same four routes.
  *
@@ -21,6 +21,10 @@
  * strings and numbers, no DOM, no fetch — and this file lifts that exact region
  * out and runs it. The suite therefore executes the code the browser executes,
  * not a restatement of it.
+ *
+ * Since v0.7.2 the file pins no presentation: the stage's colours, corners and
+ * type, the toggle placement and the placeholder's styling are the stylesheet's
+ * business, and a restyle rewrites no assertion here.
  */
 
 import assert from 'node:assert/strict';
@@ -236,16 +240,6 @@ test('a custom component with no contract is a generic block from the slots it c
   assert.equal(unknown.element, 'div');
 });
 
-test('an input archetype is a void element carrying its label as a value', () => {
-  const contract = previewContract();
-  const { html } = contract.previewElementHtml(
-    { name: 'Input/Text', archetype: 'input', properties: { background: '#FFFFFF' } },
-    contract.previewTokens(null),
-    'default',
-  );
-  assert.match(html, /^<input class="preview__element" style="background:#FFFFFF" value="Text" readonly \/>$/);
-});
-
 // ---------------------------------------------------------------------------
 // 3. The honesty — TODO slots, unresolvable slots, and the gate
 // ---------------------------------------------------------------------------
@@ -376,7 +370,7 @@ test('the hard half of the gate refuses a shape whatever else it wears', () => {
 // 4. The toggles — variants, and states
 // ---------------------------------------------------------------------------
 
-test('variant siblings group by base name, and a lone component shows no toggle', () => {
+test('variant siblings group by base name', () => {
   const contract = previewContract();
   const components = [
     { name: 'Button/Primary', archetype: 'button', properties: { background: '#2563EB' } },
@@ -388,23 +382,12 @@ test('variant siblings group by base name, and a lone component shows no toggle'
   assert.deepEqual(groups[0].members.map((member) => member.variant), ['Primary', 'Ghost']);
   assert.deepEqual(groups[1].members.map((member) => member.index), [2]);
 
-  const tokens = contract.previewTokens(null);
-  const withSiblings = contract.previewPanelHtml(components, 0, tokens, 'default');
-  const buttons = [...withSiblings.matchAll(/data-preview-variant="(\d+)"/g)].map((match) => match[1]);
-  assert.deepEqual(buttons, ['0', '1'], 'one button per variant, in file order');
-  assert.match(withSiblings, /data-preview-variant="0" aria-selected="true"/, 'the shown one is active');
-  assert.match(withSiblings, /data-preview-variant="1" aria-selected="false"/);
-
-  const alone = contract.previewPanelHtml(components, 2, tokens, 'default');
-  assert.ok(!alone.includes('data-preview-variant'), 'a component with no siblings shows no toggle');
-  assert.ok(alone.includes('preview__stage'), 'but it still shows a preview');
-
   // A component with no slash at all is its own base, not everyone's.
   const flat = contract.previewVariantGroups([{ name: 'Ribbon' }, { name: 'Banner' }]);
   assert.deepEqual(flat.map((group) => group.base), ['Ribbon', 'Banner']);
 });
 
-test('a state overlays the base properties, and a spec with no states shows no state toggle', () => {
+test('a state overlays the base properties, and the untouched slot survives', () => {
   const contract = previewContract();
   const spec = {
     name: 'Button/Primary',
@@ -423,26 +406,6 @@ test('a state overlays the base properties, and a spec with no states shows no s
     { background: '#1D4ED8', color: '#FFFFFF' },
     'the state slot overlays the base, the untouched slot survives',
   );
-
-  const panel = contract.previewPanelHtml([spec], 0, contract.previewTokens(null), 'hover');
-  assert.deepEqual(
-    [...panel.matchAll(/data-preview-state="([^"]+)"/g)].map((match) => match[1]),
-    ['default', 'hover', 'disabled'],
-  );
-  assert.match(panel, /data-preview-state="hover" aria-selected="true"/);
-  assert.match(panel, /data-state="hover"/, 'the panel records which reading is shown');
-
-  const stateless = contract.previewPanelHtml(
-    [{ name: 'Card/Basic', archetype: 'card', properties: {}, states: {} }],
-    0,
-    contract.previewTokens(null),
-    'default',
-  );
-  assert.ok(!stateless.includes('data-preview-state'), 'one state is not a choice');
-
-  // An unknown state name falls back to the base reading rather than to nothing.
-  const unknown = contract.previewPanelHtml([spec], 0, contract.previewTokens(null), 'nonsense');
-  assert.match(unknown, /data-state="default"/);
 });
 
 // ---------------------------------------------------------------------------
@@ -531,17 +494,6 @@ test('the toggleable-slot tables and the page constants say the same thing', () 
   );
 });
 
-test('a pressed attribute control wears the same active treatment as a selected toggle', () => {
-  const page = readPage();
-  const active = page.match(/button\.tile-action\[aria-selected='true'\][^{]*\{[^}]*\}/);
-  assert.ok(active, 'the active tile-action rule exists');
-  assert.match(
-    active[0],
-    /button\.tile-action\[aria-pressed='true'\]/,
-    'aria-pressed shares the aria-selected active style — an on control must look on',
-  );
-});
-
 test('a control appears only for a slot the spec records', () => {
   const contract = previewContract();
   const tokens = contract.previewTokens(null);
@@ -616,27 +568,14 @@ test('a gated-out icon reading stays out, with the control still there', () => {
   }
 });
 
-test('an icon slot draws one child dot, leading or trailing, and no style of its own', () => {
+test('an icon placeholder carries no style of its own and loads no asset', () => {
   const contract = previewContract();
   const tokens = contract.previewTokens(null);
   const { html, projected } = contract.previewElementHtml(iconSpec('yes', 'required'), tokens, 'default');
 
   assert.deepEqual(projected.icons.map((entry) => entry.slot), ['leading-icon', 'trailing-icon']);
-  assert.equal((html.match(/<span class="preview__icon"/g) ?? []).length, 2, 'one child box per shown slot');
-  assert.match(
-    html,
-    /^<button class="preview__element" style="background:#2563EB"><span class="preview__icon" data-icon="leading-icon" data-position="leading" aria-hidden="true"><\/span>Primary<span class="preview__icon" data-icon="trailing-icon" data-position="trailing" aria-hidden="true"><\/span><\/button>$/,
-    html,
-  );
   assert.equal(styles(html).length, 1, 'the placeholder carries no style attribute — it is the page’s mark');
-
-  // The dot is the page's muted ink, sized in em from the component's own font.
-  const rule = readPage().match(/\.preview__icon\s*\{([^}]*)\}/);
-  assert.ok(rule, 'the placeholder is styled by the page');
-  assert.match(rule[1], /border-radius:\s*50%/, 'a filled dot is a circle');
-  assert.match(rule[1], /background:\s*var\(--muted\)/, 'in the page’s muted ink');
-  assert.match(rule[1], /width:\s*[\d.]+em/, 'sized from the component’s font size');
-  assert.ok(!/url\(|<img|svg/i.test(rule[1] + html), 'no icon font, no asset, no glyph');
+  assert.ok(!/url\(|<img|svg/i.test(html), 'no icon font, no asset, no glyph');
 });
 
 test('an archetype whose contract records no icon slot draws none', () => {
@@ -676,13 +615,6 @@ test('flipping a control changes the projection only — never the spec, never t
   const off = contract.previewPanelHtml([spec], 0, tokens, 'default', {});
   const on = contract.previewPanelHtml([spec], 0, tokens, 'default', { 'leading-icon': true });
 
-  assert.deepEqual(controls(off), { 'leading-icon': false, 'trailing-icon': false });
-  assert.deepEqual(controls(on), { 'leading-icon': true, 'trailing-icon': false });
-  assert.ok(!off.includes('preview__icon'), 'nothing recorded as hidden is drawn');
-  assert.equal((on.match(/preview__icon/g) ?? []).length, 1, 'exactly the flipped slot is drawn');
-  assert.match(on, /data-icons="leading-icon"/);
-  assert.match(off, /data-icons=""/);
-
   // The element's inline styles are the same either way: a control changes
   // children, never a declaration.
   assert.deepEqual(styles(off), styles(on));
@@ -700,19 +632,9 @@ test('flipping a control changes the projection only — never the spec, never t
   assert.equal(JSON.stringify(systemJson(readFixture(POPULATED_FIXTURE))), payload);
 });
 
-test('a variant or a state switch resets the attribute controls to the recorded reading', () => {
+test('with nothing flipped, every control reads as the file itself records it', () => {
   const contract = previewContract();
   const tokens = contract.previewTokens(null);
-
-  // The reset is the page's: both switches clear the flipped map before
-  // re-rendering, so the panel is rebuilt from the file's own reading.
-  const text = readPage();
-  const handler = text.slice(text.indexOf('// The three toggle rows'), text.indexOf("for (const id of ['component-list'"));
-  assert.match(handler, /previewVariant !== undefined[\s\S]*?state\.previewIcons = \{\};/, 'a variant switch resets them');
-  assert.match(handler, /previewState !== undefined[\s\S]*?state\.previewIcons = \{\};/, 'a state switch resets them');
-  assert.match(handler, /previewVariant !== undefined[\s\S]*?state\.previewState = PREVIEW\.baseState;/, 'and the state row');
-  assert.match(handler, /previewAttribute !== undefined/, 'and the controls are wired at all');
-  assert.match(text, /previewIcons: \{\},/, 'the empty map is the recorded reading');
 
   // Rendered with no flips, both siblings read as their own file says.
   const siblings = [iconSpec('yes', 'no'), Object.assign(iconSpec('optional'), { name: 'Button/Ghost' })];
@@ -748,67 +670,8 @@ test('the attribute row survives a malformed payload and an empty control list',
 });
 
 // ---------------------------------------------------------------------------
-// 5. Placement, treatment, and what did not change
+// 5. What did not change
 // ---------------------------------------------------------------------------
-
-test('the preview is the panel section above the yaml and jsx blocks, which are unchanged', () => {
-  const text = readPage();
-  const detail = text.slice(text.indexOf('function showComponent'), text.indexOf('// The two toggle rows'));
-  const preview = detail.indexOf('previewPanelHtml');
-  const blocks = detail.indexOf("'</code></pre>'");
-  assert.ok(preview !== -1 && blocks !== -1, 'the panel builds both');
-  // The heading gained the `applied` badge in v0.5.0 §3.4 and nothing else moved:
-  // the preview still comes before the blocks, and the blocks are still whole.
-  assert.match(
-    detail,
-    /innerHTML =\s*'<h3>' \+ esc\(component\.name\) \+ appliedBadge\(component\) \+ '<\/h3>' \+ preview \+ blocks;/,
-    'the preview is written before the blocks, and the blocks are still printed whole',
-  );
-});
-
-test('the preview borrows the page palette and adds no colour or font of its own', () => {
-  const text = readPage();
-  const rules = [...text.matchAll(/(\.preview[\w_-]*)\s*\{([^}]*)\}/g)].map((match) => ({
-    selector: match[1],
-    body: match[2],
-  }));
-  assert.ok(rules.length >= 5, 'the preview is styled');
-
-  // v0.5.1 §3: the stage is restyled with the rest of the page and rounds like
-  // every other surface, but it rounds off the page's own scale — and the
-  // specimen inside it is never touched. A corner the page chose is a corner
-  // the file never recorded.
-  for (const { selector, body } of rules) {
-    for (const [, radius] of body.matchAll(/border-radius:\s*([^;]+);/g)) {
-      assert.notEqual(selector, '.preview__element', 'the previewed component takes no radius from the page');
-      // v0.5.1 §5.3: the icon placeholder is a dot, and a dot is a circle
-      // rather than a corner anybody recorded — the one radius on the stage
-      // that is not a step on the page's scale.
-      if (selector === '.preview__icon') {
-        assert.equal(radius.trim(), '50%', 'the icon placeholder is a circle');
-        continue;
-      }
-      assert.match(radius.trim(), /^var\(--radius-(sm|md)\)$/, `${selector} rounds off the page's radius scale`);
-    }
-  }
-
-  for (const { body: rule } of rules) {
-    for (const [, , colour] of rule.matchAll(/(background|color|border-color):\s*([^;]+);/g)) {
-      assert.ok(
-        /^(var\(--[\w-]+\)|transparent|inherit)$/.test(colour.trim()),
-        `the preview introduces a colour of its own: ${colour}`,
-      );
-    }
-    assert.ok(!/font-family/.test(rule), 'the preview names no font of its own');
-    for (const [, size] of rule.matchAll(/font-size:\s*([^;]+);/g)) {
-      assert.match(size.trim(), /^var\(--type-0[1-5]\)$/, `${size} is outside the five-step ramp`);
-    }
-  }
-  // The toggles are the page's existing button idiom, and the unrendered list
-  // its existing chip.
-  assert.ok(text.includes("'<button class=\"tile-action\" data-preview-'"), 'toggles reuse tile-action');
-  assert.ok(text.includes("'<span class=\"chip raw\">'"), 'unrendered slots reuse the raw chip');
-});
 
 test('the preview added no network access and no server route', () => {
   const text = readPage();

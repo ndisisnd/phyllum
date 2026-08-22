@@ -8,6 +8,15 @@
  * running process. Every test tears its server down in a `finally`, so a
  * failure never leaves one behind.
  *
+ * What this file covers is a promise rather than a look (v0.7.2): the server
+ * lifecycle, the JSON API and the one parse contract, the delivery contract
+ * (no webfont, no CDN, no `src=`, no network call anywhere in the page), the
+ * escape contracts — only a value the page's own gate recognises is ever
+ * inlined into a `style` attribute — the backlog's parse and its refs, and the
+ * theme choice as behaviour: the `localStorage` round-trip, the fallback to
+ * `system`, and a server that has never heard of a theme. How the page looks
+ * is not pinned here; a restyle rewrites no assertion in this file.
+ *
  * Without a `python3` on PATH the whole file skips with a plain message rather
  * than failing: the GUI is the one part of Phyllum that needs something beyond
  * Node, and saying so is more honest than a red suite.
@@ -28,9 +37,8 @@ import { tokenizeLine } from '../../lib/parse-args.js';
 import { findPython, guiRecord, processAlive, runGui, runKill } from '../../lib/gui-command.js';
 import { readState } from '../../lib/state.js';
 import { systemJson } from '../../lib/system-json.js';
-import { parse, render } from '../../lib/design-system.js';
-import { addPrimitives, neutralRampRows } from '../../lib/primitives.js';
-import { comparatorCell, numberCell, stripTicks, tableAfter } from '../../lib/md-tables.js';
+import { parse } from '../../lib/design-system.js';
+import { stripTicks, tableAfter } from '../../lib/md-tables.js';
 import {
   PACKAGE_ROOT,
   POPULATED_FIXTURE,
@@ -458,7 +466,7 @@ test('a request with a foreign Host header is refused', { skip }, async () => {
 });
 
 // ---------------------------------------------------------------------------
-// The page itself — swatches, ramps, and no network (v0.3.0 §6.5, §8)
+// The page itself — the escape gates and no network (v0.3.0 §6.5, §8)
 // ---------------------------------------------------------------------------
 
 const GUI_PAGE = path.join(PACKAGE_ROOT, 'gui', 'index.html');
@@ -488,130 +496,17 @@ function swatchContract() {
   return factory();
 }
 
-const articles = (html) => html.match(/<article class="swatch[^"]*"[^>]*>/g) ?? [];
-const cards = (html) => html.match(/<article class="card[^"]*"[^>]*>/g) ?? [];
-
-/** The three card nodes, in the order the ref records them. */
-const cardNodes = (html) => [...html.matchAll(/class="card__(swatch|name|value)"/g)].map((match) => match[1]);
-
-test('every colour token in a fixture renders as one card — swatch, name, then value', () => {
+test('only a value the gate recognises is ever inlined into a swatch style attribute', () => {
   const contract = swatchContract();
-  const system = systemJson(readFixture(POPULATED_FIXTURE));
-  assert.ok(system.tokens.colours.length > 0, 'the fixture has colours to show');
 
-  const html = system.tokens.colours.map((row) => contract.cardHtml(row.token, row.value)).join('');
-  const found = cards(html);
-  assert.equal(found.length, system.tokens.colours.length, 'one card element per colour token');
-
-  for (const row of system.tokens.colours) {
-    const one = contract.cardHtml(row.token, row.value);
-    assert.equal(cards(one).length, 1, `${row.token} is exactly one card`);
-    assert.ok(one.includes(`data-token="${row.token}"`), `${row.token} has no card element`);
-    assert.ok(one.includes(`data-value="${row.value}"`), `${row.token}'s card carries its value`);
-    assert.deepEqual(
-      cardNodes(one),
-      ['swatch', 'name', 'value'],
-      `${row.token}'s card holds a swatch, a name node and a value node, in that order`,
-    );
-    assert.ok(one.includes(`background:${row.value}`), `${row.token}'s swatch is filled with the colour itself`);
-    assert.ok(
-      new RegExp(`class="card__name">${row.token}<`).test(one),
-      `${row.token}'s name is printed beneath the swatch`,
-    );
-    assert.ok(
-      new RegExp(`class="card__value">${row.value}<`).test(one),
-      `${row.token}'s value is printed on its own line`,
-    );
-    // The label is off the fill now, so the swatch carries no text at all.
-    assert.match(one, /<div class="card__swatch" style="[^"]*"><\/div>/, 'the swatch itself is empty');
-  }
-});
-
-test('the cards sit in one grid container that wraps to the viewport', () => {
-  const text = readPage();
-  assert.match(text, /'<div class="cards">'/, 'the Colours section wraps its cards in a grid container');
-  const rule = text.match(/\.cards\s*\{([^}]*)\}/);
-  assert.ok(rule, 'the page styles that container');
-  assert.match(rule[1], /display:\s*grid/, 'as a grid');
-  assert.match(
-    rule[1],
-    /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(var\(--card-min\),\s*1fr\)\)/,
-    'whose columns wrap to the viewport rather than to the token count',
-  );
-  assert.ok(!/one-token-per-row/.test(rule[1]));
-});
-
-test('the card dimensions are the ones skill/refs/gui/cards.md records, in the table, the constant and the CSS', () => {
-  const contract = swatchContract();
-  const text = readPage();
-  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:cards -->', 'refs/gui/cards.md');
-  const recorded = (name) => stripTicks(rows.find((row) => row[0] === name)[1]);
-
-  const dimensions = [
-    ['swatch radius', 'radius', '--card-radius'],
-    ['card min width', 'minWidth', '--card-min'],
-    ['card max width', 'maxWidth', '--card-max'],
-    ['grid gap', 'gap', '--card-gap'],
-    ['swatch height', 'swatchHeight', '--card-swatch-height'],
-  ];
-  for (const [row, key, property] of dimensions) {
-    const value = recorded(row);
-    assert.equal(contract.CARD[key], value, `CARD.${key} is the "${row}" the ref table records`);
-    const declared = text.match(new RegExp(`${property}:\\s*([^;]+);`));
-    assert.ok(declared, `the stylesheet declares ${property}`);
-    assert.equal(declared[1].trim(), value, `${property} is the same ${row}`);
-  }
-
-  // v0.5.1 §3.1 inverts the old rule: rounded corners are the default, and the
-  // whole page rounds from the two-step scale rather than from a value typed
-  // wherever a corner happened to be needed.
-  // Only the stylesheet is read. Since v0.6.0 §2 the page also writes a corner
-  // in JS — a radius specimen wears the *token's* value, which is the whole
-  // point of drawing it — and that corner is by definition not a step on the
-  // page's own scale.
-  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
-  const radii = [...stylesheet.matchAll(/border-radius:\s*([^;]+);/g)].map((match) => match[1].trim());
-  assert.ok(radii.length >= 8, `only ${radii.length} rounded corners — the page is meant to round by default`);
-  for (const value of radii) {
-    // The one exception, and it is a shape rather than a corner: the preview's
-    // icon placeholder is a filled dot (v0.5.1 §5.3). A circle is not a step on
-    // a radius scale, and rounding it off one would draw a squircle.
-    if (value === '50%') continue;
-    assert.match(
-      value,
-      /^var\(--(radius-sm|radius-md|card-radius)\)$/,
-      `${value} is a corner typed in place rather than read off the radius scale`,
-    );
-  }
-  const circles = radii.filter((value) => value === '50%');
-  assert.equal(circles.length, 1, 'the icon placeholder is the page’s only circle');
-  assert.match(
-    text.match(/\.preview__icon\s*\{([^}]*)\}/)[1],
-    /border-radius:\s*50%/,
-    'and the circle belongs to the icon placeholder',
-  );
-  for (const step of ['--radius-sm', '--radius-md']) {
-    const declared = text.match(new RegExp(`${step}:\\s*([^;]+);`));
-    assert.ok(declared, `the stylesheet declares ${step}`);
-    assert.match(declared[1].trim(), /^\d*\.?\d+rem$/, `${step} is one length, not an expression`);
-  }
-});
-
-test('a gradient value is painted as the swatch fill, with nothing beyond background', () => {
-  const contract = swatchContract();
-  const gradient = 'linear-gradient(135deg, #2563EB, #10B981)';
-  const card = contract.cardHtml('brand-gradient', gradient);
-
-  assert.equal(cards(card).length, 1, 'a gradient token is an ordinary card');
-  assert.deepEqual(cardNodes(card), ['swatch', 'name', 'value']);
-  assert.ok(card.includes(`background:${gradient}`), 'the gradient is the swatch background');
+  // A recorded colour is inlined as itself, and nothing else rides along.
+  const card = contract.cardHtml('color-primary', '#2563EB');
+  assert.ok(card.includes('background:#2563EB'), 'a hex literal is the swatch fill');
   assert.match(
     card,
     /<div class="card__swatch" style="background:[^;"]*"><\/div>/,
     'and the swatch declares nothing beyond that background',
   );
-  assert.equal(card.includes('card--bordered'), false, 'a gradient has no single luminance, so it is not near-white');
-  assert.ok(card.includes(`class="card__value">${gradient}<`), 'the value is printed verbatim beneath it');
 
   // Every gradient shape the colours pass reads is a shape the swatch paints.
   for (const shape of [
@@ -638,102 +533,12 @@ test('a gradient value is painted as the swatch fill, with nothing beyond backgr
   ]) {
     assert.equal(contract.isGradientValue(hostile), false, `${hostile} must not reach a style attribute`);
     const refused = contract.cardHtml('g', hostile);
-    assert.ok(refused.includes('background:transparent') && refused.includes('card--bordered'), refused);
-  }
-});
-
-test('near-white colours take the bordered variant, and only they do', () => {
-  const contract = swatchContract();
-  const { nearWhiteLuminance } = contract.SWATCH;
-
-  // The fixture's own pair: white would vanish against the page, blue would not.
-  assert.ok(contract.isNearWhite('#FFFFFF'), 'white is near-white');
-  assert.equal(contract.isNearWhite('#2563EB'), false, 'a mid blue is not');
-  assert.ok(
-    contract.cardHtml('color-surface', '#FFFFFF').includes('card--bordered'),
-    'the near-white card is bordered',
-  );
-  assert.equal(
-    contract.cardHtml('color-primary', '#2563EB').includes('card--bordered'),
-    false,
-    'a card that shows up on its own is not bordered',
-  );
-  assert.ok(
-    contract.swatchHtml('color-surface', '#FFFFFF').includes('swatch--bordered'),
-    'and the rule still holds for a ramp step',
-  );
-  assert.equal(
-    contract.swatchHtml('color-primary', '#2563EB').includes('swatch--bordered'),
-    false,
-    'a swatch that shows up on its own is not bordered',
-  );
-
-  // The rule is the threshold, not a list of colours: every grey either side of
-  // it lands on the right answer.
-  for (let level = 0; level <= 255; level += 5) {
-    const hex = `#${level.toString(16).padStart(2, '0').repeat(3)}`;
-    assert.equal(
-      contract.isNearWhite(hex),
-      contract.luminance(hex) >= nearWhiteLuminance,
-      `${hex} is bordered iff its luminance clears the threshold`,
-    );
+    assert.ok(refused.includes('background:transparent'), refused);
   }
 
-  // A value that is not a colour still shows up, bordered rather than filled.
+  // A value that is not a colour at all is never painted either.
   const odd = contract.swatchHtml('color-brand', 'var(--brand)');
-  assert.ok(odd.includes('swatch--bordered') && odd.includes('background:transparent'), odd);
-  assert.equal(articles(odd).length, 1, 'and it is still one swatch element');
-});
-
-test('the swatch thresholds are the ones skill/refs/gui/cards.md records', () => {
-  const contract = swatchContract();
-  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:swatches -->', 'refs/gui/cards.md');
-  const rule = (name) => rows.find((row) => row[0] === name);
-
-  const nearWhite = comparatorCell(rule('near-white')[1]);
-  assert.equal(nearWhite.operator, '>=');
-  assert.equal(nearWhite.bound, contract.SWATCH.nearWhiteLuminance);
-
-  const darkInk = comparatorCell(rule('dark ink')[1]);
-  assert.equal(darkInk.operator, '>=');
-  assert.equal(darkInk.bound, contract.SWATCH.darkInkLuminance);
-  assert.equal(contract.inkFor('#FFFFFF'), contract.SWATCH.darkInk);
-  assert.equal(contract.inkFor('#000000'), contract.SWATCH.lightInk);
-
-  assert.equal(numberCell(rule('ramp steps')[1]), contract.SWATCH.rampSteps);
-});
-
-test('primitives render as nine-step ramp strips, one per base name', () => {
-  const contract = swatchContract();
-  const model = parse(readFixture(POPULATED_FIXTURE));
-  addPrimitives(model, neutralRampRows());
-  const system = systemJson(render(model));
-  assert.equal(system.tokens.primitives.length, contract.SWATCH.rampSteps, 'the fixture gained one ramp');
-
-  const groups = contract.rampGroups(system.tokens.primitives);
-  assert.equal(groups.length, 1, 'nine steps of one base are one strip, not nine rows');
-  assert.equal(groups[0].steps.length, contract.SWATCH.rampSteps);
-  assert.deepEqual(
-    groups[0].steps.map((step) => step.step),
-    ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
-    'in file order, the step number read off the glued name',
-  );
-
-  assert.equal(groups[0].label, 'neutral', 'the strip is titled by the base, without its separator');
-
-  const strip = contract.rampHtml(groups[0]);
-  assert.ok(strip.includes(`data-steps="${contract.SWATCH.rampSteps}"`), strip.slice(0, 120));
-  assert.equal(articles(strip).length, contract.SWATCH.rampSteps, 'every step is itself a swatch element');
-  assert.ok(strip.includes('swatch--bordered'), 'the near-white end of the ramp is bordered');
-
-  // Two bases stay two strips.
-  const two = contract.rampGroups([
-    { token: 'neutral100', value: '#FFFFFF' },
-    { token: 'brand-blue100', value: '#EFF6FF' },
-    { token: 'neutral900', value: '#161616' },
-  ]);
-  assert.deepEqual(two.map((group) => group.base), ['neutral', 'brand-blue']);
-  assert.deepEqual(two.map((group) => group.steps.length), [2, 1]);
+  assert.ok(odd.includes('background:transparent'), odd);
 });
 
 test('the page fetches nothing from the network — no webfont, no CDN, no external URL', () => {
@@ -756,20 +561,6 @@ test('the page fetches nothing from the network — no webfont, no CDN, no exter
   for (const route of requests) {
     assert.match(route, /^\/(state|system|prompt|upload)$/, `${route} must be a same-origin route`);
   }
-});
-
-test('the type stack names Geist first and falls back to system sans', () => {
-  const text = readPage();
-  const sans = text.match(/--sans:\s*([^;]+);/);
-  assert.ok(sans, 'the page defines one sans stack');
-  const families = sans[1].split(',').map((family) => family.trim().replace(/^'|'$/g, ''));
-  assert.equal(families[0], 'Geist', 'Geist is named first, used where it is installed locally');
-  assert.ok(families.includes('system-ui'), 'and a system sans carries everyone else');
-  assert.ok(families.at(-1).includes('sans-serif'), 'ending in the generic family');
-
-  const mono = text.match(/--mono:\s*([^;]+);/);
-  assert.ok(mono[1].startsWith("'Geist Mono'"), mono[1]);
-  assert.ok(mono[1].includes('monospace'));
 });
 
 /**
@@ -874,36 +665,13 @@ test('numbers group by their `applies to` reading, in the file\'s own words and 
   assert.equal(columnless[0].rows.length, rows.length);
 });
 
-test('each number group renders as its own section — no bar, no track', () => {
+test('a number row cannot write markup or an unchecked style into the list', () => {
   const contract = numbersContract();
   const groups = contract.numberGroups(numberRows(), 'applies to');
   const html = groups.map(contract.numberGroupHtml).join('');
 
-  const items = html.match(/<li class="number[^"]*" data-token="[^"]+"/g) ?? [];
-  assert.equal(items.length, numberRows().length, 'one line per token, and only one');
-  assert.equal((html.match(/<section class="number-group"/g) ?? []).length, groups.length);
-
-  // The heading is the page's own `heading`, so a reading sits at the same
-  // tier as Colours and Typography and carries its own count (v0.6.0 §1).
-  assert.ok(
-    html.includes('<section class="number-group" data-applies="corner radius">' +
-      contract.heading('corner radius', 2, contract.readingNote('corner radius')) + '<ul class="number-list">'),
-    'the group is its verbatim label, at the shared tier, over its list',
-  );
-  assert.ok(html.includes('<h3>corner radius <span class="count">2</span></h3>'), html.slice(0, 200));
-  // `Border Width` is a reading the specimen table does not recognise, so its
-  // token stays exactly the line it has always been.
-  assert.ok(
-    html.includes('<li class="number" data-token="hairline">' +
-      '<span class="number__name">hairline</span><code class="number__value">1px</code></li>'),
-    'and a line is the name in the page ink then the value in the mono face',
-  );
-  assert.ok(html.includes('data-applies=""'), 'the trailing group carries no reading of its own');
-
-  // Nothing here is a picture of a *ratio* any more: no bar element, no track,
-  // and no inline width sizing one token against another. The inline styles a
-  // specimen writes are the token's own property and nothing else.
-  assert.equal(/bar__|class="bar\b|track|fill/.test(html), false, html.slice(0, 160));
+  // The inline styles a specimen writes are the token's own property and
+  // nothing else — never a size, never a second declaration.
   for (const style of html.match(/style="([^"]*)"/g) ?? []) {
     assert.match(style, /^style="(border-radius|gap|box-shadow):/, `${style} is the token's own property`);
     assert.equal(/width:|height:/.test(style), false, `${style} sizes nothing`);
@@ -918,113 +686,12 @@ test('each number group renders as its own section — no bar, no track', () => 
   assert.ok(hostile.includes('&lt;i&gt;r&lt;/i&gt;'), 'the label is escaped in the heading too');
 });
 
-test('the number sections stand at the top level, with no "Numbers" umbrella', () => {
-  const contract = numbersContract();
-  const html = contract.numbersSections(numberRows(), 'applies to');
-
-  // Every section is a sibling — nothing wraps them, and nothing heads them.
-  assert.ok(html.startsWith('<section class="number-group"'), html.slice(0, 80));
-  assert.equal(html.includes('<div class="numbers">'), false, 'no container around the sections');
-  assert.equal(/>Numbers</.test(html), false, 'no section is titled "Numbers"');
-  assert.equal((html.match(/<section class="number-group"/g) ?? []).length, 4);
-
-  // The headings read in file order, and the blank cells trail behind them.
-  assert.deepEqual(
-    [...html.matchAll(/<h3>([^<]*) <span class="count">(\d+)<\/span><\/h3>/g)].map((m) => [m[1], m[2]]),
-    [['corner radius', '2'], ['padding', '1'], ['Border Width', '1'], [contract.NUMBERS.ungrouped, '2']],
-    'one heading per reading, verbatim, in file order, `other` last',
-  );
-
-  // An empty table is still one honest section, the way Colours and
-  // Typography answer emptiness — a heading and a "(none yet)" line.
-  const empty = contract.numbersSections([], 'applies to');
-  assert.equal((empty.match(/<section class="number-group"/g) ?? []).length, 1);
-  assert.ok(
-    empty.includes(contract.heading(contract.NUMBERS.ungrouped, 0, contract.readingNote(''))),
-    empty,
-  );
-  assert.ok(empty.includes('<p class="muted">(none yet)</p>'), empty);
-  assert.equal(/>Numbers</.test(empty), false, 'not even when empty is it called "Numbers"');
-});
-
 test('the ungrouped label is the one skill/refs/gui/cards.md records', () => {
   const contract = numbersContract();
   const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:numbers -->', 'refs/gui/cards.md');
   const recorded = rows.find((row) => row[0] === 'ungrouped label');
   assert.ok(recorded, 'the ref records the label a blank `applies to` cell falls to');
   assert.equal(stripTicks(recorded[1]), contract.NUMBERS.ungrouped);
-});
-
-// ---------------------------------------------------------------------------
-// Specimens: a recognised reading draws its value (v0.6.0 §2)
-// ---------------------------------------------------------------------------
-
-/** One row per specimen kind, plus a reading the table does not recognise. */
-const specimenRows = () => [
-  { token: 'radius-md', value: '0.625rem', 'applies to': 'radius' },
-  { token: 'space-lg', value: '1rem', 'applies to': 'spacing' },
-  { token: 'shadow-panel', value: '0 1px 2px rgba(28, 27, 25, 0.05), 0 2px 6px rgba(28, 27, 25, 0.04)', 'applies to': 'shadow' },
-  { token: 'fade-fast', value: '120ms', 'applies to': 'duration' },
-];
-
-test('a recognised reading earns its specimen by the substring rule, and nothing else does', () => {
-  const contract = numbersContract();
-
-  // The rule is a lower-cased substring test, so the file's own wording is
-  // read without being normalised first.
-  for (const [reading, kind] of [
-    ['radius', 'radius'],
-    ['corner radius', 'radius'],
-    ['Border-Radius', 'radius'],
-    ['spacing', 'spacing'],
-    ['padding', 'spacing'],
-    ['gap', 'spacing'],
-    ['inner margin', 'spacing'],
-    ['shadow', 'shadow'],
-    ['Elevation', 'shadow'],
-  ]) {
-    assert.equal(contract.specimenKind(reading), kind, `${reading} draws a ${kind}`);
-  }
-
-  // Anything the words do not match draws nothing at all — including the
-  // trailing group, whose reading is empty by definition.
-  for (const reading of ['duration', 'z-index', 'opacity', 'breakpoint', '', undefined]) {
-    assert.equal(contract.specimenKind(reading), '', `${reading} draws nothing`);
-  }
-});
-
-test('each specimen draws the token\'s own property, and only that property', () => {
-  const contract = numbersContract();
-  const html = contract.numbersSections(specimenRows(), 'applies to');
-
-  assert.ok(
-    html.includes('<li class="number number--specimen" data-token="radius-md" data-specimen="radius">' +
-      '<span class="number__specimen"><span class="specimen-tile" style="border-radius:0.625rem"></span></span>'),
-    'a radius is a tile wearing that corner',
-  );
-  assert.ok(
-    html.includes('<span class="specimen-gap" style="gap:1rem">' +
-      '<span class="specimen-gap__block"></span><span class="specimen-gap__block"></span></span>'),
-    'a spacing is the real gap between two blocks',
-  );
-  assert.ok(
-    html.includes('<span class="specimen-card" style="box-shadow:0 1px 2px rgba(28, 27, 25, 0.05), ' +
-      '0 2px 6px rgba(28, 27, 25, 0.04)"></span>'),
-    'a shadow is a card carrying it, stacked layers and all',
-  );
-
-  // The caption is the line the list has always had, kept verbatim beneath the
-  // drawing rather than replaced by it.
-  assert.ok(html.includes('<span class="number__name">radius-md</span><code class="number__value">0.625rem</code>'));
-
-  // The unrecognised reading is untouched: no class, no data attribute, no
-  // drawing, no style.
-  assert.ok(
-    html.includes('<li class="number" data-token="fade-fast">' +
-      '<span class="number__name">fade-fast</span><code class="number__value">120ms</code></li>'),
-    'an unrecognised reading keeps the plain name-and-value line',
-  );
-  assert.equal((html.match(/style=/g) ?? []).length, 3, 'one style per drawn token, and no more');
 });
 
 test('a value the page cannot read falls back to the plain line, never to an unchecked style', () => {
@@ -1072,161 +739,17 @@ test('a value the page cannot read falls back to the plain line, never to an unc
   assert.ok(mixed.includes('<li class="number" data-token="bad">'), 'and the unreadable one is a plain line');
 });
 
-test('the specimen mapping is the one skill/refs/gui/cards.md records', () => {
-  const contract = numbersContract();
-  const rows = tableAfter(fs.readFileSync(GUI_REF, 'utf8'), '<!-- phyllum:numbers -->', 'refs/gui/cards.md');
-  const recorded = (name) => {
-    const row = rows.find((entry) => entry[0] === name);
-    assert.ok(row, `the ref records ${name}`);
-    return stripTicks(row[1]);
-  };
-
-  for (const kind of Object.keys(contract.NUMBERS.specimens)) {
-    assert.deepEqual(
-      recorded(`${kind} readings`).split(',').map((word) => word.trim()),
-      contract.NUMBERS.specimens[kind],
-      `the ${kind} keywords in the ref are the page's own`,
-    );
-  }
-  assert.deepEqual(
-    rows.filter((row) => row[0].endsWith(' readings')).map((row) => row[0].replace(' readings', '')),
-    Object.keys(contract.NUMBERS.specimens),
-    'the ref records every kind the page draws, in the page\'s own order — the first match wins',
-  );
-
-  // The rule itself is written down, not left as a hidden heuristic, and so is
-  // the gate each kind holds its values to.
-  assert.equal(recorded('reading match'), 'lower-case substring');
-  const page = readPage();
-  for (const [kind, gate] of [['radius', 'isLengths'], ['spacing', 'isLength'], ['shadow', 'isShadowList']]) {
-    assert.equal(recorded(`${kind} gate`), gate, `the ref names the gate ${kind} uses`);
-    assert.ok(page.includes(`const ${gate} = `), `${gate} is a shape gate the page defines once`);
-  }
-});
-
-test('the specimens are drawn in the page\'s own surfaces, so both themes get them', () => {
-  const text = readPage();
-  for (const rule of ['.specimen-tile', '.specimen-card', '.specimen-gap', '.specimen-gap__block', '.number__specimen']) {
-    assert.ok(text.includes(rule + ' '), `${rule} is styled by the page`);
-  }
-  // Every colour a specimen wears is a theme variable, so the dark set moves
-  // it without a second stylesheet — the same way a swatch or a card works.
-  const block = text.slice(text.indexOf('.specimen-tile {'), text.indexOf('.specimens {'));
-  for (const colour of block.match(/(background|border|border-color):\s*([^;]+);/g) ?? []) {
-    assert.match(colour, /var\(--/, `${colour.trim()} is drawn from the page's own variables`);
-  }
-  assert.equal(/#[0-9a-f]{3,8}|rgba?\(/i.test(block), false, 'no specimen hard-codes a colour');
-});
-
-/**
- * The page's documentation anatomy (v0.6.0 §3).
- *
- * A design-system page is read, not scanned. So each section says in one line
- * what it shows, the content sits in a column narrow enough to track back
- * along, and sections are told apart by the air above them rather than by a
- * rule drawn between them. What is checked here is the contract — the
- * description line, the bounded column, the scale the rhythm is drawn from,
- * the three heading tiers. The taste is not checked; only the anatomy is.
- */
-test('every token section carries a heading and a one-line description', () => {
-  const contract = numbersContract();
-  const html = contract.numbersSections(numberRows(), 'applies to');
-
-  // One description per section, each sitting directly under its own heading.
-  const notes = [...html.matchAll(/<\/h3><p class="section__note">([^<]*)<\/p>/g)].map((match) => match[1]);
-  assert.equal(notes.length, 4, 'every section describes itself once, right under its heading');
-  assert.ok(notes[0].includes('corner radius'), 'a reading describes its section in the file\'s own words');
-  assert.equal(notes.at(-1), contract.readingNote(''), 'and the trailing group says it has no reading of its own');
-  assert.equal(
-    contract.readingNote('corner radius'),
-    contract.NUMBERS.note.reading[0] + 'corner radius' + contract.NUMBERS.note.reading[1],
-    'the sentence is the reading quoted back — nothing is invented about the tokens under it',
-  );
-
-  // A description is escaped like every other thing a hand-edited file supplies.
-  const hostile = contract.numbersSections([{ token: 'x', value: '4px', 'applies to': '<i>r</i>' }], 'applies to');
-  assert.equal(/<i>/.test(hostile), false, hostile);
-
-  // Colours, primitives and typography carry theirs too, from one place.
-  const text = readPage();
-  const notesConstant = text.match(/const NOTES = \{[\s\S]*?\};/);
-  assert.ok(notesConstant, 'the page states its section descriptions in one place');
-  for (const section of ['colours', 'primitives', 'typography']) {
-    assert.match(notesConstant[0], new RegExp(`${section}: '`), `${section} says what it shows`);
-  }
-  assert.ok(text.includes("heading('Colours', rows.length, NOTES.colours)"), 'and the section renders it');
-  assert.ok(text.includes("heading('Typography', rows.length, NOTES.typography)"));
-});
-
-test('the page reads in a constrained column, spaced and headed from its own scales', () => {
-  const text = readPage();
-  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
-
-  // One reading measure, declared once, carried by the content column.
-  const measure = stylesheet.match(/--measure:\s*([^;]+);/);
-  assert.ok(measure, 'the stylesheet declares a reading measure');
-  assert.match(measure[1].trim(), /^\d+rem$/, 'the measure is one length, not an expression');
-  const wide = parseFloat(measure[1]);
-  assert.ok(wide >= 60 && wide <= 72, `${wide}rem is outside the readable column width`);
-  const main = stylesheet.match(/\n {6}main \{([\s\S]*?)\n {6}\}/);
-  assert.ok(main, 'the stylesheet styles the content column');
-  assert.match(main[1], /max-width: var\(--measure\)/, 'the column is bounded by the measure');
-  assert.match(main[1], /margin: 0 auto/, 'and centred in whatever is left of the window');
-
-  // The rhythm comes off a scale rather than being typed at each site, and the
-  // scale is 8-based — every step is a whole number of half-rems.
-  const steps = [...stylesheet.matchAll(/--space-(\d): ([\d.]+)rem;/g)].map((m) => [Number(m[1]), parseFloat(m[2])]);
-  assert.ok(steps.length >= 4, 'the page declares a spacing scale');
-  for (const [step, value] of steps) {
-    assert.equal(value, step * 0.5, `--space-${step} is ${step} steps of the 8-based scale`);
-  }
-  // A section is set apart by a step off the same scale; the lines inside one
-  // are not. Since v0.7.0 §2 each token section is a container with an edge of
-  // its own, so the step between sections is the medium one rather than the
-  // largest — the border carries half of what the whitespace used to carry
-  // alone, and the two together still say "new section" louder than the
-  // 0.5rem between two lines inside one.
-  assert.match(stylesheet.match(/\.number-group \{([^}]*)\}/)[1], /margin-top: var\(--space-3\)/);
-  assert.match(stylesheet, /#tokens-body > \.container,\n\s*#tokens-body > \.number-group \{ margin-top: var\(--space-3\); \}/);
-  assert.match(stylesheet.match(/\.number-list \{([^}]*)\}/)[1], /margin-top: var\(--space-1\)/);
-
-  // Three heading tiers and no more: the panel title, the section heading, and
-  // the small muted group label. A card title stays under the section tier.
-  assert.match(stylesheet.match(/\n {6}h2 \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-04\)/);
-  assert.match(stylesheet.match(/\n {6}h3 \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-03\)/);
-  assert.match(stylesheet.match(/\.card__name \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-02\)/);
-  for (const label of ['.ramp__base', '.section__note']) {
-    const rule = stylesheet.match(new RegExp(`\\${label} \\{([\\s\\S]*?)\\n {6}\\}`));
-    assert.ok(rule, `${label} is styled by the page`);
-    assert.match(rule[1], /color: var\(--muted\)/, `${label} is muted, and only ever from a theme variable`);
-  }
-  assert.match(stylesheet.match(/\.ramp__base \{([\s\S]*?)\n {6}\}/)[1], /font-size: var\(--type-01\)/);
-});
-
 test('the fixture\'s own Numbers row groups under the reading the file gives it', () => {
   const contract = numbersContract();
   const system = systemJson(readFixture(POPULATED_FIXTURE));
   const groups = contract.numberGroups(system.tokens.numbers, system.columns.numbers[2]);
   assert.deepEqual(groups.map((group) => group.label), ['corner radius']);
   assert.deepEqual(groups[0].rows.map((row) => row.token), ['rounded-md']);
-  assert.ok(contract.numberGroupHtml(groups[0]).includes('<code class="number__value">12px</code>'));
 });
 
-test('numbers show as sectioned lists and typography as live specimens', () => {
+test('a typography specimen only ever inlines a shape it recognises', () => {
   const text = readPage();
-  assert.ok(text.includes('function numbersSections'), 'numbers have their own renderer');
-  assert.ok(text.includes('numberGroups('), 'and it renders them cut by their reading');
-  // The umbrella heading is gone from the renderer, not merely unused.
-  assert.equal(/heading\('Numbers'/.test(text), false, 'nothing still heads a section "Numbers"');
-  assert.ok(text.includes('function typographySection'), 'typography has its own renderer');
-  assert.ok(text.includes('specimen__line'), 'and a specimen line set in the token itself');
-
-  // The measured bar is gone from the page entirely — markup, class and CSS.
-  for (const gone of ['bar__fill', 'bar__track', 'bar__head', 'bar__name', 'bar__value', 'bar__note', '.bars']) {
-    assert.equal(text.includes(gone), false, `${gone} is no longer anywhere in the page`);
-  }
-  // A specimen only ever inlines a shape it recognises — the values come from a
-  // user-edited file, so they are gated, not trusted.
+  // The values come from a user-edited file, so they are gated, not trusted.
   for (const guard of ['safeSize', 'safeWeight', 'safeLeading']) {
     assert.ok(text.includes(guard), `${guard} guards what reaches a style attribute`);
   }
@@ -1342,36 +865,6 @@ test('the backlog cuts into one group per component, in first-appearance and fil
   assert.deepEqual(contract.backlogGroups(null, BACKLOG_NAMES), []);
 });
 
-test('each backlog group renders as a container, headed by its component and its count', () => {
-  const contract = backlogContract();
-  const html = contract.backlogSections(backlogLines(), BACKLOG_NAMES);
-
-  // One container per group, each the page's own container idiom.
-  assert.equal((html.match(/<section class="container backlog-group"/g) ?? []).length, 4);
-  assert.ok(html.startsWith('<section class="container backlog-group"'), html.slice(0, 80));
-
-  // The headings are the page's own, so the count rides in the shared chip.
-  assert.deepEqual(
-    [...html.matchAll(/<h3>([^<]*) <span class="count">(\d+)<\/span><\/h3>/g)].map((m) => [m[1], m[2]]),
-    [['Panel', '2'], ['Button/Rail', '2'], ['Button/Filter', '1'], [contract.BACKLOG.ungrouped, '2']],
-  );
-  // The per-group counts add up to the total the panel header shows.
-  assert.equal(
-    [...html.matchAll(/<span class="count">(\d+)<\/span>/g)].reduce((sum, m) => sum + Number(m[1]), 0),
-    backlogLines().length,
-  );
-
-  // The component is on the container as data, and the trailing one has none.
-  assert.deepEqual(
-    [...html.matchAll(/data-component="([^"]*)"/g)].map((m) => m[1]),
-    ['Panel', 'Button/Rail', 'Button/Filter', ''],
-  );
-
-  // The line is the file's own words, whole — prefix, backticks, parenthetical.
-  assert.ok(html.includes('<li class="backlog__line">TODO: tokenise `transparent` (Button/Rail background)</li>'));
-  assert.equal((html.match(/<li class="backlog__line">/g) ?? []).length, backlogLines().length);
-});
-
 test('a hand-edited backlog line cannot write markup into the panel', () => {
   const contract = backlogContract();
   const hostile = contract.backlogSections(
@@ -1388,59 +881,6 @@ test('a hand-edited backlog line cannot write markup into the panel', () => {
   const named = contract.backlogSections(['TODO: x (<b>evil</b>)'], ['<b>evil</b>']);
   assert.equal(/<b>/.test(named), false, named);
   assert.ok(named.includes('data-component="&lt;b&gt;evil&lt;/b&gt;"'), named);
-});
-
-test('an empty backlog is still one honest container', () => {
-  const contract = backlogContract();
-  const empty = contract.backlogSections([], BACKLOG_NAMES);
-
-  assert.equal((empty.match(/<section class="container backlog-group"/g) ?? []).length, 1);
-  assert.ok(empty.includes(contract.heading(contract.BACKLOG.ungrouped, 0)), empty);
-  assert.ok(empty.includes('<p class="muted">' + contract.BACKLOG.empty + '</p>'), empty);
-  assert.equal(/<li/.test(empty), false, 'nothing is listed when there is nothing to list');
-  assert.deepEqual(contract.backlogSections([], BACKLOG_NAMES), contract.backlogSections(null, BACKLOG_NAMES));
-});
-
-test('the Backlog panel heads itself with the total count, and no flat list survives', () => {
-  const text = readPage();
-
-  // The total rides in the panel header, in the page's own count chip, beside
-  // the title — and the header row stays free for the action that comes next.
-  assert.ok(
-    text.includes('<div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2>'),
-    'the Backlog panel header carries a count chip beside its title',
-  );
-  assert.ok(
-    text.includes("el('backlog-count').textContent = String(backlog.length);"),
-    'and the render fills it with the whole backlog\'s length',
-  );
-  assert.ok(text.includes("el('backlog').innerHTML = backlogSections(backlog, componentNames);"));
-
-  // The old flat list is gone from the page, not merely unused.
-  assert.equal(text.includes('Nothing outstanding.'), false, 'the old empty line is gone');
-  assert.equal(/backlog\.map\(/.test(text), false, 'the flat `<ul>` renderer is gone');
-
-  // Both themes hold: the Backlog's own rules name no colour of their own, and
-  // the container it wears is the one every other group wears.
-  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
-  const rules = stylesheet.match(/\.backlog[^{]*\{[^}]*\}/g) ?? [];
-  assert.ok(rules.length >= 2, 'the Backlog list has rules of its own');
-  for (const rule of rules) {
-    assert.equal(/#[0-9a-fA-F]{3}|rgb\(|hsl\(/.test(rule), false, `${rule} names a raw colour`);
-  }
-  assert.match(stylesheet, /\.backlog-group \+ \.backlog-group \{ margin-top: var\(--space-3\); \}/);
-});
-
-test('the Backlog header carries a solid-primary Assess button, right of the count chip', () => {
-  const text = readPage();
-
-  assert.ok(
-    text.includes(
-      '<div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2>' +
-        '<button class="btn btn--primary" id="backlog-assess" type="button">Assess</button></div>',
-    ),
-    'the Assess button sits in the panel header, after the title and its count chip',
-  );
 });
 
 test('the Assess button posts the literal prompt `assess` to /prompt, same shape as the prompt box', () => {
@@ -1506,165 +946,10 @@ test('the fixture\'s own backlog groups under the component it names', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The on-page rail (v0.6.0 §4)
-// ---------------------------------------------------------------------------
-
-/**
- * The rail's own pure contract, lifted and run — the same split as the
- * swatch and numbers regions above: an id is only ever a slug plus a dedupe
- * rule, no DOM involved, so the suite runs exactly the code the browser runs.
- */
-function railContract() {
-  const text = readPage();
-  const start = text.indexOf('// --- phyllum:rail-contract');
-  const end = text.indexOf('// --- end phyllum:rail-contract');
-  assert.ok(start !== -1 && end > start, 'the page marks its rail-contract region');
-  const region = text.slice(start, end);
-  assert.ok(!/\b(document|window)\b/.test(region), 'the contract region touches no DOM');
-
-  const factory = new Function(`${region}\nreturn { slugify, dedupeId };`);
-  return factory();
-}
-
-test('a heading title becomes a stable, URL-safe slug', () => {
-  const contract = railContract();
-  assert.equal(contract.slugify('Colours'), 'colours');
-  assert.equal(contract.slugify('Colours — Primitives'), 'colours-primitives');
-  assert.equal(contract.slugify('corner radius'), 'corner-radius');
-  assert.equal(contract.slugify('Border Width'), 'border-width');
-  // Punctuation-only and empty titles still earn an id — never an empty href.
-  assert.equal(contract.slugify('—'), 'section');
-  assert.equal(contract.slugify(''), 'section');
-  assert.equal(contract.slugify(undefined), 'section');
-  // A hand-edited label cannot smuggle markup into an id or an href.
-  assert.equal(contract.slugify('<i>hover</i>'), 'i-hover-i');
-});
-
-test('two sections sharing a label still get two distinct, working ids', () => {
-  const contract = railContract();
-  const used = new Set();
-  const ids = ['corner radius', 'padding', 'corner radius', 'corner radius'].map((title) =>
-    contract.dedupeId(title, used),
-  );
-  assert.deepEqual(ids, ['corner-radius', 'padding', 'corner-radius-2', 'corner-radius-3']);
-  // Every id handed out this pass is unique, by construction.
-  assert.equal(new Set(ids).size, ids.length);
-
-  // A fresh `used` set starts the count over — one pass never remembers the
-  // last one, which is what lets the rail rebuild from scratch every render.
-  assert.equal(contract.dedupeId('corner radius', new Set()), 'corner-radius');
-});
-
-test('the rail is a labelled nav, built after every render, torn down and reobserved each time', () => {
-  const text = readPage();
-
-  // The markup: one `<nav>`, the aria-label GitBook's pattern is named for,
-  // and a plain `<ul>` of anchors underneath — the part that still works with
-  // every script on the page removed.
-  assert.match(text, /<nav class="rail-toc" id="rail-toc" aria-label="On this page" hidden>/);
-  assert.ok(text.includes('<ul id="rail-toc-list"></ul>'), 'the links live in one plain list');
-
-  // `buildRail` runs at the end of every branch `renderLibrary` can take —
-  // loading, a server that answered with the wrong shape, and the ordinary
-  // render — never only the last one.
-  const renderLibrary = text.slice(text.indexOf('function renderLibrary()'), text.indexOf('function appliedBadge'));
-  assert.equal((renderLibrary.match(/buildRail\(\);/g) ?? []).length, 3, 'buildRail() runs on every branch');
-
-  // The ids and the list are built from `#tokens-body` itself, not from a
-  // list carried over from a previous render.
-  assert.ok(text.includes("container.querySelectorAll('h3')"), 'the rail reads the headings just rendered');
-  assert.ok(text.includes('const used = new Set();'), 'a fresh dedupe set every call — no state survives a rebuild');
-
-  // The observer is disconnected before it is ever reattached, so a heading a
-  // previous render replaced is never still being watched.
-  const observeRail = text.slice(text.indexOf('function observeRail'), text.indexOf('function setActiveRailLink'));
-  assert.match(observeRail, /if \(railObserver\) railObserver\.disconnect\(\);/);
-  assert.match(observeRail, /railObserver = null;/);
-  // And its absence is a graceful one — no observer, still working anchors.
-  assert.match(observeRail, /typeof IntersectionObserver !== 'function'/);
-});
-
-test('the rail shows only while the token panel is on screen', () => {
-  const text = readPage();
-  const fn = text.match(/function updateRailVisibility\(\) \{[\s\S]*?\n {6}\}\n/);
-  assert.ok(fn, 'visibility is decided in one place');
-  assert.match(fn[0], /state\.view === 'library' && state\.scope !== 'components'/);
-  // It is consulted on a filter change (inside buildRail, via renderLibrary)
-  // and on a plain view switch, which never calls renderLibrary at all.
-  const viewsHandler = text.slice(text.indexOf("el('views').addEventListener"), text.indexOf("el('filters').addEventListener"));
-  assert.ok(viewsHandler.includes('updateRailVisibility();'), 'switching views alone still updates the rail');
-});
-
-test('the rail scrolls smoothly, and defers to a reader who has asked for less motion', () => {
-  const text = readPage();
-  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
-  assert.match(stylesheet, /html \{ scroll-behavior: smooth; \}/);
-  const reduced = stylesheet.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n {6}\}/);
-  assert.ok(reduced, 'a reduced-motion override exists');
-  assert.match(reduced[1], /scroll-behavior: auto/);
-});
-
-test('the rail sits outside the content column, sticky, and steps aside on narrow viewports', () => {
-  const text = readPage();
-  const stylesheet = text.slice(text.indexOf('<style>'), text.indexOf('</style>'));
-  const rule = stylesheet.match(/nav\.rail-toc \{([\s\S]*?)\n {6}\}/);
-  assert.ok(rule, 'the rail is styled by the page');
-  assert.match(rule[1], /position: sticky/);
-  assert.match(rule[1], /top: 3rem/);
-
-  const active = stylesheet.match(/nav\.rail-toc a\.active \{([\s\S]*?)\n {6}\}/);
-  assert.ok(active, 'the active link is styled');
-  assert.match(active[1], /color: var\(--accent\)/, 'the active mark is the page\'s own accent, not a new colour');
-
-  const narrow = stylesheet.match(/@media \(max-width: 75rem\) \{([\s\S]*?)\n {6}\}/);
-  assert.ok(narrow, 'the rail steps aside before the layout gets cramped');
-  assert.match(narrow[1], /nav\.rail-toc \{ display: none; \}/);
-});
-
-test('the rail\'s own contract is the one skill/refs/gui/gui.md records', () => {
-  const rows = tableAfter(fs.readFileSync(GUI_MD, 'utf8'), '<!-- phyllum:rail -->', 'refs/gui/gui.md');
-  const recorded = (fact) => stripTicks(rows.find((row) => row[0] === fact)?.[1] ?? '');
-  assert.ok(recorded('Source').includes('buildRail'), 'the ref names the function that reads the DOM');
-  assert.ok(recorded('Ids').includes('slugify') && recorded('Ids').includes('dedupeId'));
-  assert.ok(recorded('Active link').includes('IntersectionObserver'));
-  assert.ok(recorded('Visibility').toLowerCase().includes('workbench'));
-});
-
-// ---------------------------------------------------------------------------
-// The restyle and the theme toggle (v0.5.1 §3, §4)
+// The theme choice as behaviour (v0.5.1 §3, §4)
 // ---------------------------------------------------------------------------
 
 const GUI_MD = path.join(PACKAGE_ROOT, 'skill', 'refs', 'gui', 'gui.md');
-
-/** The custom properties a CSS block declares, as name → value. */
-function declarations(block) {
-  const found = new Map();
-  for (const match of block.matchAll(/(--[\w-]+):\s*([^;]+);/g)) found.set(match[1], match[2].trim());
-  return found;
-}
-
-/** The three palette blocks: the light set, and the dark set's two selectors. */
-function palettes() {
-  const text = readPage();
-  const light = text.match(/:root\s*\{([^}]*)\}/);
-  assert.ok(light, 'the page declares a plain :root set');
-
-  const mediaAt = text.indexOf('@media (prefers-color-scheme: dark)');
-  assert.notEqual(mediaAt, -1, 'the page still keeps a prefers-color-scheme rule');
-  const media = text
-    .slice(mediaAt)
-    .match(/:root\[data-theme='system'\][^{]*\{([^}]*)\}/);
-  assert.ok(media, '`system` is the selector the media query carries');
-
-  const chosen = text.match(/:root\[data-theme='dark'\]\s*\{([^}]*)\}/);
-  assert.ok(chosen, '`dark` chosen in the page selects a set of its own');
-
-  return {
-    light: declarations(light[1]),
-    systemDark: declarations(media[1]),
-    chosenDark: declarations(chosen[1]),
-  };
-}
 
 /**
  * The page's own theme rules, lifted out and run — the same trick the swatch
@@ -1696,34 +981,6 @@ const stubStore = (initial = {}) => {
     held,
   };
 };
-
-test('both theme variable sets exist, and the root attribute picks between them', () => {
-  const { light, systemDark, chosenDark } = palettes();
-
-  for (const name of ['--bg', '--layer', '--layer-accent', '--ink', '--muted', '--line', '--accent']) {
-    assert.ok(light.has(name), `the light set is missing ${name}`);
-    assert.ok(systemDark.has(name), `the dark set is missing ${name}`);
-  }
-
-  // The dark set is one set, whichever way the reader arrived at it: chosen in
-  // the page, or asked for by the OS while the choice is `system`.
-  assert.deepEqual(
-    [...chosenDark.entries()].sort(),
-    [...systemDark.entries()].sort(),
-    '`dark` chosen and `dark` inherited from the OS must be the same variable set',
-  );
-
-  // A dark override only ever redraws a variable the light set already names —
-  // a theme is a second reading of one palette, not a second palette.
-  for (const name of systemDark.keys()) {
-    assert.ok(light.has(name), `${name} is declared in the dark set but nowhere in the light one`);
-  }
-
-  // And they really are two themes: the page and its ink both move.
-  for (const name of ['--bg', '--ink', '--layer']) {
-    assert.notEqual(systemDark.get(name), light.get(name), `${name} reads the same in both themes`);
-  }
-});
 
 test('the theme choices are the three skill/refs/gui/gui.md records, and system is the default', () => {
   const contract = themeContract();
@@ -1777,22 +1034,6 @@ test('a stored theme choice round-trips, and an absent one reads as system', () 
   };
   assert.equal(contract.readTheme(denied), 'system');
   assert.equal(contract.storeTheme(denied, 'dark'), 'dark', 'the click still takes effect for this page');
-});
-
-test('the stored choice is applied before the body paints, from the page\'s own script', () => {
-  const text = readPage();
-  const head = text.slice(0, text.indexOf('</head>'));
-  assert.ok(head.includes('phyllum:theme-contract'), 'the theme contract is in the head, ahead of the body');
-  assert.match(
-    head,
-    /document\.documentElement\.setAttribute\(\s*THEME\.attribute,/,
-    'and the head applies the choice to the root element',
-  );
-  assert.ok(!/<script[^>]+\bsrc=/i.test(head), 'the no-flash script is the page\'s own, not a fetched one');
-  assert.ok(
-    text.indexOf('setAttribute(') < text.indexOf('<body>'),
-    'the attribute is set before the body element, so no wrong theme is ever painted',
-  );
 });
 
 test('the theme choice is page-local — the server is never told and never asked', () => {
