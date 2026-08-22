@@ -366,14 +366,15 @@ test('a differing copy is reported as a neutral count, never as behind or out of
   });
 });
 
-test('a single differing file agrees with its verb', async () => {
+test('a single differing file keeps the frozen plural verb', async () => {
   await withTempDir(async (dir) => {
     installSkill(dir);
     fs.rmSync(installedPath(dir, 'SKILL.md'));
 
     const total = skillFiles().length;
     const result = await runVersion({ cwd: dir, fetch: stubFetch(manifestVersion()) });
-    assert.ok(result.out.includes(`  skill copy        1 of ${total} files differs from this install`));
+    assert.ok(result.out.includes(`  skill copy        1 of ${total} files differ from this install`));
+    assert.ok(!/files differs/.test(result.out), 'the verb never agrees with the count');
   });
 });
 
@@ -428,7 +429,7 @@ test('the skill row is fully answered under --skip-registry, which asks nobody',
       assert.equal(result.status, 'unknown', 'the registry rows are the unknown ones');
       assert.ok(result.out.includes('latest published  unknown'));
       assert.ok(
-        result.out.includes(`  skill copy        1 of ${skillFiles().length} files differs from this install`),
+        result.out.includes(`  skill copy        1 of ${skillFiles().length} files differ from this install`),
         'the skill row is answered even when the registry is not',
       );
       assert.ok(result.out.includes('`phyllum upgrade`'), 'and the fix is still named');
