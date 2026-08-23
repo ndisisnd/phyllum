@@ -275,6 +275,11 @@
         background: var(--layer-accent);
         font-weight: 600;
       }
+      /* An empty pipeline stage (v0.8.0 §4) still gets its heading; it just
+         has no button under it yet. The chip idiom already means "a label,
+         never a control" (v0.7.0 §2), so it is the quiet marker here too —
+         padded to sit under the rail-label the same way a view button would. */
+      nav#views .rail-empty { padding: 0.15rem 0.75rem 0.5rem; }
 
       main {
         flex: 1 1 auto;
@@ -858,10 +863,18 @@
 
     <div class="shell">
       <nav id="views">
-        <span class="rail-label">Dashboard</span>
+        <span class="rail-label">Assess</span>
         <button data-view="library" aria-selected="true">Library</button>
+
+        <span class="rail-label">Governance</span>
+        <div class="rail-empty"><span class="chip">nothing yet</span></div>
+
+        <span class="rail-label">Build</span>
         <button data-view="workbench" aria-selected="false">Workbench</button>
         <button data-view="tokens" aria-selected="false">Token view</button>
+
+        <span class="rail-label">Refine</span>
+        <div class="rail-empty"><span class="chip">nothing yet</span></div>
       </nav>
 
       <main>

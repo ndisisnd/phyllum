@@ -9,6 +9,25 @@ the design system the terminal already reads, and hands prompts typed in the
 page back to the Claude Code session. The server never calls a model, and never
 decides anything.
 
+## The view rail, grouped by pipeline stage (v0.8.0 §4)
+
+`nav#views` groups its three view buttons under the same four-stage pipeline
+`lib/registry.js` defines for the command set (v0.8.0 §1), in pipeline order,
+each stage still its own `rail-label`:
+
+| Stage | What sits under it |
+|-------|---------------------|
+| Assess | Library — the Backlog panel's own `#backlog-assess` button posts the literal `assess` prompt, so this is the view the Assess stage's one command already lives in |
+| Governance | nothing yet — the heading still appears, with a quiet `nothing yet` chip in place of a button, because an empty stage is still a real stage (v0.8.0 §1) |
+| Build | Workbench and Token view — the active `create` session and the raw-value reading that feeds the next `tokenise` run, the two commands the Build stage already carries |
+| Refine | nothing yet — same quiet chip as Governance |
+
+No view is added, removed or renamed by the grouping: the three buttons keep
+their `data-view` values, their click handling and their `aria-selected`
+wiring exactly as before, and the empty-stage chip is the page's own chip
+idiom (v0.7.0 §2) — a label, never a control — so no new visual language is
+invented for it.
+
 ## Three views
 
 1. **Library** — every component and token, read live from `DESIGN-SYSTEM.md`,
