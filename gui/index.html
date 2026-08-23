@@ -671,6 +671,10 @@
       .specimen__meta { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
       .specimen__meta code { font-size: var(--type-01); }
       .specimen__line { margin-top: 0.25rem; word-break: break-word; }
+      /* The font-family fetch note and the unrendered-readings list (v0.7.3
+         phase 6) borrow the component preview's own idiom for the same kind of
+         sentence: quiet, small, and never mistaken for the specimen itself. */
+      .specimen__note, .specimen__unrendered { margin: 0.5rem 0 0; font-size: var(--type-01); color: var(--muted); }
 
       /* --- chips, buttons, form, drop -------------------------------------
          One chip idiom for everything small the page says about something
@@ -2015,39 +2019,203 @@
       }
       // --- end phyllum:numbers-contract --------------------------------------
 
+      // --- phyllum:typography-contract ---------------------------------------
+      // The typography specimen (v0.7.3 plan §"the surfaces"). Before v0.7.3 a
+      // token carried three readings and the specimen inlined them with three
+      // named gates (`safeSize`, `safeWeight`, `safeLeading`). v0.7.3 widens a
+      // token to twenty-one readings — `skill/refs/typography.md`'s
+      // `phyllum:type-readings` table — and this region widens the specimen the
+      // same way the component preview widened the colour cards' gate in
+      // v0.4.1: one rule, applied to every property rather than to three.
+      //
+      // `TYPE_READINGS` below is this page's own copy of "which property a
+      // reading writes, and which of the page's shape gates governs it" — not a
+      // second implementation of the CSS `lib/typography.js#declarationsFor`
+      // already owns, but the narrower fact the *page* needs to gate a
+      // hand-edited value before it reaches a `style` attribute. It is tested
+      // for parity against the ref table in
+      // `evals/assertions/gui-typography.test.js`, the same way
+      // `PREVIEW.projection` is tested against `component-preview.md` above.
+      //
+      // `TYPE_MERGES` mirrors the one `shared` row of `phyllum:type-conflicts`:
+      // `underline` and `strikethrough` both write `text-decoration-line`, and a
+      // token recording both draws **one** declaration carrying both keywords,
+      // never two that silently overwrite each other.
+      //
+      // Kept pure — strings and objects, no DOM and no fetch — for the same
+      // reason the preview region is: the suite lifts and runs this exact code.
+      const TYPE_READINGS = {
+        size: { property: 'font-size', shape: 'length' },
+        weight: { property: 'font-weight', shape: 'weight' },
+        'line-height': { property: 'line-height', shape: 'leading' },
+        kerning: { property: 'letter-spacing', shape: 'tracking' },
+        underline: { property: 'text-decoration-line', shape: 'fixed' },
+        strikethrough: { property: 'text-decoration-line', shape: 'fixed' },
+        superscript: { property: 'font-variant-position', shape: 'fixed' },
+        subscript: { property: 'font-variant-position', shape: 'fixed' },
+        'word-spacing': { property: 'word-spacing', shape: 'tracking' },
+        'text-indent': { property: 'text-indent', shape: 'tracking' },
+        measure: { property: 'max-width', shape: 'measure' },
+        'text-transform': { property: 'text-transform', shape: 'keyword' },
+        'font-variant': { property: 'font-variant', shape: 'keyword' },
+        'small-caps': { property: 'font-variant-caps', shape: 'fixed' },
+        'slashed-or-lining-zero': { property: 'font-variant-numeric', shape: 'numericFigures' },
+        'font-family': { property: 'font-family', shape: 'fontFamily' },
+        'font-stretch': { property: 'font-stretch', shape: 'keyword' },
+        'italic-or-oblique': { property: 'font-style', shape: 'styleWord' },
+        'font-feature-settings': { property: 'font-feature-settings', shape: 'feature' },
+        'font-optical-sizing': { property: 'font-optical-sizing', shape: 'keyword' },
+        'text-rendering': { property: 'text-rendering', shape: 'keyword' },
+      };
+
+      /** The one `shared` collision this page draws as a single declaration. */
+      const TYPE_MERGES = [{ readings: ['underline', 'strikethrough'], property: 'text-decoration-line' }];
+
+      /** A bare reading's one fixed CSS keyword — never the user's own text. */
+      const TYPE_BARE_VALUES = {
+        underline: 'underline',
+        strikethrough: 'line-through',
+        superscript: 'super',
+        subscript: 'sub',
+        'small-caps': 'small-caps',
+      };
+
+      // The core three readings' gates were the specimen's gates first (v0.3.0
+      // §6.5, lifted above); everything else here is new in v0.7.3.
+      const isKeyword = (value) => /^[a-z][a-z0-9-]*(\s+[a-z][a-z0-9-]*)*$/i.test(String(value ?? '').trim());
+      const isTracking = (value) => /^(normal|-?\d*\.?\d+(px|rem|em|pt|%))$/.test(String(value ?? '').trim());
+      const isMeasure = (value) => /^\d*\.?\d+(px|rem|em|pt|%|ch|vw)$/.test(String(value ?? '').trim());
+      const isFontFamily = (value) =>
+        /^[a-z0-9][a-z0-9 _-]*(,\s*[a-z0-9][a-z0-9 _-]*)*$/i.test(String(value ?? '').trim());
+      const isFeatureSettings = (value) => /^[a-z0-9][a-z0-9 ,.-]*$/i.test(String(value ?? '').trim());
+
+      /** Every shape gate a typography declaration is classified by. */
+      const TYPE_SHAPES = {
+        length: isLength,
+        weight: (value) => safeWeight(String(value ?? '').trim()) !== null,
+        leading: (value) => safeLeading(String(value ?? '').trim()) !== null,
+        tracking: isTracking,
+        measure: isMeasure,
+        keyword: isKeyword,
+        fontFamily: isFontFamily,
+        feature: isFeatureSettings,
+        numericFigures: (value) => ['slashed-zero', 'lining-nums'].includes(String(value ?? '').trim()),
+        styleWord: (value) => ['italic', 'oblique'].includes(String(value ?? '').trim()),
+        // A bare reading's declaration is one of the contract's own fixed
+        // words, assembled by this region rather than typed by a person, so
+        // there is nothing left to classify beyond the hard gate every
+        // declaration already passes through.
+        fixed: () => true,
+      };
+
+      /**
+       * One typography row's readings — the three mandatory columns and
+       * whatever the optional block holds — projected into the declarations the
+       * specimen may draw, and the readings that did not make it, with why.
+       * Never invented: a reading absent from the row never appears in either
+       * list.
+       */
+      function typeDeclarations(row) {
+        const held = {};
+        const size = cell(row, 'size', 1);
+        const weight = cell(row, 'weight', 2);
+        const leading = cell(row, 'line-height', 3);
+        if (size !== '') held.size = size;
+        if (weight !== '') held.weight = weight;
+        if (leading !== '') held['line-height'] = leading;
+        const optional = row && typeof row.readings === 'object' && row.readings !== null ? row.readings : {};
+        for (const [name, value] of Object.entries(optional)) {
+          if (Object.prototype.hasOwnProperty.call(TYPE_READINGS, name)) held[name] = value;
+        }
+
+        // Which readings merge, read from `TYPE_MERGES` rather than from a pair
+        // of names spelled out at the call site — the same rule
+        // `declarationsFor` in `lib/typography.js` follows for the CSS itself.
+        const mergedAway = new Set();
+        const mergeFor = {};
+        for (const rule of TYPE_MERGES) {
+          const present = rule.readings.filter((name) => Object.prototype.hasOwnProperty.call(held, name));
+          if (present.length < 2) continue;
+          present.slice(1).forEach((name) => mergedAway.add(name));
+          mergeFor[present[0]] = {
+            readings: present,
+            property: rule.property,
+            value: present.map((name) => TYPE_BARE_VALUES[name]).join(' '),
+          };
+        }
+
+        const passed = [];
+        const unrendered = [];
+        for (const name of Object.keys(TYPE_READINGS)) {
+          if (!Object.prototype.hasOwnProperty.call(held, name) || mergedAway.has(name)) continue;
+          const contract = TYPE_READINGS[name];
+          const declaration =
+            mergeFor[name] ??
+            {
+              readings: [name],
+              property: contract.property,
+              value: Object.prototype.hasOwnProperty.call(TYPE_BARE_VALUES, name) ? TYPE_BARE_VALUES[name] : held[name],
+            };
+          const gate = TYPE_SHAPES[contract.shape];
+          if (isSafeDeclaration(declaration.value) && gate && gate(declaration.value)) passed.push(declaration);
+          else unrendered.push({ ...declaration, reason: UNRENDERED.unresolved });
+        }
+        return { passed, unrendered, hasFontFamily: Object.prototype.hasOwnProperty.call(held, 'font-family') };
+      }
+
+      /**
+       * One token, set in its own reading. Every declaration that passed the
+       * gate is inlined; every one that did not is named underneath, with its
+       * reason, and never reaches the `style` attribute at all — the same
+       * honesty line the component preview draws (§ "Unrendered slots").
+       *
+       * `font-family` gets one line of its own whenever the reading is present,
+       * whether or not its value happened to pass the gate: the page cannot
+       * know whether a face is installed, so it says plainly that it never
+       * fetches one, and an uninstalled face falls back the way the browser
+       * always falls back.
+       */
+      function typographySpecimenHtml(row) {
+        const token = cell(row, 'token', 0);
+        const { passed, unrendered, hasFontFamily } = typeDeclarations(row);
+        const style = passed.map((declaration) => declaration.property + ':' + declaration.value).join(';');
+        const meta = [cell(row, 'size', 1), cell(row, 'weight', 2), cell(row, 'line-height', 3)]
+          .filter(Boolean)
+          .map((part) => '<code>' + esc(part) + '</code>')
+          .join(' · ');
+        const note = hasFontFamily
+          ? '<p class="specimen__note">This page fetches no fonts — an uninstalled face falls back to the browser default.</p>'
+          : '';
+        const unrenderedHtml = unrendered.length
+          ? '<p class="specimen__unrendered">Unrendered readings: ' +
+            unrendered
+              .map(
+                (entry) =>
+                  '<span class="chip raw">' + esc(entry.readings.join(' + ')) + ': ' + esc(entry.value) +
+                  ' — ' + esc(entry.reason) + '</span>',
+              )
+              .join(' ') +
+            '</p>'
+          : '';
+        return (
+          '<div class="specimen" data-token="' + esc(token) + '">' +
+          '<div class="specimen__meta">' + esc(token) + ' — ' + meta + '</div>' +
+          '<div class="specimen__line" style="' + style + '">' + esc(token) + ' — the quick brown fox</div>' +
+          note + unrenderedHtml + '</div>'
+        );
+      }
+
       /** Typography as live specimens — each token set in its own reading. */
       function typographySection(rows) {
         if (!rows.length) {
           return container(heading('Typography', 0, NOTES.typography) + '<p class="muted">(none yet)</p>');
         }
-        const specimens = rows
-          .map((row) => {
-            const token = cell(row, 'token', 0);
-            const size = safeSize(cell(row, 'size', 1));
-            const weight = safeWeight(cell(row, 'weight', 2));
-            const leading = safeLeading(cell(row, 'line-height', 3));
-            const style = [
-              size ? 'font-size:' + size : '',
-              weight ? 'font-weight:' + weight : '',
-              leading ? 'line-height:' + leading : '',
-            ]
-              .filter(Boolean)
-              .join(';');
-            const meta = [cell(row, 'size', 1), cell(row, 'weight', 2), cell(row, 'line-height', 3)]
-              .filter(Boolean)
-              .map((part) => '<code>' + esc(part) + '</code>')
-              .join(' · ');
-            return (
-              '<div class="specimen" data-token="' + esc(token) + '">' +
-              '<div class="specimen__meta">' + esc(token) + ' — ' + meta + '</div>' +
-              '<div class="specimen__line" style="' + style + '">' + esc(token) + ' — the quick brown fox</div></div>'
-            );
-          })
-          .join('');
+        const specimens = rows.map(typographySpecimenHtml).join('');
         return container(
           heading('Typography', rows.length, NOTES.typography) + '<div class="specimens">' + specimens + '</div>',
         );
       }
+      // --- end phyllum:typography-contract -------------------------------------
 
       // --- phyllum:backlog-contract -------------------------------------------
       // The Backlog is a list of lines a person can read, and each of them

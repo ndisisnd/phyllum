@@ -111,6 +111,68 @@ test('an unrecognised scope prints the valid scopes and exits cleanly', async ()
   });
 });
 
+/**
+ * A design system whose one typography token carries an optional-readings
+ * block, alongside a second token that carries none (v0.7.3 phase 6, "the
+ * surfaces"). `display` and `system` are one rendering (§6.5.3 dispatch), so
+ * both are exercised here rather than trusting that byte-identical dispatch
+ * from a distance.
+ */
+const TYPOGRAPHY_BLOCK_FIXTURE =
+  '# Design System\n\n' +
+  "> Phyllum manages this file. It is the single source of truth for this project's design system.\n\n" +
+  '- Project: acme-web\n' +
+  '- Phyllum version: 0.7.3\n' +
+  '- Created: 2026-08-24\n\n' +
+  '## Tokens\n\n' +
+  '### Colours\n\n| token | value |\n| --- | --- |\n\n' +
+  '### Numbers\n\n| token | value | applies to |\n| --- | --- | --- |\n\n' +
+  '### Typography\n\n' +
+  '| token | size | weight | line-height |\n' +
+  '| --- | --- | --- | --- |\n' +
+  '| highlight-small | 12px | 700 | 1.3 |\n' +
+  '| body | 16px | 400 | 1.5 |\n\n' +
+  '#### highlight-small\n\n' +
+  '```yaml\n' +
+  'underline: true\n' +
+  'kerning: 0.02em\n' +
+  'font-family: "Inter", system-ui, sans-serif\n' +
+  '```\n\n' +
+  '## Components\n\n## Backlog\n';
+
+async function withTypographyBlockProject(body) {
+  return withTempDir(async (dir) => {
+    fs.writeFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), TYPOGRAPHY_BLOCK_FIXTURE);
+    return body(dir);
+  });
+}
+
+test('system prints every optional reading a typography token holds, and nothing for one that holds none', async () => {
+  await withTypographyBlockProject(async (dir) => {
+    const { out, code } = await run('system', dir);
+    assert.equal(code, 0);
+    assert.ok(out.includes('underline: true'), out);
+    assert.ok(out.includes('kerning: 0.02em'), out);
+    assert.ok(out.includes('font-family: "Inter", system-ui, sans-serif'), out);
+
+    // `body` holds no optional readings, so nothing of the block vocabulary
+    // follows its row — an absent reading says nothing, never a default line.
+    const bodyLine = out.split('\n').findIndex((line) => line.includes('body'));
+    assert.ok(bodyLine !== -1, out);
+    const nextLine = out.split('\n')[bodyLine + 1] ?? '';
+    assert.ok(!/^\s+(underline|kerning|font-family):/.test(nextLine), nextLine);
+  });
+});
+
+test('display and system render a typography token\'s optional readings byte-identically', async () => {
+  await withTypographyBlockProject(async (dir) => {
+    const system = await run('system', dir);
+    const display = await run('display', dir);
+    assert.equal(display.out, system.out);
+    assert.equal(display.code, 0);
+  });
+});
+
 test('the same scope rules apply to dashboard, the gui alias', async () => {
   await withFixtureProject(async (dir) => {
     const { out, code } = await run('dashboard sideways', dir);
