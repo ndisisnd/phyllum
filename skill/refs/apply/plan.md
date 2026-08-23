@@ -54,6 +54,24 @@ steps:
 Anything neither step resolves is out of scope, with the reason stated. It is
 never named here — naming is `assess`'s and `tokenise`'s job.
 
+**Raw typography reading → token** (v0.7.3). A typography token records
+twenty-one readings, and `assess` reports the eighteen optional ones — a
+`letter-spacing`, a `text-transform`, a `text-decoration-line` — in a pass of its
+own. `apply` reads that pass where `assess` keeps it, and reuses the split the
+scan already drew rather than re-deciding it:
+
+- a reading a token **already records** is a change, one criterion per literal
+  per file, and the criterion's `check` names which of the token's readings it is
+  about, because `body-regular` alone would not say whether the line is about its
+  kerning or its case;
+- a reading **nothing records** is out of scope with its reason. `assess` may
+  have proposed a name for it, but a proposal is not a token, and `apply` will
+  not rewrite code on the strength of a name nobody has recorded yet.
+
+A bare reading — `underline`, `small-caps` — carries no value, so the literal is
+the keyword the code writes and the match is exact by construction. Every other
+reading is exact only when the token's recorded value is the literal as written.
+
 **Pattern → component.** React only in v0.2.0, like all component detection. A
 markup site matches a recorded component when `create`'s own signals table maps
 the site to the same archetype *and*, when the component names a variant, the
@@ -112,7 +130,7 @@ component:
 |-------|-------|-----|
 | 1 | Colour tokens | the safest edit — a named colour is the same colour |
 | 2 | Number tokens | a length carries a role, so it deserves its own commit |
-| 3 | Typography tokens | three facts at once, and the most visible mistake |
+| 3 | Typography tokens | three facts at once, plus the eighteen optional readings, and the most visible mistake — the size and the kerning of one token belong in one commit |
 | 4… | Adopt `<Component>` — one phase each | changes markup as well as styling, so it is isolated and revertable alone |
 
 Tokens precede components because a recorded component's properties reference

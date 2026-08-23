@@ -95,8 +95,10 @@ The four agent reasons, each stated in the report:
   contract is what it has to satisfy: generation, not substitution;
 - **a near-identical literal** — the rendered value changes, which is a judgement
   the plan flagged with a `note` and a mechanical pass must not make;
-- **typography** — one token carries size, weight and line-height at once, so
-  which declarations it replaces is not a single substitution;
+- **typography** — one token carries size, weight and line-height at once, and
+  since v0.7.3 up to eighteen further readings beside them, so which declarations
+  it replaces is not a single substitution — whether the criterion is about the
+  size or about the kerning;
 - **a file that is not a stylesheet** — the literal may sit in markup, a script or
   a template.
 
