@@ -116,6 +116,38 @@ purpose.
 
 ---
 
+## The typography readings — the other eighteen declarations
+
+A type token records twenty-one readings since v0.7.3, and the scan reads all of
+them. Three of them — the size, the weight and the line-height — are read
+together, because a size on its own is not a type decision. The other eighteen
+are read one declaration at a time, because a kerning *is* a decision on its
+own: `letter-spacing: 0.02em` written eleven times is drift in exactly the sense
+the rest of this report means by drift.
+
+**The contract is not restated here.** Which reading a declaration is comes from
+the twenty-one-row table in `refs/typography.md`, which is the same table the
+generated CSS is written from. One map, read forwards by the generator and
+backwards by the scan, so the two can never disagree about which declaration a
+reading owns.
+
+| Rule | Why |
+|------|-----|
+| a declaration is matched by property, then by keyword | `text-decoration-line: underline line-through` is two readings, which is the merge rule read backwards |
+| a value naming none of the reading's listed keywords records nothing | `font-style: normal` and `text-decoration-line: none` are the initial values written out, and are passed over the way `border: none` already is |
+| a reading whose contract cell names only a property takes the value verbatim | the never-correct rule applies to a value read out of code as much as to one read out of a sentence |
+| a reading the design system already records is **coverage**, never a proposal | a token holding `kerning: 0.02em` makes every raw `0.02em` evidence that the token is working |
+| a name is proposed only when the rule block also states the type | a Typography row needs a size, a weight and a line-height, so a reading cannot become a token on its own |
+| a reading with no type stated around it says `ask` | the fourth bucket's own answer — Phyllum will not pick which token a stray `font-family` belongs to |
+| a declaration read as a reading is not also counted as a length | `letter-spacing`, `word-spacing`, `text-indent` and `max-width` used to fall into "seen, not read", and counting them in both places would report one sighting as two findings |
+
+Every reading finding is filed under `raw-typography`, beside the size/weight/
+line-height findings, so a report can still say in one line whether the type
+drift got fixed. The whole pass is the scan formatted — no conversation, no
+model — which is what keeps it complete in a plain terminal.
+
+---
+
 ## Compound values — shadows and borders
 
 A shadow is `0 2px 8px rgba(0,0,0,0.1)` and a border shorthand is `1px solid

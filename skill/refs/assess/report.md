@@ -15,7 +15,7 @@ editable without touching code.
 | raw-radius | name it as a radius token, or reuse the nearest one |
 | raw-border | name the border as a token, or reuse the border you already named |
 | raw-shadow | name the elevation as a shadow token — a shadow written out twice is two elevations |
-| raw-typography | name the size, weight and line-height together as one type token |
+| raw-typography | record it on a type token — the size, weight and line-height together, and the kerning, case, face or decoration written beside them |
 | unread | tell Phyllum what it applies to, and it becomes a token like any other |
 | framework-collision | decide which framework owns the components, and finish the migration |
 | styling-collision | pick the system the tokens live in; the others read from it |

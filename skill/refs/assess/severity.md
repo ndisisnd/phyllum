@@ -53,7 +53,7 @@ is not". Rows are tested in order, and a role of `—` matches any role.
 | raw-border | numbers | border | a border or outline width off the scale |
 | raw-border | borders | — | a border shorthand — width, style and colour written out together |
 | raw-shadow | shadows | — | a `box-shadow`, `text-shadow` or elevation literal |
-| raw-typography | typography | — | a font size, weight and line-height written out together |
+| raw-typography | typography | — | a type decision written out raw — a font size, weight and line-height together, or any of the eighteen optional readings on its own CSS declaration |
 
 `raw-radius` is the one that used to have no name of its own: a corner radius was
 read, clustered and named correctly, but the report called it a number like any

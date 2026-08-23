@@ -54,6 +54,7 @@ average — a value nobody wrote is never proposed. Clustering is deterministic.
 | numbers | absolute difference in px, `rem` read at 16px for comparison only | 1 | the same role |
 | typography size | absolute difference in font-size, in px | 1 | the same weight |
 | typography line-height | absolute difference in line-height | 0.1 | the same weight |
+| typography reading | absolute difference in px, `rem` read at 16px for comparison only | 0 | the same reading |
 | shadow length | absolute difference in px, part for part | 1 | the same layer count, the same keywords, the same number of lengths |
 | shadow colour | CIE76 ΔE between two layers' colours | 3 | both layers have a colour, or neither does |
 | border width | absolute difference in px, part for part | 1 | the same keywords |
@@ -64,6 +65,15 @@ the scalar passes use — a length is a length whether it stands alone or sits i
 a shadow. Two shadows of different shapes never merge, however close their
 numbers: `0 2px 8px` and `0 2px 8px 1px` are different shadows, and averaging
 them would be inventing one.
+
+The **typography reading** row is the one added by v0.7.3, and its threshold is
+`0` on purpose. A size and a corner radius are measurements, and two of them a
+pixel apart are the same decision written twice. A kerning, a word-spacing or a
+text-indent is a typographic setting, and `0.02em` and `0.03em` are two settings
+rather than one that drifted — so two reading values merge only when they are
+the same value, with `16px` and `1rem` counted as the same value because they
+are. A reading whose value is a word rather than a measurement — `uppercase`,
+`italic`, a font stack — never merges with anything but itself.
 
 Frequency is the review order: most-used first, ties broken by value. A cluster
 any of whose values is already the value of a token in that pass's section is

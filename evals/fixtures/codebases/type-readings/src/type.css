@@ -1,0 +1,54 @@
+/* A rule that states its whole type decision, so the readings on it have an
+   owner and the pass can name the token they belong to. */
+.lede {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lede-again {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+}
+
+.lede-once-more {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+}
+
+/* The kerning the design system already records, written raw. Coverage, never
+   a proposal. */
+.body-copy {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+}
+
+/* Two readings sharing one declaration. */
+.deleted-price {
+  text-decoration-line: underline line-through;
+}
+
+/* The initial value written out is not a decision, and records nothing. */
+.plain {
+  font-style: normal;
+  text-decoration-line: none;
+}
+
+/* A face with no type stated around it: there is no token to attach it to. */
+.footer {
+  font-family: Georgia, serif;
+}
+
+.small-print {
+  font-style: italic;
+  font-variant-numeric: slashed-zero;
+  word-spacing: 0.1em;
+}
