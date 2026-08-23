@@ -2,6 +2,50 @@
 
 What's new for you, release by release.
 
+## 0.9.0 — 2026-08-24
+
+> Running `assess` no longer just prints and disappears. Every full run now
+> leaves a numbered, dated drift report behind under `.phyllum/`, so the state
+> of your design system becomes something you can look back on rather than
+> something you had to be watching the terminal to catch.
+
+### ✨ New
+
+- **Your assessments are now kept.** A full `assess` run writes
+  `.phyllum/assess-1.md`, then `assess-2.md`, and so on — each one carrying its
+  own date, a summary, the drift by family, the health score, and what it
+  recommends you do. The numbering is one past the highest report you have, so
+  deleting an old one never causes a later one to be written over.
+- **Two smaller ways to ask.** `phyllum assess score` gives you the drift score
+  and the verdict on their own. `phyllum assess drift` gives you the comparison
+  against `DESIGN-SYSTEM.md` on its own. Both run the same scan as a full run,
+  so the number you see at the prompt and the number in a report can never
+  disagree, and neither of them writes anything at all.
+- **The dashboard shows your reports.** A Reports view under the Assess stage
+  lists every report you have, newest first, and opens one as tables — the
+  findings and the recommendations as rows, not a wall of prose.
+- **A machine-readable handoff.** Each report ends in a block the next stage can
+  read without a model. It is what the Build stage will consume in 0.10.0 to
+  know what needs doing, so you will not have to restate an assessment you have
+  already run.
+
+### 📈 Improved
+
+- **The health score is now written down.** The metrics it counts, what each one
+  weighs, and what the bands mean are recorded in full, along with a plain
+  statement of which parts are arithmetic and which are judgement. Judgement can
+  add prose and ordering; it can never move a count, a score or a verdict.
+- **The Assess stage has one protocol that names it end to end** — scan,
+  hardcoded-value detection, comparison, score, report. Hardcoded-value
+  detection is a step inside that protocol rather than a separate command,
+  because the stage is one command with modes.
+
+### 🐛 Fixed
+
+- **A report is dated by your calendar, not UTC's.** Running `assess` early in
+  the morning east of Greenwich used to produce a report dated yesterday.
+- **A recorded baseline no longer carries the previous release's name.**
+
 ## 0.8.0 — 2026-08-24
 
 > Phyllum's commands now line up as a four-stage pipeline — Assess, Governance, Build, Refine — so you always know which part of the journey a command serves, and a new `pipeline` command tells you where your project currently sits on it.
