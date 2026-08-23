@@ -2,6 +2,20 @@
 
 What's new for you, release by release.
 
+## 0.8.0 — 2026-08-24
+
+> Phyllum's commands now line up as a four-stage pipeline — Assess, Governance, Build, Refine — so you always know which part of the journey a command serves, and a new `pipeline` command tells you where your project currently sits on it.
+
+### ✨ New
+
+- A `pipeline` command: it prints the four stages, the commands under each, and then reads your project and says where it sits — whether anything is recorded yet, and whether what's recorded has been applied. It only reports what it can actually see on disk; anything it can't read is said out loud rather than guessed.
+- Every command now belongs to a stage of the pipeline (or is grouped as tooling), so the command set reads as an ordered journey instead of a flat list. Two stages — Governance and Refine — are named now and filled by upcoming releases.
+
+### 📈 Improved
+
+- The menu now groups commands under their stage, in pipeline order, with the question each stage answers as its heading — so finding the right command means finding the right question.
+- The dashboard's navigation is organised by the same four stages, so the terminal and the dashboard tell one story about where each view belongs.
+
 ## v0.7.3 — 2026-08-24
 
 > A typography token used to record three things about type: its size, its weight and its
