@@ -626,6 +626,41 @@
       .backlog-list { display: grid; gap: 0.375rem; margin-top: var(--space-1); list-style: none; }
       .backlog__line { font-size: var(--type-02); }
 
+      /* The report tables (v0.9.0 §5). A report is read as a table on this
+         page, so the page grows one table idiom and only one: the hairline
+         every container already wears as the rule between rows, the small type
+         the number lists use, and tier three's muted uppercase label for the
+         head row. Wide rows scroll inside their own box rather than widening
+         the reading column (v0.6.0 §3), which is the same rule the ramp strip
+         and the code blocks follow. */
+      .table-scroll { overflow-x: auto; margin-top: var(--space-1); }
+      table.data {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--type-02);
+      }
+      table.data th,
+      table.data td {
+        padding: 0.5rem 0.75rem;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--line);
+      }
+      table.data th {
+        font-size: var(--type-01);
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      table.data tbody tr:last-child td { border-bottom: 0; }
+      /* A row that opens something is a row you can click, and the one that is
+         open reads as a resting place — the same quiet fill the selected view
+         takes in the rail, never a second selection colour. */
+      table.data tbody tr[data-report] { cursor: pointer; }
+      table.data tbody tr[data-report]:hover { background: var(--layer-accent); }
+      table.data tbody tr[aria-selected='true'] { background: var(--layer-accent); }
+
       /* A recognised reading draws its value beside the caption (v0.6.0 §2):
          the specimen leads, then the same name-and-value line as ever. The
          lead column has a floor rather than a fixed width, so the captions
@@ -865,6 +900,7 @@
       <nav id="views">
         <span class="rail-label">Assess</span>
         <button data-view="library" aria-selected="true">Library</button>
+        <button data-view="reports" aria-selected="false">Reports</button>
 
         <span class="rail-label">Governance</span>
         <div class="rail-empty"><span class="chip">nothing yet</span></div>
@@ -899,6 +935,21 @@
           <div class="panel">
             <div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2><button class="btn btn--primary" id="backlog-assess" type="button">Assess</button></div>
             <div id="backlog"></div>
+          </div>
+        </section>
+
+        <section class="view" id="view-reports" hidden>
+          <div class="panel lede">
+            <h2>Reports</h2>
+            <p class="muted">Every assessment <code>phyllum assess</code> has written under <code>.phyllum/</code>, newest first. This view reads them; only <code>assess</code> writes one.</p>
+          </div>
+          <div class="panel">
+            <div class="panel__header"><h2>Assessments <span class="count" id="reports-count">0</span></h2></div>
+            <div id="reports-list" class="muted">reading…</div>
+          </div>
+          <div class="panel">
+            <h2>Report</h2>
+            <div id="report-detail" class="muted">Pick a report to see its drift and its recommendations.</div>
           </div>
         </section>
 
@@ -1719,6 +1770,11 @@
         view: 'library',
         selected: null,
         scopeTouched: false,
+        // The numbered reports as `/reports` served them, and which one is
+        // open (v0.9.0 §5). `null` reports means "not read yet"; an empty list
+        // means "read, and there are none", and the view says so.
+        reports: null,
+        selectedReport: null,
         // Which reading of the selected component the preview is showing —
         // `default`, or one of the states the spec records (v0.4.1 §4.2).
         previewState: PREVIEW.baseState,
@@ -1744,8 +1800,13 @@
         if (!view) return;
         state.view = view;
         select(el('views'), 'view', view);
-        for (const name of ['library', 'workbench', 'tokens']) el('view-' + name).hidden = name !== view;
+        for (const name of ['library', 'reports', 'workbench', 'tokens']) {
+          el('view-' + name).hidden = name !== view;
+        }
         updateRailVisibility();
+        // Reports change only when `assess` runs, so they are read when the
+        // view is opened rather than polled alongside the session.
+        if (view === 'reports') loadReports();
       });
 
       el('filters').addEventListener('click', (event) => {
@@ -2353,6 +2414,213 @@
       }
       // --- end phyllum:backlog-contract ---------------------------------------
 
+      // --- phyllum:reports-contract -------------------------------------------
+      // The Reports view (v0.9.0 §5). `phyllum assess` leaves a numbered, dated
+      // report behind at `.phyllum/assess-[n].md`, and this is where a person
+      // reads them back. Everything about the view follows from two decisions.
+      //
+      //   1. **A report is a table here, never a wall of prose.** The list of
+      //      assessments is a table — number, date, score, verdict, how many
+      //      recommendations — and inside one report the drift findings and the
+      //      recommendations are rows as well. The report file writes drift as
+      //      a Markdown table already, so those rows are the file's own; the
+      //      recommendations rows come from the machine-readable block the
+      //      template carries for exactly this reason.
+      //   2. **The page is read-only over reports.** It renders what `assess`
+      //      wrote and never writes one. No control in this view posts
+      //      anything; the Backlog panel's Assess button is still the only way
+      //      the page asks for a new assessment, and it asks by queueing a
+      //      prompt for the terminal session.
+      //
+      // Order is newest first. The view answers "what state is my design system
+      // in", and the newest report is the answer; the numbering stays the
+      // file's own, so a report somebody deleted shows as a gap rather than
+      // being closed up. The server hands the list over already sorted, and
+      // nothing here re-orders it.
+      //
+      // The region is kept pure — `esc` arrives from the surrounding scope, and
+      // nothing here touches the DOM or the network — because the assertion
+      // suite lifts it out and runs it.
+      const REPORTS = {
+        // What the view says with no report on disk. Plain and finite: nothing
+        // has gone wrong, the stage simply has not run yet.
+        empty: 'No assessments yet — run `phyllum assess` to write the first one.',
+        // The list table's own columns, in order.
+        columns: ['Report', 'Date', 'Score', 'Verdict', 'Recommendations'],
+        // The recommendations table's columns, in order.
+        recommendationColumns: ['Severity', 'Rule', 'Family', 'Findings', 'Action', 'Evidence'],
+        // A field the report does not carry. The page never invents one.
+        unstated: '—',
+        // The page's own answer to an empty section, borrowed rather than
+        // reworded (v0.7.0 §3).
+        none: '(none yet)',
+        // A report carrying no recommendations block at all — written before
+        // the block existed, or edited since. Different from "nothing to do",
+        // and said differently.
+        noBlock: 'This report carries no recommendations block.',
+        // A report the reader could not read. One mangled file is a row, never
+        // a blank view.
+        unread: 'This report could not be read.',
+      };
+
+      /** One cell, escaped, with the page's own em dash for a field with no value. */
+      const reportCell = (value) =>
+        value === null || value === undefined || value === '' ? REPORTS.unstated : String(value);
+
+      /** The reports the payload carries, in the order it carries them. */
+      function reportList(payload) {
+        const reports = payload && Array.isArray(payload.reports) ? payload.reports : [];
+        return reports.filter((report) => report && typeof report === 'object');
+      }
+
+      /** One row of the list table: the fields a person scans a stack of reports by. */
+      function reportSummaryRow(report) {
+        if (report.error) {
+          return [String(report.number ?? ''), REPORTS.unread, '', '', ''];
+        }
+        const health = report.health && typeof report.health === 'object' ? report.health : {};
+        const score =
+          health.score === null || health.score === undefined
+            ? null
+            : health.scaleTop
+              ? health.score + ' of ' + health.scaleTop
+              : String(health.score);
+        const rows = Array.isArray(report.recommendations) ? report.recommendations.length : null;
+        return [
+          String(report.number ?? ''),
+          reportCell(report.date),
+          reportCell(score),
+          reportCell(health.verdict),
+          rows === null ? REPORTS.unstated : String(rows),
+        ];
+      }
+
+      /** A table, given its head row and its body rows. The page's one table idiom. */
+      function dataTableHtml(columns, rows, options) {
+        const settings = options || {};
+        const head =
+          '<thead><tr>' +
+          columns.map((column) => '<th scope="col">' + esc(column) + '</th>').join('') +
+          '</tr></thead>';
+        const body =
+          '<tbody>' +
+          rows
+            .map((row) => {
+              const cells = (Array.isArray(row) ? row : row.cells) || [];
+              const attrs = Array.isArray(row) ? '' : row.attrs || '';
+              return (
+                '<tr' + attrs + '>' +
+                cells.map((cell) => '<td>' + esc(cell) + '</td>').join('') +
+                '</tr>'
+              );
+            })
+            .join('') +
+          '</tbody>';
+        return (
+          '<div class="table-scroll"><table class="data"' +
+          (settings.label ? ' aria-label="' + esc(settings.label) + '"' : '') +
+          '>' + head + body + '</table></div>'
+        );
+      }
+
+      /**
+       * The list of assessments as one table, newest first.
+       *
+       * With nothing on disk it is one plain line rather than an empty grid: a
+       * head row over no rows would say the view is broken, and it is not — the
+       * stage has simply not run yet.
+       */
+      function reportsTableHtml(payload, selected) {
+        const reports = reportList(payload);
+        if (reports.length === 0) return '<p class="muted">' + esc(REPORTS.empty) + '</p>';
+        const rows = reports.map((report) => ({
+          cells: reportSummaryRow(report),
+          attrs:
+            ' data-report="' + esc(String(report.number)) + '"' +
+            ' aria-selected="' + String(Number(selected) === Number(report.number)) + '"',
+        }));
+        return dataTableHtml(REPORTS.columns, rows, { label: 'Assessments' });
+      }
+
+      /**
+       * The drift section as its own table. The columns and the rows are the
+       * report file's own — the template writes drift as a Markdown table, one
+       * row per family including the empty ones — so what is rendered here is
+       * the file, not a rebuild of it.
+       */
+      function driftTableHtml(report) {
+        const drift = report && typeof report.drift === 'object' && report.drift ? report.drift : {};
+        const columns = Array.isArray(drift.columns) ? drift.columns : [];
+        const rows = Array.isArray(drift.rows) ? drift.rows : [];
+        if (columns.length === 0 || rows.length === 0) {
+          return '<p class="muted">' + esc(drift.note || REPORTS.none) + '</p>';
+        }
+        return dataTableHtml(columns, rows, { label: 'Drift' });
+      }
+
+      /**
+       * The recommendations as rows, read from the machine-readable block.
+       *
+       * Three answers, because there are three states and flattening them would
+       * lose the one that matters: no block at all, a block with nothing in it,
+       * and a block with rows.
+       */
+      function recommendationsTableHtml(report) {
+        const rows = report ? report.recommendations : null;
+        if (rows === null || rows === undefined) return '<p class="muted">' + esc(REPORTS.noBlock) + '</p>';
+        if (!Array.isArray(rows) || rows.length === 0) {
+          return '<p class="muted">' + esc(REPORTS.none) + '</p>';
+        }
+        const cells = rows.map((row) => {
+          const entry = row && typeof row === 'object' ? row : {};
+          const evidence = Array.isArray(entry.evidence) ? entry.evidence.join(', ') : '';
+          return [
+            reportCell(entry.severity),
+            reportCell(entry.rule),
+            reportCell(entry.family),
+            reportCell(entry.count),
+            reportCell(entry.action),
+            reportCell(evidence),
+          ];
+        });
+        return dataTableHtml(REPORTS.recommendationColumns, cells, { label: 'Recommendations' });
+      }
+
+      /** One report opened: its summary, then its drift and its recommendations as tables. */
+      function reportDetailHtml(report) {
+        if (!report || typeof report !== 'object') {
+          return '<p class="muted">' + esc(REPORTS.empty) + '</p>';
+        }
+        const title = 'Assessment ' + String(report.number ?? '');
+        if (report.error) {
+          return (
+            '<h3>' + esc(title) + '</h3>' +
+            '<p class="muted">' + esc(REPORTS.unread) + '</p>' +
+            '<p class="muted">' + esc(report.error) + '</p>'
+          );
+        }
+        const health = report.health && typeof report.health === 'object' ? report.health : {};
+        const summary = Array.isArray(report.summary) ? report.summary : [];
+        const meta = [
+          report.date ? 'Date: ' + report.date : null,
+          health.score === null || health.score === undefined
+            ? null
+            : 'Drift score: ' + health.score + (health.scaleTop ? ' of ' + health.scaleTop : ''),
+          health.verdict ? 'Verdict: ' + health.verdict : null,
+          report.path || null,
+        ].filter(Boolean);
+        return (
+          '<h3>' + esc(title) + '</h3>' +
+          '<p class="section__note">' + esc(meta.join(' · ')) + '</p>' +
+          (summary.length
+            ? summary.map((line) => '<p>' + esc(line) + '</p>').join('')
+            : '<p class="muted">' + esc(REPORTS.none) + '</p>') +
+          '<h3>Drift</h3>' + driftTableHtml(report) +
+          '<h3>Recommendations</h3>' + recommendationsTableHtml(report)
+        );
+      }
+      // --- end phyllum:reports-contract ----------------------------------------
+
       /** A heading's own text, its count span excluded — the rail's label. */
       function headingLabel(h) {
         const clone = h.cloneNode(true);
@@ -2636,6 +2904,50 @@
           : '<span class="muted">Empty — prompts you send from here land in this queue.</span>';
       }
 
+      /**
+       * The Reports view (v0.9.0 §5): the list of assessments as one table,
+       * and the open one beneath it as two more.
+       *
+       * A payload that has not arrived yet and a payload holding nothing are
+       * different states and read differently — "reading…" against the view's
+       * own plain "no assessments yet" line — because a project that has never
+       * run `assess` has not gone wrong.
+       */
+      function renderReports() {
+        const payload = state.reports;
+        const reports = payload ? reportList(payload) : [];
+        el('reports-count').textContent = String(reports.length);
+        if (!payload) {
+          el('reports-list').textContent = 'reading…';
+          return;
+        }
+        if (payload.error) {
+          el('reports-list').textContent = payload.message || 'the reports could not be read';
+          el('report-detail').textContent = REPORTS.unread;
+          return;
+        }
+        // Newest first is the server's order, and it is kept: the report a
+        // person wants is the last one written, so it opens by default.
+        const numbers = reports.map((report) => Number(report.number));
+        if (state.selectedReport === null || !numbers.includes(Number(state.selectedReport))) {
+          state.selectedReport = numbers.length ? numbers[0] : null;
+        }
+        el('reports-list').innerHTML = reportsTableHtml(payload, state.selectedReport);
+        const open = reports.find((report) => Number(report.number) === Number(state.selectedReport));
+        el('report-detail').innerHTML = open
+          ? reportDetailHtml(open)
+          : '<p class="muted">' + esc(REPORTS.empty) + '</p>';
+      }
+
+      // A row opens its own report and nothing else: no request leaves the
+      // page, because the whole list arrived with its reports already read.
+      el('reports-list').addEventListener('click', (event) => {
+        const row = event.target.closest ? event.target.closest('tr[data-report]') : null;
+        if (!row) return;
+        state.selectedReport = Number(row.dataset.report);
+        renderReports();
+      });
+
       // --- talking to the server ---------------------------------------------
 
       async function poll() {
@@ -2663,6 +2975,20 @@
           state.system = { error: 'unreachable', message: 'could not read the design system' };
         }
         renderLibrary();
+      }
+
+      /**
+       * Read the numbered reports. One route, one direction: the page asks and
+       * renders, and there is no path from here back to the files.
+       */
+      async function loadReports() {
+        try {
+          const response = await fetch('/reports');
+          state.reports = await response.json();
+        } catch (error) {
+          state.reports = { error: 'unreachable', message: 'could not read the reports' };
+        }
+        renderReports();
       }
 
       el('prompt-form').addEventListener('submit', async (event) => {
@@ -2731,6 +3057,13 @@
       poll();
       setInterval(poll, 1500);
       setInterval(loadSystem, 5000);
+      // Reports are re-read only while their view is open. A report appears
+      // when `assess` finishes, which is minutes away from the click that
+      // queued it, so there is nothing to gain by reading the directory behind
+      // a view nobody is looking at.
+      setInterval(() => {
+        if (state.view === 'reports') loadReports();
+      }, 5000);
     </script>
   </body>
 </html>

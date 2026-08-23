@@ -677,7 +677,7 @@ test('the preview added no network access and no server route', () => {
   const text = readPage();
   assert.equal(text.match(/https?:\/\//g), null, 'the page still fetches nothing external');
   const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
-  for (const route of requests) assert.match(route, /^\/(state|system|prompt|upload)$/);
+  for (const route of requests) assert.match(route, /^\/(state|system|reports|prompt|upload)$/);
   // Nothing in the preview reads the stored code block: it projects the spec.
   const preview = code(region(text, 'preview-contract'));
   assert.ok(!/\bimport\b|\brequire\(|createElement/.test(preview), 'the projection loads nothing');
@@ -685,7 +685,7 @@ test('the preview added no network access and no server route', () => {
 
   const server = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
   const routes = [...server.matchAll(/path == "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(new Set(routes), new Set(['/state', '/system', '/prompt', '/upload']));
+  assert.deepEqual(new Set(routes), new Set(['/state', '/system', '/reports', '/prompt', '/upload']));
   assert.equal(server.match(/def do_(GET|HEAD|POST)/g).length, 3);
 });
 
