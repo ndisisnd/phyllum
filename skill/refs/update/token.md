@@ -132,3 +132,45 @@ convergence exists to prevent, and an edit is not a licence to create one.
 
 A number collides only inside its own "applies to" — a 12px radius and a 12px
 padding are different facts, as they always were.
+
+### Changing and clearing an optional typography reading (v0.7.3 phase 2)
+
+A typography token carries twenty-one readings. Three of them are the columns of
+the Typography table and are changed exactly as they always were. The other
+eighteen sit in the token's own fenced block, and `update token` reaches them
+with the same sentence it reaches everything else — `refs/typography.md` says
+what a reading is, `refs/tokenise/readings.md` says which words name one, and
+this file adds only the words that take one away.
+
+**Changing** a reading is stating it: "heading-lg kerning becomes 0.04em" writes
+the new value over the old, and the never-correct rule holds — the value is
+recorded exactly as typed.
+
+**Clearing** a reading is saying it is gone. A cleared reading is *removed* from
+the block rather than written as an empty value, because an absent reading means
+"not decided" and an empty one would be a decision nobody made. A token whose
+last optional reading is cleared loses its block entirely, which is the same
+rule a newly written token follows: no optional readings, no block.
+
+<!-- phyllum:update-clear -->
+
+| Phrase | Written as |
+|--------|------------|
+| `clear` | `clear`, `clears`, `cleared` |
+| `remove` | `remove`, `removes`, `removed` |
+| `drop` | `drop`, `drops`, `dropped` |
+| `unset` | `unset`, `unsets` |
+| `delete` | `delete`, `deletes` |
+| `no-longer` | `no longer`, `not`, `no` |
+
+A clear phrase governs the reading it introduces and nothing else, so "clear the
+kerning and the underline" clears both while "kerning 0.04em and clear the
+underline" changes one and clears the other. A sentence that clears a reading
+the token does not hold changes nothing and says so, rather than reporting a
+write that did not happen.
+
+**A rename carries the block with it.** The block is found by its `#### <token>`
+heading, so a rename that left the heading behind would orphan every optional
+reading the token holds and have them reported as belonging to a token the table
+does not list. The heading is rewritten in the same write as the table row, the
+spec slots and the Backlog lines — one write, or none.
