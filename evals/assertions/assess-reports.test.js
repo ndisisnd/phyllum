@@ -153,7 +153,10 @@ test('listReports pairs each number with its path', async () => {
 // ---------------------------------------------------------------------------
 
 test('the date is injectable and renders byte-stably', () => {
-  assert.equal(reportDate(new Date('2026-08-24T23:59:59Z')), '2026-08-24');
+  // Built from local parts, so the assertion says the same thing in every zone
+  // the suite might run in.
+  assert.equal(reportDate(new Date(2026, 7, 24, 23, 59, 59)), '2026-08-24');
+  assert.equal(reportDate(new Date(2026, 0, 1, 0, 0, 0)), '2026-01-01', 'month and day are padded');
 
   const result = sampleResult();
   const once = renderAssessReport({ number: 1, date: DAY, result });
@@ -163,6 +166,19 @@ test('the date is injectable and renders byte-stably', () => {
 
   const other = renderAssessReport({ number: 1, date: '2026-09-01', result });
   assert.notEqual(once, other, 'a different date must produce a different report');
+});
+
+test('the date is the reader’s own, not UTC’s', () => {
+  // 04:00 in +08 is still yesterday in UTC. `toISOString()` would date the
+  // report a day behind the calendar of the person reading it, which is a day
+  // they would then have to second-guess. The clock is read locally instead.
+  const early = new Date(2026, 7, 24, 4, 0, 0);
+  assert.equal(reportDate(early), '2026-08-24');
+  assert.equal(
+    reportDate(early),
+    `${early.getFullYear()}-${String(early.getMonth() + 1).padStart(2, '0')}-${String(early.getDate()).padStart(2, '0')}`,
+    'the report agrees with the local calendar in whatever zone it runs',
+  );
 });
 
 test('a report refuses to render without its own date', () => {
