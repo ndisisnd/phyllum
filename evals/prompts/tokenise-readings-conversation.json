@@ -1,0 +1,158 @@
+{
+  "eval": "tokenise-readings-conversation",
+  "rubric": "evals/rubrics/tokenise-readings-conversation.md",
+  "milestone": "v0.7.3 M7",
+  "planSections": ["v0.7.3 phase 2", "v0.7.3 §The reader", "v0.7.3 §The contract"],
+  "threshold": 1.0,
+  "status": "runnable — `npm run evals`",
+  "designSystem": "evals/fixtures/design-system/populated.md",
+  "note": "The twenty-one readings are a contract, and `evals/assertions/tokenise-readings.test.js` proves the mechanics of reading them: which keyword means which reading, which value survives a round trip, which CSS a declaration becomes. None of that is what this eval grades. This grades the half a contract table cannot hold — the shape of the conversation that gathers the eighteen optional readings, which is judgement rather than pass-or-fail. Two behaviours, and both of them rot silently. First, the follow-up: eighteen readings must be gathered in exactly ONE question, asked after the three core readings are settled, and a skipped follow-up must record nothing at all rather than a helpful default. A second question is a form, and a default is an invention. Second, the conflict questions: `superscript` with `subscript` contradicts, `font-variant` over `small-caps` or over `slashed-or-lining-zero` overlaps, and three numbers already named with different optional readings is a near-duplicate. Every one of those must warn and ask — never refuse, never auto-resolve, never silently drop — and the answer is the only thing that ever removes a reading. `underline` with `strikethrough` is the deliberate counter-case: it shares one declaration rather than colliding, so it must NOT become a question. A release that turned that pair into a question would still pass every assertion in the suite. Nothing here calls a model: `parseProse`, `readingsQuestion`, `followUpReadings`, `conflictQuestions`, `settleConflict`, `nearDuplicate` and `declarationTextFor` are the real functions in the real order, walked without a terminal, so every case is reproducible on any machine.",
+  "cases": [
+    {
+      "id": "one-follow-up-after-the-core-readings",
+      "prose": "body text is 15px",
+      "followUp": "kerning 0.02em, uppercase, face \"Inter\", system-ui",
+      "expects": [
+        "exactly one follow-up question is asked",
+        "it is asked with the three core readings already settled",
+        "it offers a way out, so answering is never compulsory",
+        "every enum and value reading the answer states is recorded",
+        "each value is recorded exactly as typed, commas and quotes included"
+      ]
+    },
+    {
+      "id": "a-skipped-follow-up-records-nothing",
+      "prose": "body text is 15px",
+      "followUp": "skip",
+      "expects": [
+        "the question is still asked once",
+        "no optional reading at all is recorded",
+        "the three core readings are untouched"
+      ]
+    },
+    {
+      "id": "an-unstated-reading-stays-absent",
+      "prose": "body text is 15px",
+      "followUp": "kerning 0.02em",
+      "expects": [
+        "the one stated reading is recorded",
+        "no other reading is filled in, defaulted or guessed",
+        "a reading named with no value is reported rather than invented"
+      ]
+    },
+    {
+      "id": "a-named-reading-with-no-value-is-reported",
+      "prose": "body text is 15px",
+      "followUp": "kerning",
+      "expects": [
+        "nothing is recorded for the reading",
+        "the run says so rather than staying silent"
+      ]
+    },
+    {
+      "id": "bare-readings-survive-a-skipped-follow-up",
+      "prose": "headings are 32px bold underlined with line-height 1.2",
+      "followUp": "skip",
+      "expects": [
+        "the bare reading came out of the sentence, before any question",
+        "skipping the follow-up does not discard it",
+        "the follow-up is still asked exactly once"
+      ]
+    },
+    {
+      "id": "superscript-with-subscript-is-asked-about",
+      "prose": "footnote text is 11px superscript and subscript",
+      "followUp": "skip",
+      "conflictAnswers": [""],
+      "expects": [
+        "exactly one conflict question is raised",
+        "it is reported as a contradiction, not as a refusal",
+        "the warning names both readings and the one property they collide on",
+        "both readings are offered, and so is keeping both",
+        "an unanswered question keeps both — nothing is dropped by default",
+        "the run carries on rather than halting"
+      ]
+    },
+    {
+      "id": "only-the-answer-drops-a-reading",
+      "prose": "footnote text is 11px superscript and subscript",
+      "followUp": "skip",
+      "conflictAnswers": ["superscript"],
+      "expects": [
+        "the reading the user named is kept",
+        "the other is dropped, and only because the user said so",
+        "the run reports what it recorded"
+      ]
+    },
+    {
+      "id": "underline-with-strikethrough-is-not-a-question",
+      "prose": "notice text is 14px underlined and struck through",
+      "followUp": "skip",
+      "expects": [
+        "no conflict question is raised at all",
+        "both readings stay recorded",
+        "the two become one declaration carrying both keywords, in contract order"
+      ]
+    },
+    {
+      "id": "font-variant-over-small-caps-is-asked-about",
+      "prose": "label text is 13px",
+      "followUp": "font-variant common-ligatures, small caps",
+      "conflictAnswers": [""],
+      "expects": [
+        "exactly one question is raised, and it is an overlap",
+        "the warning names the shorthand and the longhand it covers",
+        "both are offered, and so is keeping both",
+        "an unanswered question keeps both"
+      ]
+    },
+    {
+      "id": "font-variant-over-the-zero-is-asked-about",
+      "prose": "figure text is 16px",
+      "followUp": "font-variant oldstyle-nums, slashed zero",
+      "conflictAnswers": [""],
+      "expects": [
+        "exactly one question is raised, and it is an overlap",
+        "the warning names the shorthand and the numeric longhand",
+        "both are offered, and so is keeping both",
+        "an unanswered question keeps both"
+      ]
+    },
+    {
+      "id": "a-near-duplicate-warns-and-asks",
+      "prose": "highlight text is 12px bold with line-height 1.3 underlined",
+      "followUp": "skip",
+      "nearAnswer": "yes",
+      "existing": "highlight-small",
+      "expects": [
+        "the three numbers match a token already recorded",
+        "the differing reading is named in the warning",
+        "the warning says nothing has been written yet",
+        "one question is asked, and it offers recording it anyway",
+        "answering yes records it — it is never auto-refused as a duplicate"
+      ]
+    },
+    {
+      "id": "a-near-duplicate-skipped-writes-nothing",
+      "prose": "highlight text is 12px bold with line-height 1.3 underlined",
+      "followUp": "skip",
+      "nearAnswer": "skip",
+      "existing": "highlight-small",
+      "expects": [
+        "the same warning and the same question",
+        "skipping writes nothing and says which token it was left as"
+      ]
+    },
+    {
+      "id": "a-plain-repeat-is-still-already-named",
+      "prose": "highlight text is 12px bold with line-height 1.3",
+      "followUp": "skip",
+      "existing": "highlight-small",
+      "expects": [
+        "no near-duplicate warning, because nothing differs",
+        "no question is asked about it",
+        "nothing is written"
+      ]
+    }
+  ]
+}

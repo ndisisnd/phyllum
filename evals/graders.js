@@ -57,7 +57,16 @@ import { emptyModel, parse } from '../lib/design-system.js';
 import { codeViewFor, detectProject } from '../lib/detect.js';
 import { ingestTrace, mergeTraceGaps, withinTolerance } from '../lib/trace.js';
 import { applyAcceptance, proposeTokens, scanCodebase } from '../lib/tokenise.js';
-import { accepted, decide, questionFor, resolvePick } from '../lib/tokenise-command.js';
+import {
+  accepted,
+  decide,
+  nearDuplicate,
+  questionFor,
+  readingsQuestion,
+  renderConflict,
+  renderNearDuplicate,
+  resolvePick,
+} from '../lib/tokenise-command.js';
 import {
   existingTokenFor,
   parseProse,
@@ -66,16 +75,25 @@ import {
   takenNames,
 } from '../lib/tokenise-prose.js';
 import {
+  conflictQuestions,
+  followUpReadings,
+  isSkip,
+  settleConflict,
+} from '../lib/tokenise-readings.js';
+import {
   actionFor,
+  actionForAnswer,
   actionRules,
   extraRules,
   hygieneRules,
   lintRules,
   namingRules,
   propRules,
+  readingCopy,
   scoreStepFor,
   similarityRules,
 } from '../lib/tokenise-spec.js';
+import { declarationTextFor } from '../lib/typography.js';
 
 export const EVALS_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const PACKAGE_ROOT = path.resolve(EVALS_DIR, '..');
@@ -183,8 +201,8 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * the twenty evals from v0.7.0 carry forward unchanged and only the baseline's
  * stamp moves.
  */
-export const MILESTONE = 'v0.7.2 M3';
-export const RELEASE = 'v0.7.2';
+export const MILESTONE = 'v0.7.3 M7';
+export const RELEASE = 'v0.7.3';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');
@@ -2449,6 +2467,322 @@ function deleteFlowEval() {
   return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
 }
 
+// ---------------------------------------------------------------------------
+// tokenise — the readings conversation (v0.7.3 phase 2)
+// ---------------------------------------------------------------------------
+
+/** Did the user answer "no" / "skip" / nothing at all? — `tokenise`'s own rule. */
+const answeredStop = (answer) => {
+  const raw = String(answer ?? '').trim();
+  return raw === '' || actionForAnswer(raw).action === 'skip';
+};
+
+/**
+ * The optional-readings conversation, walked without a terminal (v0.7.3 phase 2).
+ *
+ * `gatherReadings` in `lib/tokenise-command.js` is this chain plus the printing
+ * and the awaiting; the pieces themselves — `parseProse`, `readingsQuestion`,
+ * `followUpReadings`, `isSkip`, `conflictQuestions`, `renderConflict`,
+ * `settleConflict`, `existingTokenFor`, `nearDuplicate`, `renderNearDuplicate` —
+ * are the real ones, in the real order, exactly as `walkQueue` and `walkDelete`
+ * above walk their own flows. That is what makes the claims worth grading: how
+ * many questions are asked, in what order, and what survives each answer.
+ *
+ * `asked` is every question in the order it would be put to the user: the one
+ * follow-up first, then one per collision, then the near-duplicate. `written` is
+ * the token that would reach the queue's write, or null when the walk ended with
+ * nothing to write.
+ */
+function walkReadings(prose, { model, followUp = 'skip', conflictAnswers = [], nearAnswer = 'skip' } = {}) {
+  const said = [];
+  const asked = [];
+  const notices = [];
+  const parsed = parseProse(prose);
+  const candidate = parsed.candidates.find((item) => item.pass === 'typography') ?? null;
+  if (!candidate) {
+    return { parsed, candidate: null, asked, said, notices, questions: [], readings: {}, existing: null, near: null, written: null };
+  }
+
+  // The three core readings are settled by the parse, before anything is asked.
+  const core = { size: candidate.size, weight: candidate.weight, lineHeight: candidate.lineHeight };
+  const fromSentence = { ...(candidate.readings ?? {}) };
+  let readings = { ...fromSentence };
+
+  // ---- the one follow-up ---------------------------------------------------
+  const followUpQuestion = readingsQuestion();
+  asked.push(followUpQuestion);
+  const coreWhenAsked = { ...core };
+  if (!isSkip(followUp)) {
+    const read = followUpReadings(followUp);
+    for (const [reading, value] of Object.entries(read.readings)) {
+      // The first statement of a slot stands, exactly as `gatherReadings` has it.
+      if (!Object.prototype.hasOwnProperty.call(readings, reading)) readings[reading] = value;
+    }
+    for (const notice of read.unread) {
+      notices.push(notice);
+      said.push(`  ${notice}`);
+    }
+  }
+
+  // ---- the conflict questions ----------------------------------------------
+  const questions = conflictQuestions(readings, candidate.name ?? '');
+  questions.forEach((question, index) => {
+    said.push(renderConflict(question));
+    asked.push(question.ask);
+    const settled = settleConflict(readings, question, conflictAnswers[index] ?? '');
+    readings = settled.readings;
+    said.push(`  Recorded: ${settled.kept.join(', ')}.`);
+  });
+
+  // ---- the already-named check, and its one exception ----------------------
+  const settledCandidate = { ...candidate, readings };
+  const existing = existingTokenFor(settledCandidate, model);
+  const near = existing ? nearDuplicate(settledCandidate, existing, model) : null;
+  let written = existing ? null : 'would be written';
+  if (near) {
+    said.push(renderNearDuplicate(settledCandidate, existing, near));
+    asked.push(readingCopy('near-duplicate'));
+    if (answeredStop(nearAnswer)) said.push(`Left as \`${existing.name}\` — nothing was written.`);
+    else written = 'would be written';
+  }
+
+  return {
+    parsed,
+    candidate,
+    core: coreWhenAsked,
+    fromSentence,
+    followUpQuestion,
+    asked,
+    said,
+    notices,
+    questions,
+    readings,
+    existing,
+    near,
+    written,
+  };
+}
+
+/**
+ * Does the readings conversation hold its shape?
+ *
+ * Not which bytes reach the file — `evals/assertions/tokenise-readings.test.js`
+ * proves that — but whether the *conversation* stays the one the contract
+ * declares. Two behaviours, both of them judgement rather than pass-or-fail:
+ * the one follow-up that gathers eighteen readings and records nothing when it
+ * is skipped, and the three collisions that must warn and ask rather than
+ * refuse, resolve or drop. `underline` with `strikethrough` is the counter-case
+ * that pins the difference between a collision and a shared declaration.
+ *
+ * Everything here is mechanical, so there is no responder and no headroom in
+ * the threshold.
+ */
+function readingsConversationEval() {
+  const spec = readJson('evals/prompts/tokenise-readings-conversation.json');
+  const model = parse(readText(spec.designSystem));
+  let points = 0;
+  let max = 0;
+  const failures = [];
+
+  const claim = (ok, why) => {
+    max += 1;
+    if (ok) points += 1;
+    else failures.push(why);
+  };
+
+  const walkFor = (testCase) =>
+    walkReadings(testCase.prose, {
+      model,
+      followUp: testCase.followUp,
+      conflictAnswers: testCase.conflictAnswers ?? [],
+      nearAnswer: testCase.nearAnswer ?? 'skip',
+    });
+
+  /** Every question a walk asked that was not the follow-up or the near-duplicate. */
+  const conflictCount = (walk) => walk.questions.length;
+
+  for (const testCase of spec.cases) {
+    const walk = walkFor(testCase);
+    const id = testCase.id;
+
+    if (id === 'one-follow-up-after-the-core-readings') {
+      claim(walk.asked.length === 1, `${id}: ${walk.asked.length} question(s) asked, expected one and only one`);
+      claim(
+        walk.core.size === '15px' && walk.core.weight !== null && walk.core.lineHeight !== null,
+        `${id}: the follow-up was asked before the three core readings were settled`,
+      );
+      claim(
+        /skip/i.test(walk.followUpQuestion),
+        `${id}: the follow-up offers no way out, so answering it is compulsory`,
+      );
+      claim(
+        walk.readings.kerning === '0.02em' && walk.readings['text-transform'] === 'uppercase',
+        `${id}: the follow-up did not gather every enum and value it was told`,
+      );
+      claim(
+        walk.readings['font-family'] === '"Inter", system-ui',
+        `${id}: font-family = ${walk.readings['font-family']} — a value carrying commas and quotes was not recorded as typed`,
+      );
+      continue;
+    }
+
+    if (id === 'a-skipped-follow-up-records-nothing') {
+      claim(walk.asked.length === 1, `${id}: ${walk.asked.length} question(s) asked, expected the follow-up and nothing else`);
+      claim(
+        Object.keys(walk.readings).length === 0,
+        `${id}: a skipped follow-up recorded ${Object.keys(walk.readings).join(', ')} — it must record nothing`,
+      );
+      claim(
+        walk.core.size === '15px' && walk.core.weight === '400' && walk.core.lineHeight === 'normal',
+        `${id}: the three core readings did not survive the skip`,
+      );
+      continue;
+    }
+
+    if (id === 'an-unstated-reading-stays-absent') {
+      claim(walk.readings.kerning === '0.02em', `${id}: the one stated reading was not recorded`);
+      claim(
+        Object.keys(walk.readings).length === 1,
+        `${id}: ${Object.keys(walk.readings).join(', ')} recorded — a reading nobody stated was filled in`,
+      );
+      claim(walk.notices.length === 0, `${id}: a complete answer was reported as unread`);
+      continue;
+    }
+
+    if (id === 'a-named-reading-with-no-value-is-reported') {
+      claim(
+        Object.keys(walk.readings).length === 0,
+        `${id}: an empty value was recorded as a decision nobody made`,
+      );
+      claim(
+        walk.notices.some((notice) => notice.includes('kerning')),
+        `${id}: nothing was said about the reading that carried no value`,
+      );
+      continue;
+    }
+
+    if (id === 'bare-readings-survive-a-skipped-follow-up') {
+      claim(walk.fromSentence.underline === true, `${id}: the bare reading was not read out of the sentence`);
+      claim(walk.readings.underline === true, `${id}: the skip discarded a reading the sentence stated`);
+      claim(walk.asked.length === 1, `${id}: ${walk.asked.length} question(s) asked, expected one`);
+      continue;
+    }
+
+    if (id === 'superscript-with-subscript-is-asked-about') {
+      const [question] = walk.questions;
+      claim(conflictCount(walk) === 1, `${id}: ${conflictCount(walk)} conflict question(s), expected one`);
+      claim(question?.kind === 'conflict', `${id}: reported as ${question?.kind ?? '(nothing)'}, expected a contradiction`);
+      claim(
+        Boolean(question) &&
+          question.message.includes('superscript') &&
+          question.message.includes('subscript') &&
+          question.message.includes('font-variant-position'),
+        `${id}: the warning does not name both readings and the property they collide on`,
+      );
+      claim(
+        question?.options.join(' + ') === 'superscript + subscript' && Boolean(question?.keepBoth),
+        `${id}: the question does not offer both readings and keeping both`,
+      );
+      claim(
+        walk.readings.superscript === true && walk.readings.subscript === true,
+        `${id}: an unanswered conflict dropped a reading rather than keeping both`,
+      );
+      claim(walk.written !== null, `${id}: a conflict halted the run — it must ask, never refuse`);
+      continue;
+    }
+
+    if (id === 'only-the-answer-drops-a-reading') {
+      claim(walk.readings.superscript === true, `${id}: the reading the user named was not kept`);
+      claim(
+        !Object.prototype.hasOwnProperty.call(walk.readings, 'subscript'),
+        `${id}: the reading the user chose against is still recorded`,
+      );
+      claim(
+        walk.said.some((line) => line === '  Recorded: superscript.'),
+        `${id}: the run does not say what it recorded`,
+      );
+      continue;
+    }
+
+    if (id === 'underline-with-strikethrough-is-not-a-question') {
+      claim(conflictCount(walk) === 0, `${id}: a shared declaration was turned into ${conflictCount(walk)} question(s)`);
+      claim(
+        walk.readings.underline === true && walk.readings.strikethrough === true,
+        `${id}: one of the two readings was lost`,
+      );
+      const declarations = declarationTextFor(walk.readings);
+      claim(
+        declarations.length === 1 && declarations[0] === 'text-decoration-line: underline line-through',
+        `${id}: emitted ${declarations.join(' | ') || '(nothing)'}, expected one merged declaration in contract order`,
+      );
+      continue;
+    }
+
+    if (id === 'font-variant-over-small-caps-is-asked-about' || id === 'font-variant-over-the-zero-is-asked-about') {
+      const longhand = id.includes('small-caps') ? 'small-caps' : 'slashed-or-lining-zero';
+      const [question] = walk.questions;
+      claim(
+        conflictCount(walk) === 1 && question?.kind === 'overlap',
+        `${id}: ${conflictCount(walk)} question(s) of kind ${question?.kind ?? '(none)'}, expected one overlap`,
+      );
+      claim(
+        Boolean(question) && question.message.includes('font-variant') && question.message.includes(longhand),
+        `${id}: the warning does not name the shorthand and the longhand it covers`,
+      );
+      claim(
+        question?.options.join(' + ') === `font-variant + ${longhand}` && Boolean(question?.keepBoth),
+        `${id}: the question does not offer both readings and keeping both`,
+      );
+      claim(
+        Object.prototype.hasOwnProperty.call(walk.readings, 'font-variant') &&
+          Object.prototype.hasOwnProperty.call(walk.readings, longhand),
+        `${id}: an unanswered overlap dropped a reading rather than keeping both`,
+      );
+      continue;
+    }
+
+    if (id === 'a-near-duplicate-warns-and-asks') {
+      claim(walk.existing?.name === testCase.existing, `${id}: the three numbers did not match ${testCase.existing}`);
+      claim(
+        (walk.near ?? []).some((difference) => difference.reading === 'underline'),
+        `${id}: the differing reading is not named`,
+      );
+      claim(
+        walk.said.some((line) => line.includes('nothing has been written yet')),
+        `${id}: the warning does not say that nothing has been written yet`,
+      );
+      claim(
+        walk.asked.length === 2 && walk.asked[1] === readingCopy('near-duplicate'),
+        `${id}: the near duplicate was not put as a question`,
+      );
+      claim(walk.written !== null, `${id}: answering yes wrote nothing — a near duplicate must never be auto-refused`);
+      continue;
+    }
+
+    if (id === 'a-near-duplicate-skipped-writes-nothing') {
+      claim(walk.near !== null && walk.asked.length === 2, `${id}: the same warning and question were not put`);
+      claim(walk.written === null, `${id}: a skipped near duplicate wrote something`);
+      claim(
+        walk.said.some((line) => line.includes(`Left as \`${testCase.existing}\``)),
+        `${id}: the run does not say which token it was left as`,
+      );
+      continue;
+    }
+
+    if (id === 'a-plain-repeat-is-still-already-named') {
+      claim(walk.existing?.name === testCase.existing, `${id}: the repeat was not recognised as already named`);
+      claim(walk.near === null, `${id}: a plain duplicate was warned about as a near duplicate`);
+      claim(walk.asked.length === 1, `${id}: ${walk.asked.length} question(s) asked, expected only the follow-up`);
+      claim(walk.written === null, `${id}: a value the system already names was written again`);
+      continue;
+    }
+
+    claim(false, `${id}: no claim is made about this case`);
+  }
+
+  return { ...score(points, max), failures, unrecorded: [], threshold: spec.threshold };
+}
+
 /** Object keys in a fixed order, so a comparison is about content. */
 function sortKeys(object) {
   return Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
@@ -2475,6 +2809,7 @@ export const EVALS = [
   { id: 'assess-report', modelDependent: false, run: assessReportEval },
   { id: 'tokenise-prose-extraction', modelDependent: false, run: proseTokenise },
   { id: 'delete-flow', modelDependent: false, run: deleteFlowEval },
+  { id: 'tokenise-readings-conversation', modelDependent: false, run: readingsConversationEval },
 ];
 
 /** Run every eval against one responder. */
