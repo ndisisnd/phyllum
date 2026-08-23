@@ -1,25 +1,76 @@
 ## Chained modes
 
-Four commands, one scan. The scan, the clustering and the map are identical in all
-four — the modes differ only in which tracks are walked and in who answers.
+One command, one scan, six readings of it. The scan, the clustering and the map
+are identical in every mode — a mode changes which tracks are walked, who
+answers, and what the run leaves behind. It never changes what was found.
 
-| Command | Tracks walked | Who answers |
-|---------|---------------|-------------|
-| `assess` | tokens, then components — **one** component recorded | you |
-| `assess tokens` | the token review only | you |
-| `assess components` | the component picks only, **looped** | you, once per candidate |
-| `assess update` | tokens, then components | Phyllum, where the answer is already on the page |
-| `assess --json` | none — the assessment is written to a file | nobody; it asks nothing |
+| Command | Tracks walked | Who answers | Leaves behind |
+|---------|---------------|-------------|---------------|
+| `assess` | tokens, then components — **one** component recorded | you | `.phyllum/assess-[n].md` |
+| `assess tokens` | the token review only | you | `.phyllum/assess-[n].md` |
+| `assess components` | the component picks only, **looped** | you, once per candidate | `.phyllum/assess-[n].md` |
+| `assess update` | tokens, then components | Phyllum, where the answer is already on the page | `.phyllum/assess-[n].md` |
+| `assess score` | none | nobody; it asks nothing | nothing |
+| `assess drift` | none | nobody; it asks nothing | nothing |
+| `assess --json` | none — the assessment is written to a file | nobody; it asks nothing | the JSON file, and no report |
 
-Every finding family reports in all four modes: the scan is one scan, so
+Every finding family reports in every mode: the scan is one scan, so
 `assess tokens` sees the same similarity groups, naming drift, prop mismatches,
 hygiene findings and score that `assess` does. What the mode changes is which
 suggestion track is *walked*, never what was found.
 
-`tokens`, `components` and `update` are reserved words in argument position after
-`assess`. Any other word gets the list of valid ones rather than an error.
-`--json` is a flag rather than a reserved word, so `assess --json tokens` is the
-token mode written to a file — the scope word is never read as a filename.
+`tokens`, `components`, `update`, `score` and `drift` are reserved words in
+argument position after `assess`. Any other word gets the list of valid ones
+rather than an error. `--json` is a flag rather than a reserved word, so
+`assess --json tokens` is the token mode written to a file — the scope word is
+never read as a filename.
+
+## `score` and `drift` — the two halves of the reading, on their own (v0.9.0)
+
+They are **modes of `assess` and not siblings of it**, because the stage holds
+to one command per stage. A second top-level verb would make "what state is my
+design system in?" a question with two entry points and two answers.
+
+| Mode | Returns | Never does |
+|------|---------|------------|
+| `assess score` | the drift score out of the top of the scale, the verdict, and how each was derived | write anything, ask anything, or emit a numbered report |
+| `assess drift` | the codebase compared against `DESIGN-SYSTEM.md` — coverage, then the findings by family | print a score, walk a review, or emit a numbered report |
+
+**Neither writes a report, and that asymmetry is the point of them.** A mode
+somebody runs to check one thing has to be free to be run as often as they like.
+A `score` that filed a numbered report each time would fill `.phyllum/` with
+reports of the same scan, and it would break the one promise a numbered report
+makes: that a number names a scan somebody meant to keep.
+
+`assess score` is the **same computation** the full run does, through the same
+module — one code path, so the score in a report and the score at a prompt can
+never be two different numbers. The weights, the bands and the verdict rules are
+in `refs/assess/protocol-assess-rubric.md`, which is the protocol behind both.
+
+`assess drift` is the comparison specified in `refs/assess/protocol-assess.md`
+§3: every reading the scan took put beside what `DESIGN-SYSTEM.md` already
+records, each landing in exactly one of covered or uncovered. Covered and
+uncovered are printed together, because "how far has this drifted?" is only
+answerable when what is already named sits next to what is not.
+
+## The numbered report — what a full run leaves behind (v0.9.0)
+
+A full run ends by writing **`.phyllum/assess-[n].md`**: the date, the summary,
+the drift by family, the health score, and the recommendations — once as prose a
+person acts on, then once as a `phyllum-recommendations` fenced block a program
+parses. The block is the handoff to the Build stage.
+
+| Rule | Meaning |
+|------|---------|
+| the next number is one past the highest that exists | not one past the count — a deleted `assess-2.md` still yields `assess-4.md` next |
+| a number is never reused or renumbered | that number already named a scan somebody may have quoted |
+| the date is injected, never read from a clock inside render code | same inputs, same bytes; a test pins the day and gets fixed output |
+| the write goes through the single write funnel | `.phyllum/` is already inside the permission model, so the stage adds no new write target |
+
+The full specification is `refs/assess/protocol-assess.md` §5. What matters here
+is only which modes emit one: the four that run the protocol end to end do,
+`score` and `drift` do not, and `--json` does not — it writes its one file and
+nothing else.
 
 **`assess components` loops.** One candidate at a time, most-repeated first, each
 with its own pick and its own acceptance gate. After each recording it asks about
@@ -46,8 +97,9 @@ accident.
 
 So `assess update`'s output is exactly this: new token rows in `DESIGN-SYSTEM.md`,
 under the names the map showed, and a report naming what it declined to answer.
-It writes `DESIGN-SYSTEM.md` and nothing else — no components, no codebase files,
-not one other byte.
+Beyond `DESIGN-SYSTEM.md` and the numbered report every full run leaves under
+`.phyllum/`, it writes nothing — no components, no codebase files, not one other
+byte.
 
 ## `--json` — the same assessment, written to a file (§6.5.1)
 
@@ -104,8 +156,10 @@ nothing, and a codebase that has drifted since proposes exactly what drifted.
 
 - **Write to your codebase.** Not one file, not one byte. `assess` reads code;
   only `apply` writes it, and only through a reviewable PRD on its own branch.
-- **Write anything before acceptance.** The scan and the report write nothing at
-  all; a later accepted suggestion writes `DESIGN-SYSTEM.md` and nothing else.
+- **Write anything before acceptance, outside its own report.** The scan writes
+  nothing at all. A full run writes one file, `.phyllum/assess-[n].md`, which is
+  the stage's output and touches nothing you wrote; a later accepted suggestion
+  writes `DESIGN-SYSTEM.md`, and there is no third thing.
 - **Invent a value.** Every value in the report is a value the code contains. The
   representative of a cluster is its most-used member, never an average.
 - **Rename or change a token you already have.** A value the system already names

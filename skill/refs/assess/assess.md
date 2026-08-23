@@ -11,9 +11,14 @@ phyllum assess
 
 | Command | Reads | Writes |
 |---------|-------|--------|
-| `assess` | your codebase | `DESIGN-SYSTEM.md` |
+| `assess` | your codebase, and `DESIGN-SYSTEM.md` | `.phyllum/assess-[n].md`, and `DESIGN-SYSTEM.md` when you accept a suggestion |
 | `tokenise` | the sentence you typed | `DESIGN-SYSTEM.md` |
 | `create` | your intent | `DESIGN-SYSTEM.md` |
+
+The report is the stage's output, not an edit to anything of yours: a numbered,
+dated file under `.phyllum/`, which is already inside the permission model.
+`assess score` and `assess drift` write nothing at all. The full specification is
+`refs/assess/protocol-assess.md` §5, and the modes are in `refs/assess/modes.md`.
 
 The scan is read-only in the strongest available sense: the modules that do it
 contain no write call at all, and the assertion suite diffs the whole directory

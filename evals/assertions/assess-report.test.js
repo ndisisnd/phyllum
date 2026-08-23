@@ -70,12 +70,27 @@ import {
   verdictFor,
   verdicts,
 } from '../../lib/tokenise-spec.js';
-import { FIXTURES } from './helpers.js';
+import { FIXTURES, copyDir, diffSnapshots, snapshotContents, withTempDir } from './helpers.js';
 
 const codebase = (name) => path.join(FIXTURES, 'codebases', name);
 
 const DRIFT = codebase('dark-drift');
 const CLEAN = codebase('empty-project');
+
+/**
+ * Run a command against a *copy* of a fixture codebase.
+ *
+ * The engine functions in this file read the fixture where it sits, which is
+ * safe because a scan writes nothing. The **command** is a different matter
+ * since v0.9.0: a full `assess` run leaves a numbered report behind, and a run
+ * pointed at `evals/fixtures/` would leave it in the repository — which the
+ * filesystem harness fails the whole suite for, correctly.
+ */
+const inCopyOf = (fixture, body) =>
+  withTempDir(async (dir) => {
+    copyDir(fixture, dir);
+    return body(dir);
+  });
 
 const modelIn = (root) => parse(fs.readFileSync(path.join(root, 'DESIGN-SYSTEM.md'), 'utf8'));
 
@@ -367,6 +382,50 @@ test('the same codebase scores the same twice', () => {
 // The verdict (§7.1)
 // ---------------------------------------------------------------------------
 
+test('the three tables moved file without changing one number (v0.9.0)', () => {
+  // In v0.9.0 `phyllum:score-weights`, `phyllum:score-steps` and
+  // `phyllum:verdicts` moved out of `refs/assess/report.md` and into
+  // `refs/assess/protocol-assess-rubric.md`, so the reasoning and the rows a
+  // reader would edit sit in one file rather than two. A marker move is a
+  // silent operation — the parser finds a marker wherever in the folder it
+  // lives — so the risk is not that it breaks loudly but that it changes a
+  // number nobody re-reads. These are the values as they parsed before the
+  // move, written out longhand so that a future move has to admit to any edit.
+  assert.deepEqual(
+    Object.fromEntries(scoreFamilies().map((f) => [f, [scoreWeight(f, ERROR), scoreWeight(f, WARN)]])),
+    {
+      lint: [3, 1],
+      similarity: [3, 1],
+      props: [3, 1],
+      naming: [2, 1],
+      hygiene: [2, 1],
+      extras: [2, 1],
+    },
+    'six families, each graded exactly as the rubric graded them before the move',
+  );
+  assert.deepEqual(scoreScale(), [1, 2, 3, 5, 8, 13, 21], 'the same seven steps');
+  assert.deepEqual(
+    [0, 1, 3, 6, 11, 21, 41, 80].map((mass) => scoreStepFor(mass).step),
+    [1, 1, 2, 3, 5, 8, 13, 13],
+    'and the same mass lands on the same step, band boundaries included',
+  );
+  assert.deepEqual(verdicts(), ['fail', 'pass w/ warnings', 'pass'], 'and the same three verdicts');
+});
+
+test('each of the three markers has exactly one home, and it is the rubric', () => {
+  const dir = path.join(process.cwd(), 'skill', 'refs', 'assess');
+  const rubric = fs.readFileSync(path.join(dir, 'protocol-assess-rubric.md'), 'utf8');
+  const report = fs.readFileSync(path.join(dir, 'report.md'), 'utf8');
+  for (const marker of ['phyllum:score-weights', 'phyllum:score-steps', 'phyllum:verdicts']) {
+    assert.ok(rubric.includes(`<!-- ${marker} -->`), `${marker} lives in the rubric`);
+    assert.ok(!report.includes(`<!-- ${marker} -->`), `${marker} is not a second time in report.md`);
+  }
+  assert.ok(
+    report.includes('protocol-assess-rubric.md'),
+    'and report.md points a reader at where they went, rather than going quiet',
+  );
+});
+
 test('the three verdicts are the table’s, most serious first', () => {
   assert.deepEqual(verdicts(), ['fail', 'pass w/ warnings', 'pass']);
 });
@@ -481,21 +540,51 @@ test('the headline prints the score out of the top of the scale, and the verdict
 });
 
 test('the report ends with the findings and then the headline', async () => {
-  const { out } = await execute(tokenizeLine('assess'), { cwd: DRIFT, env: {} });
-  const findings = out.indexOf('The findings — severity');
-  const score = out.indexOf('Drift score:');
-  const suggestions = out.indexOf('Step 5 — suggestions');
-  assert.ok(findings > 0 && score > findings, 'the roll-up, then the number');
-  assert.ok(score < suggestions, 'and both before the conversation about what to do');
-  assert.ok(out.includes('Verdict:'));
+  await inCopyOf(DRIFT, async (dir) => {
+    const { out } = await execute(tokenizeLine('assess'), { cwd: dir, env: {} });
+    const findings = out.indexOf('The findings — severity');
+    const score = out.indexOf('Drift score:');
+    const suggestions = out.indexOf('Step 5 — suggestions');
+    assert.ok(findings > 0 && score > findings, 'the roll-up, then the number');
+    assert.ok(score < suggestions, 'and both before the conversation about what to do');
+    assert.ok(out.includes('Verdict:'));
+  });
 });
 
 test('every chained mode inherits the same findings, score and verdict', async () => {
   for (const mode of ['assess', 'assess tokens', 'assess components']) {
-    const { out } = await execute(tokenizeLine(mode), { cwd: DRIFT, env: {} });
-    assert.ok(out.includes(`Drift score: ${drift.score.score} of 21`), `${mode} scores the same`);
-    assert.ok(out.includes(`Verdict: ${drift.score.verdict}`), `${mode} judges the same`);
-    assert.ok(out.includes('The findings — severity'), `${mode} lists the same findings`);
-    assert.ok(out.includes('The smaller checks'), `${mode} runs the same extras`);
+    await inCopyOf(DRIFT, async (dir) => {
+      const { out } = await execute(tokenizeLine(mode), { cwd: dir, env: {} });
+      assert.ok(out.includes(`Drift score: ${drift.score.score} of 21`), `${mode} scores the same`);
+      assert.ok(out.includes(`Verdict: ${drift.score.verdict}`), `${mode} judges the same`);
+      assert.ok(out.includes('The findings — severity'), `${mode} lists the same findings`);
+      assert.ok(out.includes('The smaller checks'), `${mode} runs the same extras`);
+    });
   }
+});
+
+test('`assess score` and `assess drift` score the same scan, and neither writes', async () => {
+  // The rubric's own promise (`refs/assess/protocol-assess-rubric.md` §4): one
+  // code path, so the score at a prompt and the score in a report can never be
+  // two different numbers.
+  await inCopyOf(DRIFT, async (dir) => {
+    const before = snapshotContents(dir);
+
+    const score = await execute(tokenizeLine('assess score'), { cwd: dir, env: {} });
+    assert.equal(score.code, 0);
+    assert.ok(score.out.includes(`Drift score: ${drift.score.score} of 21`));
+    assert.ok(score.out.includes(`Verdict: ${drift.score.verdict}`));
+    assert.ok(!score.out.includes('The findings — severity'), 'the score is the number, not the list');
+
+    const driftOut = await execute(tokenizeLine('assess drift'), { cwd: dir, env: {} });
+    assert.equal(driftOut.code, 0);
+    assert.ok(driftOut.out.includes('The findings — severity'), 'drift is the comparison');
+    assert.ok(!driftOut.out.includes('Drift score:'), 'and it prints no score');
+
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: [],
+      changed: [],
+      removed: [],
+    }, 'neither mode writes a byte — no report, no design system, nothing');
+  });
 });

@@ -328,11 +328,17 @@ const WRITE_SURFACE = [
   { line: 'system tokens', writes: null },
   { line: 'system components', writes: null },
   { line: 'version', writes: null },
-  // The whole point of `assess`: it reads the codebase and writes nothing until
-  // somebody accepts a suggestion. Skipping every question must leave no trace.
-  { line: 'assess', writes: null, answers: 'skip' },
-  { line: 'assess tokens', writes: null, answers: 'skip' },
-  { line: 'assess components', writes: null, answers: 'skip' },
+  // The whole point of `assess`: it reads the codebase and writes nothing of
+  // yours until somebody accepts a suggestion. Skipping every question leaves no
+  // trace beyond the stage's own numbered report, which since v0.9.0 is what a
+  // full run is for — one file, under `.phyllum/`, and never a byte of source.
+  { line: 'assess', writes: ['.phyllum/assess-1.md'], answers: 'skip' },
+  { line: 'assess tokens', writes: ['.phyllum/assess-1.md'], answers: 'skip' },
+  { line: 'assess components', writes: ['.phyllum/assess-1.md'], answers: 'skip' },
+  // `score` and `drift` answer one question and file nothing, so they can be run
+  // as often as somebody likes without filling `.phyllum/` with the same scan.
+  { line: 'assess score', writes: null },
+  { line: 'assess drift', writes: null },
   // An empty design system is not a plan: `apply` says so and writes nothing.
   { line: 'apply', writes: null },
   // With one to apply, `apply` writes the plan and — since v0.5.0 §3.2 — the

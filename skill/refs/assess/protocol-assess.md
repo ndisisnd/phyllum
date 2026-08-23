@@ -137,8 +137,9 @@ questions and neither is derived from the other.
 
 **The weights, the bands and the verdict rules are not restated here.** They are
 in `refs/assess/protocol-assess-rubric.md`, which is the protocol behind
-`assess score` and behind the health section of every report. The tables the
-code actually parses are in `refs/assess/report.md`.
+`assess score` and behind the health section of every report — and since v0.9.0
+it is also where the tables the code parses are marked, so the reasoning and the
+rows a reader would edit sit in one file rather than two.
 
 What this protocol commits to is only the position of the step: scoring happens
 **after** the comparison and **before** the emission, it re-reads nothing, and

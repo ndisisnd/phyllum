@@ -17,12 +17,17 @@ is a bug, not a presentation choice.
 
 ### Where the numbers are kept
 
-The rows this rubric computes with are parsed at run time out of `report.md`
-(`score-weights`, `score-steps`, `verdicts`) and out of `severity.md`
-(`severity`). Those markers live in one file each — `lib/refs.js` refuses a
-marker that appears twice — so the tables below are restated for a reader, and
-`report.md` stays the copy the code reads. When the two disagree, `report.md`
-wins and this file is wrong.
+The rows this rubric computes with are **marked in this file** —
+`phyllum:score-weights`, `phyllum:score-steps` and `phyllum:verdicts` — plus
+`phyllum:severity` in `refs/assess/severity.md`. Every table below a marker is
+the copy the CLI parses at run time, not a restatement for a reader: edit a row
+here and the score changes on the next run.
+
+Until v0.9.0 the three tables were marked in `refs/assess/report.md` and
+restated in prose here. Two copies of one scale is how two answers to one
+question start, and `lib/refs.js` refuses a marker that appears in two files for
+exactly that reason. So the markers moved to the protocol that owns them, and
+the prose copy was deleted rather than kept in step by hand.
 
 ---
 
@@ -68,8 +73,10 @@ the other means two call sites of the same component disagree about what it
 takes. So each family carries a point value per severity, and the sum is the
 **drift mass** the scale reads.
 
-| Family | Points per `error` | Points per `warn` |
-|--------|--------------------|-------------------|
+<!-- phyllum:score-weights -->
+
+| Family | error | warn |
+|--------|-------|------|
 | lint | 3 | 1 |
 | similarity | 3 | 1 |
 | props | 3 | 1 |
@@ -122,6 +129,8 @@ double, so each step means "about twice as much as the one below". A row with an
 em dash in the mass column always matches, which is how the table spells "and
 everything above this".
 
+<!-- phyllum:score-steps -->
+
 | Step | Drift mass | Means |
 |------|------------|-------|
 | 1 | <= 2 | essentially systematised — what is here is named |
@@ -142,6 +151,8 @@ Reordering the rows changes the scale, which is the intended way for a project
 that wants a harsher one to get it — edit a table, not a file of code.
 
 ### The verdict band
+
+<!-- phyllum:verdicts -->
 
 | Verdict | When |
 |---------|------|

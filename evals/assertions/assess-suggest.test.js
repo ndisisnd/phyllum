@@ -185,12 +185,13 @@ test('the table and the proposed names need no model at all', async () => {
     assert.ok(out.includes('Step 4 — the map'));
     assert.ok(out.includes('Step 5 — suggestions'));
     assert.ok(/\d+ tokens? Phyllum would propose/.test(out), 'the suggestions are named, not withheld');
-    assert.ok(out.includes('Nothing was written'));
+    assert.ok(out.includes('was written and nothing else'), 'the report names the one file it left');
+    assert.ok(out.includes('only `apply` ever writes it'), 'and names the command that does write code');
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
-      added: [],
+      added: ['.phyllum/assess-1.md'],
       changed: [],
       removed: [],
-    }, 'a run with nobody to ask writes nothing whatsoever');
+    }, 'a run with nobody to ask writes its report and nothing whatsoever besides');
   });
 });
 

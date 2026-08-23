@@ -94,13 +94,85 @@ test('assess before init points at init and creates nothing', async () => {
 test('running assess leaves the codebase byte for byte as it was', async () => {
   await withProject(async (dir) => {
     const before = snapshotContents(dir);
-    const { code } = await run('assess', dir);
+    const { code } = await run('assess', dir, { today: '2026-08-24' });
     assert.equal(code, 0);
+    // Since v0.9.0 a full run leaves the stage's output behind. Exactly one
+    // file, and it is the report — everything the *user* wrote is untouched,
+    // which is the promise this check has always been about.
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: ['.phyllum/assess-1.md'],
+      changed: [],
+      removed: [],
+    });
+  });
+});
+
+test('the numbered report is the only thing a run adds, and the number climbs', async () => {
+  await withProject(async (dir) => {
+    const first = await run('assess', dir, { today: '2026-08-24' });
+    assert.equal(first.code, 0);
+    assert.ok(first.out.includes('`.phyllum/assess-1.md`'), 'the run names the file it left');
+
+    const before = snapshotContents(dir);
+    const second = await run('assess', dir, { today: '2026-08-25' });
+    assert.equal(second.code, 0);
+    assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+      added: ['.phyllum/assess-2.md'],
+      changed: [],
+      removed: [],
+    }, 'a second run adds a second report and rewrites nothing');
+
+    const one = fs.readFileSync(path.join(dir, '.phyllum', 'assess-1.md'), 'utf8');
+    const two = fs.readFileSync(path.join(dir, '.phyllum', 'assess-2.md'), 'utf8');
+    assert.ok(one.startsWith('# Assessment 1\n'), 'each report knows its own number');
+    assert.ok(two.startsWith('# Assessment 2\n'));
+    assert.ok(one.includes('Date: 2026-08-24'), 'and carries its own date, from the injected clock');
+    assert.ok(two.includes('Date: 2026-08-25'));
+    assert.ok(two.includes('```phyllum-recommendations'), 'ending in the machine-readable block');
+  });
+});
+
+test('a deleted report is not renumbered over — the next number is one past the highest', async () => {
+  await withProject(async (dir) => {
+    for (const day of ['2026-08-24', '2026-08-25', '2026-08-26']) {
+      await run('assess', dir, { today: day });
+    }
+    fs.rmSync(path.join(dir, '.phyllum', 'assess-2.md'));
+    const { out } = await run('assess', dir, { today: '2026-08-27' });
+    assert.ok(out.includes('`.phyllum/assess-4.md`'), 'one past the highest, not one past the count');
+    assert.equal(fs.existsSync(path.join(dir, '.phyllum', 'assess-2.md')), false, 'and 2 stays gone');
+  });
+});
+
+test('`assess score` and `assess drift` write nothing at all', async () => {
+  await withProject(async (dir) => {
+    const before = snapshotContents(dir);
+    for (const mode of ['assess score', 'assess drift']) {
+      const { code } = await run(mode, dir, { today: '2026-08-24' });
+      assert.equal(code, 0, `${mode} runs`);
+    }
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
       added: [],
       changed: [],
       removed: [],
-    });
+    }, 'no report, no design system, not one byte');
+  });
+});
+
+test('`assess score` is the number alone; `assess drift` is the comparison alone', async () => {
+  await withProject(async (dir) => {
+    const score = await run('assess score', dir);
+    assert.ok(score.out.includes('Drift score:'), 'the score prints the score');
+    assert.ok(score.out.includes('Verdict:'), 'and the verdict beside it');
+    assert.ok(score.out.includes('protocol-assess-rubric.md'), 'naming the rubric it was computed against');
+    assert.ok(!score.out.includes('Step 4 — the map'), 'and nothing of the full report');
+    assert.ok(!score.out.includes('Step 5 — suggestions'), 'and no review');
+
+    const drift = await run('assess drift', dir);
+    assert.ok(drift.out.includes('DESIGN-SYSTEM.md'), 'drift names what it compared against');
+    assert.ok(drift.out.includes('The findings — severity'), 'and lists what did not match');
+    assert.ok(!drift.out.includes('Drift score:'), 'with no score');
+    assert.ok(!drift.out.includes('Step 5 — suggestions'), 'and no review');
   });
 });
 
@@ -192,17 +264,32 @@ test('a React codebase is shown the patterns it repeats', async () => {
 // The argument grammar
 // ---------------------------------------------------------------------------
 
-test('the three words after assess are reserved, and named where the code can read them', () => {
-  assert.deepEqual(ASSESS_SCOPES, ['tokens', 'components', 'update']);
+test('the five words after assess are reserved, and named where the code can read them', () => {
+  assert.deepEqual(ASSESS_SCOPES, ['tokens', 'components', 'update', 'score', 'drift']);
   for (const scope of ASSESS_SCOPES) assert.ok(isAssessScope(scope));
   assert.ok(isAssessScope('TOKENS'), 'matching is case-insensitive, like every other word');
   assert.ok(!isAssessScope('all'), '`all` is `system` and `gui`’s word, not this one');
 });
 
-test('every mode runs the same scan and the same report before it branches', async () => {
+test('a word that is not a mode lists all five, rather than erroring', async () => {
+  // The whole point of printing the list: a typo should teach the grammar. A
+  // reader shown three of five words would conclude the other two do not exist.
+  await withProject(async (dir) => {
+    const { out, code } = await run('assess hardcoded', dir);
+    assert.equal(code, 0, 'a wrong word is a message, not a failure');
+    for (const scope of ASSESS_SCOPES) {
+      assert.ok(out.includes(`\`${scope}\``), `the list names ${scope}`);
+    }
+    assert.ok(out.includes('or nothing at all'), 'and the bare command, which is the default');
+  });
+});
+
+test('every track mode runs the same scan and the same report before it branches', async () => {
   await withProject(async (dir) => {
     const bare = await run('assess', dir);
-    for (const scope of ASSESS_SCOPES) {
+    // `score` and `drift` are excluded on purpose: they are the two *halves* of
+    // the reading, so neither prints the whole report the tracks share.
+    for (const scope of ['tokens', 'components', 'update']) {
       const { out, code } = await run(`assess ${scope}`, dir);
       assert.equal(code, 0);
       assert.ok(out.includes('Step 3 — what your codebase uses'), `assess ${scope} still reports the scan`);
@@ -313,9 +400,9 @@ test('assess update writes DESIGN-SYSTEM.md and not one other byte', async () =>
     await run('assess update', dir, { env: {} });
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(
-      diff.added,
-      ['DESIGN-SYSTEM.md.bak'],
-      'the one new file is the backup the funnel took before the edit — no report, no state',
+      diff.added.sort(),
+      ['.phyllum/assess-1.md', 'DESIGN-SYSTEM.md.bak'],
+      'the two new files are the backup the funnel took before the edit, and the stage\'s own report',
     );
     assert.deepEqual(diff.removed, []);
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'the design system file is the only thing it may touch');
@@ -445,10 +532,10 @@ test('the suggestions are named without a model, and the review is only offered'
     assert.ok(!out.includes('Install Claude Code'), 'the assessment needed no model, so it pitches none');
     assert.ok(!out.includes('inside a Claude Code session'));
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
-      added: [],
+      added: ['.phyllum/assess-1.md'],
       changed: [],
       removed: [],
-    }, 'and a report with nobody to ask writes nothing');
+    }, 'and a run with nobody to ask still files its report, and still writes nothing of yours');
   }, POPULATED_FIXTURE, path.join(FIXTURES, 'codebases', 'repeated-jsx'));
 });
 
