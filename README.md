@@ -28,14 +28,14 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.7.2 -->
+<!-- mkpub:release 0.7.3 -->
 > [!NOTE]
-> **🚀 New in 0.7.2 · A light-first dashboard, and a sharper version check**
+> **🚀 New in 0.7.3 · A type token now records twenty-one readings, not three**
 >
-> The 0.7 line draws the dashboard light-first, groups the Backlog by component, and adds
-> an **Assess** button that hands the prompt to your terminal session. `phyllum version`
-> now tells you when your project's skill copy has fallen out of step with your install,
-> and `phyllum upgrade` offers to clear out what an older version left behind.
+> Kerning, case, small caps, figure style, face, decoration and the rest sit on the token
+> beside the size, weight and line-height you already record, so a type decision is made
+> once instead of restated at every call site. `assess` finds those properties in your
+> code, the dashboard draws them, and everything you wrote before this release is untouched.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
