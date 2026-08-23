@@ -19,6 +19,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { EVALS_DIR, MILESTONE, PACKAGE_ROOT, RELEASE, runAll } from './graders.js';
+import { reportDate } from '../lib/assess-reports.js';
 
 export const BASELINE_PATH = path.join(EVALS_DIR, 'baseline.json');
 
@@ -61,7 +62,10 @@ function main() {
     // the same rules work when a real model follows them.
     const recorded = runAll('recorded');
     const baseline = {
-      recordedAt: new Date().toISOString().slice(0, 10),
+      // Local, not UTC: a baseline stamped a day behind the calendar of the
+      // person who cut the release is one they have to second-guess. Same
+      // reasoning, and the same helper, as the drift reports.
+      recordedAt: reportDate(),
       phyllumVersion: packageVersion(),
       milestone: MILESTONE,
       release: RELEASE,

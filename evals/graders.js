@@ -201,8 +201,8 @@ export const RECORDINGS_DIR = path.join(EVALS_DIR, 'fixtures', 'recordings');
  * the twenty evals from v0.7.0 carry forward unchanged and only the baseline's
  * stamp moves.
  */
-export const MILESTONE = 'v0.8.0 release';
-export const RELEASE = 'v0.8.0';
+export const MILESTONE = 'v0.9.0 release';
+export const RELEASE = 'v0.9.0';
 
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8'));
 const readText = (rel) => fs.readFileSync(path.join(PACKAGE_ROOT, rel), 'utf8');

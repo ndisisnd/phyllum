@@ -25,7 +25,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { bumpManifest, bumpVersion, cutRelease, STEPS } from '../release.js';
+import { bumpGraders, bumpManifest, bumpVersion, cutRelease, STEPS } from '../release.js';
 import { PACKAGE_ROOT, withTempDir } from './helpers.js';
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8'));
@@ -50,8 +50,13 @@ test('both scripts invoke the same module, differing only in the bump kind', () 
 // The order — bump, then record, then check — against the module's own logic
 // ---------------------------------------------------------------------------
 
-test('STEPS names the sequence in order: bump, record, check', () => {
-  assert.deepEqual(STEPS, ['bump package.json version', 'npm run evals:record', 'npm run check']);
+test('STEPS names the sequence in order: bump, bump, record, check', () => {
+  assert.deepEqual(STEPS, [
+    'bump package.json version',
+    'bump MILESTONE and RELEASE in graders.js',
+    'npm run evals:record',
+    'npm run check',
+  ]);
 });
 
 test('bumpVersion advances patch and minor, and rejects anything else', () => {
@@ -80,12 +85,51 @@ test('bumpManifest rewrites only the version field, of a sandboxed package.json'
   });
 });
 
+/** A sandbox holding the two files `cutRelease` rewrites, and nothing else. */
+function sandbox(dir, version = '0.7.1') {
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    `${JSON.stringify({ name: 'sandbox', version }, null, 2)}\n`,
+  );
+  fs.mkdirSync(path.join(dir, 'evals'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'evals', 'graders.js'),
+    "export const MILESTONE = 'v0.7.1 release';\nexport const RELEASE = 'v0.7.1';\n",
+  );
+}
+
+test('bumpGraders rewrites both stamps, and refuses to pass silently when it finds neither', async () => {
+  await withTempDir(async (dir) => {
+    sandbox(dir);
+    const gradersPath = path.join(dir, 'evals', 'graders.js');
+    const stamps = bumpGraders('0.8.0', gradersPath);
+    assert.deepEqual(stamps, { milestone: 'v0.8.0 release', release: 'v0.8.0' });
+
+    const after = fs.readFileSync(gradersPath, 'utf8');
+    assert.match(after, /^export const MILESTONE = 'v0\.8\.0 release';$/m);
+    assert.match(after, /^export const RELEASE = 'v0\.8\.0';$/m);
+
+    // The failure this guards is the one that shipped v0.9.0's scores under
+    // v0.8.0's name: a rewrite that matches nothing must say so, not no-op.
+    const empty = path.join(dir, 'evals', 'nothing.js');
+    fs.writeFileSync(empty, 'export const OTHER = 1;\n');
+    assert.throws(() => bumpGraders('0.8.0', empty), /could not find MILESTONE and RELEASE/);
+  });
+});
+
+test('the release stamps the baseline carries move with the version, in one act', async () => {
+  await withTempDir(async (dir) => {
+    sandbox(dir);
+    cutRelease('minor', { cwd: dir, run: () => {} });
+    const graders = fs.readFileSync(path.join(dir, 'evals', 'graders.js'), 'utf8');
+    assert.match(graders, /'v0\.8\.0 release'/, 'the milestone names the version just bumped to');
+    assert.match(graders, /'v0\.8\.0'/);
+  });
+});
+
 test('cutRelease runs bump, then evals:record, then check, in that order, and nothing else', async () => {
   await withTempDir(async (dir) => {
-    fs.writeFileSync(
-      path.join(dir, 'package.json'),
-      `${JSON.stringify({ name: 'sandbox', version: '0.7.1' }, null, 2)}\n`,
-    );
+    sandbox(dir);
 
     const calls = [];
     const run = (bin, args, cwd) => {
@@ -110,10 +154,7 @@ test('cutRelease runs bump, then evals:record, then check, in that order, and no
 
 test('cutRelease bumps minor and resets the patch to zero', async () => {
   await withTempDir(async (dir) => {
-    fs.writeFileSync(
-      path.join(dir, 'package.json'),
-      `${JSON.stringify({ name: 'sandbox', version: '0.7.1' }, null, 2)}\n`,
-    );
+    sandbox(dir);
     const { to } = cutRelease('minor', { cwd: dir, run: () => {} });
     assert.equal(to, '0.8.0');
   });
@@ -139,10 +180,7 @@ test('evals/release.js never invokes git — no git command or binary token in i
 
 test('the real cutRelease call sequence recorded above never includes a git binary', async () => {
   await withTempDir(async (dir) => {
-    fs.writeFileSync(
-      path.join(dir, 'package.json'),
-      `${JSON.stringify({ name: 'sandbox', version: '0.7.1' }, null, 2)}\n`,
-    );
+    sandbox(dir);
     const calls = [];
     cutRelease('patch', { cwd: dir, run: (bin, args, cwd) => calls.push({ bin, args, cwd }) });
     for (const call of calls) {
