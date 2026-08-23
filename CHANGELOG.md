@@ -4,6 +4,50 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-24
 
+### [36] — The release script now moves the baseline's release stamps with the version
+
+- `evals/release.js`: Added — `bumpGraders`, rewriting `MILESTONE` and `RELEASE` in `graders.js` before the recorder runs, so the manifest, the baseline's stamps and its scores move as one act. It throws when it matches nothing, because a silent no-op puts the stamp back out of step and says so nowhere
+- `evals/graders.js`: Changed — the two stamps now read `v0.9.0`; v0.9.0's scores had been recorded under the name "v0.8.0 release", which is the stale-baseline failure the script exists to prevent, moved one field along
+- `evals/run-evals.js`: Changed — `recordedAt` reads the local calendar rather than `toISOString()`, so a baseline is never dated a day behind whoever cut the release
+- `evals/assertions/release-script.test.js`: Added — the four-step order, both stamps moving with a minor bump, and the refusal when neither constant is found
+
+### [35] — A drift report is dated by the reader's calendar, not UTC's
+
+- `lib/assess-reports.js`: Changed — `reportDate` reads local date parts instead of `toISOString()`. Run `assess` at 04:00 in +08 and the report used to say yesterday; a working document somebody reads beside their own calendar should not be a day they have to second-guess. Byte-stability is unaffected — the injection seam already supplies it
+- `evals/assertions/assess-reports.test.js`: Changed — the existing date assertion was itself zone-dependent (a `Z`-suffixed literal) and is now built from local parts; a new assertion pins the local reading. The suite passes in UTC, +08, −07 and +14
+
+### [34] — The dashboard gains a Reports view, rendering every assessment as tables
+
+- `gui/index.html`: Added — a fourth view under the Assess stage listing every `.phyllum/assess-[n].md` newest first, and rendering one as tables: drift findings and recommendations as rows rather than a wall of prose
+- `lib/reports-json.js`: Added — the GUI-only reader; numbering, paths and the recommendations block come back through `lib/assess-reports.js`, and it parses only the prose sections nothing else parses. No write path in it
+- `server/serve.py`: Added — `GET /reports`, shaped exactly like the existing `GET /system`: the route shells out to a read-only Node view, so the server still owns no parser of its own
+- `skill/refs/gui/gui.md`, `server.md`: Changed — "Three views" becomes four; the route row and the parse contract widen
+- `evals/assertions/gui-reports.test.js`: Added — 15 assertions covering order, the empty case, the recommendations rows, and the four states told apart rather than flattened (no reports, no block, an empty block, an unreadable report)
+
+### [33] — `assess` writes a numbered report, and gains `score` and `drift` modes
+
+- `lib/assess-command.js`: Added — a full run now writes exactly one `.phyllum/assess-[n].md`, numbered one past the highest that exists so a deleted report is never written over. A failed write exits 1 rather than reporting success over a stale report
+- `lib/assess-command.js`: Added — `score` prints the drift score and verdict alone, naming the rubric it was computed against; `drift` prints the comparison against `DESIGN-SYSTEM.md` alone. Neither writes a byte, and both run the same scan as a full run, so the number at a prompt and the number in a report cannot disagree
+- `lib/registry.js`: Changed — the `assess` row grows to seven modes and eight args; a wrong word now lists all five reserved words rather than three
+- `skill/refs/assess/report.md`, `protocol-assess-rubric.md`: Changed — the three parsed score markers move to the rubric, which is their subject. The parse is byte-identical, since `lib/refs.js` joins a folder before parsing
+- `skill/refs/assess/modes.md`, `assess.md`, `README.md`, `llms.txt`, `skill/SKILL.md`: Changed — the two new modes and the new write target recorded on every surface that lists them
+- `evals/assertions/assess-cli.test.js`, `assess-report.test.js`: Changed — the read-only assertions now name the report as the one thing a run adds, and still pin nothing changed and nothing removed
+
+### [32] — The health score gets a written rubric
+
+- `skill/refs/assess/protocol-assess-rubric.md`: Added — six metric families each tied to the module that produces it, points per family per severity, and the existing 1–21 scale and three verdicts restated rather than replaced. The determinism boundary is explicit: judgement may add prose, ordering and notes, and may never touch a count, a mass, a step or a verdict
+
+### [31] — The Assess stage gets a protocol that names it end to end
+
+- `skill/refs/assess/protocol-assess.md`: Added — scan, hardcoded-value detection, comparison against `DESIGN-SYSTEM.md`, score, report emission. Hardcoded-value detection is stated as a step inside the protocol, with the alternatives ruled out by name — no `assess hardcoded`, no `--lint`, no sibling command. A spine over the existing topic refs, not a second rulebook: where the two disagree, the topic file wins
+- `skill/SKILL.md`: Changed — the `assess` ref row names both new protocol files
+
+### [30] — Numbered, dated drift reports under `.phyllum/`
+
+- `lib/assess-reports.js`: Added — numeric report numbering that is gap-safe and never renumbers, an injectable per-report date, a five-section lightweight template (date, summary, drift, health score, recommendations), and a fenced `phyllum-recommendations` JSON block carrying one entry per rule for v0.10.0 Build to consume without a model
+- `lib/write.js`: Added — `ASSESS_REPORT_PREFIX`, `assessReportFile`, `writeAssessReportFile` beside the existing `assess --json` target, so the stage's output is on the list of things Phyllum may write
+- `evals/assertions/assess-reports.test.js`: Added — numeric ordering, gap handling, strangers in `.phyllum/` ignored, date injectability, template shape, block parseability, prose/block agreement, and a whole-directory diff showing one file added and nothing else
+
 ### [29] — The README announces 0.8.0
 
 - `README.md`: Changed — the header release blurb rewritten from 0.7.3 to 0.8.0 (the four-stage pipeline and the `pipeline` command)
