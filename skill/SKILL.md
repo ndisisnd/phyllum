@@ -112,12 +112,17 @@ what it must never do. Everything else is a topic.
 | `delete` | `refs/delete/` | `delete.md` the frame, the grammar with its reserved-and-refused `token`, the never-list, and what `delete` leaves for `apply` to clean up · `flow.md` the six steps, the copy contract, the in-use rule with its flag-or-live-check split, the double confirmation and the one write |
 | `init` | `refs/init/` | `init.md` the walkthrough, step by step |
 
-One reference belongs to no command and is the one that is still a flat file:
-`refs/nomenclature.md` is a shared library — the standard token-naming
-vocabulary (slots, strict word lists, slot order) and the shipped primitive grey
-ramp with its derivation scale. It is loaded **whole**, which is why it is not
-split. Load it only when a naming or ramp question comes up; nothing in it runs
-on its own.
+Two references belong to no command and are the two that are still flat files,
+because each is a shared library rather than a protocol. Both are loaded
+**whole**, which is why neither is split, and nothing in either runs on its own.
+
+- `refs/nomenclature.md` — the standard token-naming vocabulary (slots, strict
+  word lists, slot order) and the shipped primitive grey ramp with its
+  derivation scale. Load it when a naming or ramp question comes up.
+- `refs/typography.md` — the twenty-one readings a typography token can carry,
+  the kind each is gathered as, the CSS declaration each becomes, and the three
+  conflict rules. Load it when a typography token is being read, written,
+  generated, scanned or drawn.
 
 ## The file format
 
@@ -130,7 +135,13 @@ Its skeleton is fixed and every section is always present, even when empty:
    (`token | value | applies to`), Typography (`token | size | weight |
    line-height`). Empty tables still ship their header rows. Colours may hold one
    nested `#### Primitives` subsection, in the same columns, for the ramps
-   `create primitives` writes; it appears only when there are ramps.
+   `create primitives` writes; it appears only when there are ramps. Since
+   v0.7.3 a typography token that records any of the eighteen **optional**
+   readings carries a fenced YAML block beneath the Typography table, under a
+   `#### <token>` heading, in the table's own row order — see
+   `refs/typography.md`. Size, weight and line-height stay in the four-column
+   table, and a token with no optional readings has no block at all, so a file
+   written before v0.7.3 reads exactly as it did.
 3. **Components** — one `###` heading per component, holding a fenced YAML spec
    block followed by a generated code block. Since v0.5.0 the spec block also
    carries `applied: true` / `applied: false` once `apply` has derived it — a

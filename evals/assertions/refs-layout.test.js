@@ -54,8 +54,17 @@ const PROTOCOLS = [
   'version',
 ];
 
-/** The one reference that is not a folder, by design (§8). */
-const FLAT = ['nomenclature.md'];
+/**
+ * The references that are not folders, by design (v0.4.1 §8).
+ *
+ * A flat file is a **shared library** rather than a protocol: it belongs to no
+ * command, it is loaded whole, and splitting it would hand a reader half a
+ * contract. `nomenclature.md` is one because a name is built from four slots in
+ * one order. `typography.md` (v0.7.3 phase 1) is the second: the twenty-one
+ * readings, their kinds and their CSS are one table read by `tokenise`, the
+ * generator, `assess`, `apply` and the GUI alike.
+ */
+const FLAT = ['nomenclature.md', 'typography.md'];
 
 /** Every `.md` under `skill/refs/`, as paths relative to `refs/`. */
 function everyRefFile() {

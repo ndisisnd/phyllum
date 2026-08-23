@@ -16,6 +16,8 @@ export const FIXTURES = path.join(PACKAGE_ROOT, 'evals', 'fixtures');
 
 export const POPULATED_FIXTURE = path.join(FIXTURES, 'design-system', 'populated.md');
 export const USER_EDITED_FIXTURE = path.join(FIXTURES, 'design-system', 'user-edited.md');
+/** A file carrying the v0.7.3 optional-readings blocks, canonical as written. */
+export const TYPOGRAPHY_FIXTURE = path.join(FIXTURES, 'design-system', 'typography-readings.md');
 
 export function readFixture(file) {
   return fs.readFileSync(file, 'utf8');
