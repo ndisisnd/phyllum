@@ -28,13 +28,14 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.8.0 -->
+<!-- mkpub:release 0.9.0 -->
 > [!NOTE]
-> **🚀 New in 0.8.0 · The commands now line up as a four-stage pipeline**
+> **🚀 New in 0.9.0 · `assess` now leaves a numbered drift report behind**
 >
-> Assess, Governance, Build and Refine give every command a place, and the menu and the
-> dashboard group by stage instead of a flat list. A new `phyllum pipeline` prints the
-> stages and reads where your project sits on them — from what is on disk, never guessed.
+> Every full run writes a dated report to `.phyllum/`, so the state of your design system
+> is something you can look back on rather than something you had to catch in the
+> terminal. `assess score` and `assess drift` answer the two halves on their own, and the
+> dashboard lists every report as a table.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
