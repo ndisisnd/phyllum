@@ -4,6 +4,35 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-24
 
+### [28] — The dashboard's nav now reads as the pipeline: four stage labels over the same three views
+
+- `gui/index.html`: Changed — the view rail's single "Dashboard" label becomes four stage labels (Assess holds Library, Build holds Workbench and Token view); Governance and Refine appear with a quiet "nothing yet" chip. No view added, removed or renamed; routes, polling and the self-contained-file rules untouched
+- `skill/refs/gui/gui.md`: Added — "The view rail, grouped by pipeline stage (v0.8.0 §4)" section recording the stage-to-view mapping as the live contract
+
+### [27] — A new `pipeline` command prints the four stages and reads where your project sits
+
+- `lib/pipeline.js`: Added — the whole command: the stage listing generated from the registry, and a read-only derivation of the project's position from what is on disk (DESIGN-SYSTEM.md, its recorded tokens/components, `applied:` readings, `.phyllum/`). No model, no network, nothing written; an unreadable file is reported rather than guessed past
+- `lib/registry.js`: Added — the `pipeline` row, `stage: system`, no aliases
+- `lib/execute.js`: Added — the dispatch case, deliberately outside the needs-design-system gate: "no DESIGN-SYSTEM.md here" is one of the positions the command exists to report
+- `lib/menu.js`: Changed — `EMPTY_STAGE_NOTE` and `commandLine` exported so the menu and `pipeline` cannot word the same fact two ways
+- `evals/assertions/pipeline.test.js`: Added — 11 assertions: stage order, membership, the empty-stage line byte-for-byte, four position derivations, the unreadable-file refusal, no-writes
+- `skill/SKILL.md`, `README.md`: Added — the command's row in each table
+
+### [26] — The menu groups commands under their pipeline stage instead of a flat list
+
+- `lib/menu.js`: Changed — `renderMenu()` iterates the registry's stages in pipeline order; each stage prints as `Label — question` with its commands beneath, an empty stage says "(nothing here yet — arrives in a later release)", and System commands group last under a Tooling heading. Both the `menu` command and the interactive session share this one funnel
+
+### [25] — Phyllum's commands now declare which of four pipeline stages they belong to
+
+- `lib/registry.js`: Added — `STAGES` (Assess, Governance, Build, Refine — each with id, label and the question it answers), `SYSTEM_STAGE`, `STAGE_IDS`, and a `stage` field on every command; Governance and Refine ship empty on purpose, because an empty stage is still a real stage
+- `skill/SKILL.md`: Added — "The pipeline — four stages (v0.8.0)" section (pipeline order ≠ delivery order; each stage can run alone) and a Stage column on the Commands table
+
+### [24] — The README announces 0.7.3
+
+- `README.md`: Changed — the header release blurb rewritten from 0.7.2 to 0.7.3 (the widened typography readings)
+- `llms.txt`: Changed — the same fact, one line
+
+
 ### [23] — 0.7.3: one new eval scores the questions, and the release bump is cut as one act
 
 - `evals/prompts/tokenise-readings-conversation.json`, `evals/rubrics/tokenise-readings-conversation.md`, `evals/graders.js`, `evals/run.md`: Added — **the conversation eval**: thirteen cases scoring the two v0.7.3 behaviours that are judgement rather than pass-or-fail — the one follow-up asked after the three core readings, and the conflict questions. It runs on the deterministic responder and calls no model, walking `parseProse`, `readingsQuestion`, `followUpReadings`, `conflictQuestions`, `settleConflict` and `nearDuplicate` in the real order. Two cases are deliberate counter-cases — `underline` with `strikethrough` is never a question, and a plain repeat is still already-named — because an eval that only checks the questions get asked cannot tell a question from a habit
