@@ -28,16 +28,14 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.5.1 -->
+<!-- mkpub:release 0.7.2 -->
 > [!NOTE]
-> **🚀 New in 0.5.1 · The dashboard softens, and the preview answers back**
+> **🚀 New in 0.7.2 · A light-first dashboard, and a sharper version check**
 >
-> The dashboard is restyled along Notion lines — simpler, softer, rounder — and a
-> **light · dark · system** control lets you pick the theme yourself, remembered in your
-> browser and applied before the first paint. The component preview gains **attribute
-> controls**: where your spec records a button's leading or trailing icon, you can flip
-> that slot on and off in place. The controls are derived from your file and never
-> invented, the drawing changes and nothing else does, and the page still fetches nothing.
+> The 0.7 line draws the dashboard light-first, groups the Backlog by component, and adds
+> an **Assess** button that hands the prompt to your terminal session. `phyllum version`
+> now tells you when your project's skill copy has fallen out of step with your install,
+> and `phyllum upgrade` offers to clear out what an older version left behind.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 

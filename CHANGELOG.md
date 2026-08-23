@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-23
 
+### [14] — The README header stops announcing 0.5.1
+
+- `README.md`: Changed — the `mkpub:release` header blurb moves from 0.5.1 to 0.7.2, four versions of drift closed. It describes the 0.7 line rather than 0.7.2 alone, because 0.7.2's own changes are internal — the suite trim and the docs table — and name nothing a reader gains: the light-first dashboard, the Backlog cut by component, the Assess button, the skill-copy row in `version`, and the prune in `upgrade`. Saying "the 0.7 line" keeps the attribution honest, since no feature is credited to a release that did not ship it. The CTA stays `phyllum upgrade`, matching every `RELEASES.md` closing line
+- `.gitignore`: Added — `*.bak`, so the pre-trim backups kept beside the eval suites stay on disk and out of the repo
+
 ### [13] — 0.7.2: the suite sheds its paperwork
 
 - `evals/assertions/gui.test.js`, `evals/assertions/gui-preview.test.js`: Changed — **the GUI trim**: 31 assertions removed (1,219 -> 1,188), every one a presentation pin rather than a promise about user data — card/radius geometry, the near-white border threshold and its class names, ramp-vs-card treatment, ramp/type specimens. Kept whole: server lifecycle (localhost-only binding, PID/port record, reuse, `kill` on live and stale paths), the JSON API and its one parse contract, delivery (no webfont, no CDN, no `src=`, no external URL, no network call), the escape gates (the sixteen hostile values and the swatch's hex-literal-only contract), the page-vs-ref equalities (`PREVIEW` constants, projection map, `THEME` table), and the theme-persistence tests (the `localStorage` round-trip and the system-default fallback)
