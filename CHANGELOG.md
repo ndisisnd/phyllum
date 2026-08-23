@@ -2,6 +2,65 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-24
+
+### [23] — 0.7.3: one new eval scores the questions, and the release bump is cut as one act
+
+- `evals/prompts/tokenise-readings-conversation.json`, `evals/rubrics/tokenise-readings-conversation.md`, `evals/graders.js`, `evals/run.md`: Added — **the conversation eval**: thirteen cases scoring the two v0.7.3 behaviours that are judgement rather than pass-or-fail — the one follow-up asked after the three core readings, and the conflict questions. It runs on the deterministic responder and calls no model, walking `parseProse`, `readingsQuestion`, `followUpReadings`, `conflictQuestions`, `settleConflict` and `nearDuplicate` in the real order. Two cases are deliberate counter-cases — `underline` with `strikethrough` is never a question, and a plain repeat is still already-named — because an eval that only checks the questions get asked cannot tell a question from a habit
+- `evals/graders.js`: Changed — `MILESTONE` and `RELEASE` move to `v0.7.3 M7` / `v0.7.3`, the milestone that cuts the release, so the recorded baseline stamps itself correctly
+- `evals/baseline.json`: Changed — re-recorded as `release: v0.7.3`, 21 evals at 1.000, no threshold lowered
+- `package.json`: version → 0.7.3, cut by `evals/release.js` so the bump and the re-record stay one act
+
+### [22] — The cache-key separator stops making a source file look binary
+
+- `lib/tokenise-readings.js`: Fixed — `keywordMatcher` joins its word list on a NUL to build a cache key, and the separator was written as a literal NUL byte inside the string. The code worked, but git read the whole 387-line module as binary: no diff, no blame, no review on any future change to it. The escape is the same character and keeps the file readable as text
+
+### [21] — 0.7.3 phase 6: display, the JSON and the GUI specimen show what a token holds
+
+- `gui/index.html`: Added — **the widened specimen**: a `phyllum:typography-contract` region mirroring the readings contract, held true by a parity test, as the theme, swatch, preview, rail, numbers and backlog regions already are. The specimen draws every reading the page's existing shape gate passes, so an underlined token draws underlined; a reading the gate refuses is listed beneath the specimen as unrendered with its reason and never reaches a `style` attribute — the rule the component preview already follows, applied to a second surface rather than reinvented for it
+- `gui/index.html`: Added — the `font-family` note: a token recording a face carries a one-line note saying the page fetches no fonts, so an uninstalled face renders as a fallback. It appears whenever the reading is present, because the page cannot know which faces a reader has. The page stays self-contained — no webfont, no CDN, no `src=`, no external URL
+- `lib/system.js`, `lib/system-json.js`: Changed — `display`, `system` and the JSON print every optional reading a typography token holds, through the shared reader rather than a second copy of the mapping, and say nothing where a token holds none
+- `evals/assertions/gui-typography.test.js`, `evals/assertions/system.test.js`: Added — 13 assertions covering contract parity, the merge, the refused-reading list, the note in all three cases, markup and style injection from a table row, and the self-containment of the new region
+
+### [20] — 0.7.3 phase 5: apply plans and rewrites the new typography literals
+
+- `lib/prd.js`: Added — **the readings changes**: `typographyReadingChanges()` reads the scanner's readings pass where `assess` keeps it, rather than merging it back into the shared inventory, which is the separation phase 4 asked for. A covered row becomes a criterion naming the file, the literal and the token; an uncovered row goes to `Out of scope` with a reason
+- `lib/prd.js`: Changed — the reading is named inside the criterion's `check` sentence rather than its `becomes` field, because `becomes` has a fixed grammar `apply run` parses back out. A name `assess` proposed is a proposal, not a token: an uncovered reading is listed out of scope with that proposal as the next step, never applied
+- `lib/apply-mechanical.js`, `skill/refs/apply/run.md`, `skill/refs/apply/plan.md`: Changed — reading criteria land in the existing Typography phase, so no new phase is invented and one phase per commit still holds. Typography stays on the agent route — twenty-one readings make that more true, not less — so the reason was widened rather than a mechanical path opened
+- `evals/assertions/apply-typography.test.js`: Added — 13 assertions, including that `alreadyAdopted` still reads identity and only identity, so a plan and an `applied:` flag can never disagree
+
+### [19] — 0.7.3 phase 4: assess learns the eighteen new declarations
+
+- `lib/assess-typography.js`: Added — **the readings pass**: its own bounded sweep, a per-declaration reading match, clustering, coverage and proposals, reported under the `raw-typography` family. The declaration the generator writes is the declaration the scanner reads, which is why this phase waited on phase 3. A raw value the design system already names is reported as coverage rather than proposed a second time, and the whole report stands up with no model attached
+- `lib/assess.js`, `lib/assess-map.js`, `lib/assess-report.js`, `lib/assess-score.js`: Changed — the mapping table and the proposed names carry the new properties, reading rows live in `values.typography` rather than the shared arrays (which would break the mapping table's positional pairing), and the lint family is now three spreads rather than two
+- `skill/refs/assess/detection.md`, `map.md`, `scan.md`, `severity.md`, `report.md`: Added — two rules the plan left open, recorded as table rows rather than as code: a reading cannot become a token on its own, because a Typography row needs a size, a weight and a line-height, and without them the coverage column says `ask`; and the reading threshold is zero, because a kerning a hair apart is a second decision rather than one that drifted
+- `evals/assertions/assess-typography.test.js`, `evals/fixtures/codebases/type-readings/`: Added — 29 assertions and a fixture project writing covered readings, uncovered readings, an owner-less reading and two initial values that must record nothing
+
+### [18] — 0.7.3 phase 3: the generated code reads the contract table, not a row position
+
+- `lib/codegen.js`: Changed — **the last hand-mapping goes**: `renderCss` pulled size, weight and line-height off a token's row by fixed position and hand-mapped them to three properties. It was the last place in the codebase still treating Typography as three fixed columns. It now builds the set of readings a token records and hands it to the contract reader, so the mapping from reading to CSS exists in exactly one place. One declaration per recorded reading, in the contract table's row order, with the token named in a comment as before
+- `evals/assertions/codegen-typography.test.js`: Added — 7 assertions, the first of them the regression gate: a token with no optional readings generates byte-identical CSS to what it generated before, asserted against captured output rather than by eye
+
+### [17] — 0.7.3 phase 2: tokenise reads the new readings, and update can clear one
+
+- `lib/tokenise-readings.js`, `lib/tokenise-prose.js`, `lib/tokenise-spec.js`, `skill/refs/tokenise/readings.md`: Added — **the bare keywords**: `tokenise` reads underlined, struck through, superscript, subscript and small caps straight out of a sentence. The enum and value readings are gathered in one follow-up asked after the three core readings, and a skipped follow-up records nothing. The sentence pass deliberately reads bare readings only — "measure", "case" and "face" are ordinary English, and reading them from free prose would invent values
+- `lib/tokenise-command.js`: Added — **warn and ask, never refuse**: a token matching an existing one on all three core readings but differing in its optional ones is surfaced as a warning and asked about, never auto-refused as a duplicate and never silently written. The conflict rules become real questions on the same route, resolving nothing and dropping nothing
+- `lib/tokenise.js`: Changed — an accepted typography token writes its readings block, and a token holding no optional reading writes no block at all
+- `lib/update-command.js`, `lib/update-spec.js`, `skill/refs/update/token.md`: Added — `update token` changes or clears an optional reading, and a rename now carries the `#### <token>` block heading with the row. Leaving the heading behind would turn every renamed token's readings into a reported orphan
+- `evals/assertions/tokenise-readings.test.js`: Added — 51 assertions, including the one that pins the naming scale: it hands the namer all eighteen new readings and asserts the proposed name does not move
+
+### [16] — 0.7.3 phase 1: the typography token widens from three readings to twenty-one
+
+- `skill/refs/typography.md`: Added — **the contract**: the twenty-one readings a type token can carry, the kind each is gathered as (bare, enum or value), and the CSS declaration each becomes — a table in the reference tree read by the skill, the CLI and the assertions alike, never a constant in code. A reading outside it is refused with a reason naming its file and its table. Three conflict rules sit beside it: `underline` with `strikethrough` merges into one `text-decoration-line` carrying both keywords, `superscript` with `subscript` is a contradiction, and `font-variant` over `small-caps` or `slashed-or-lining-zero` is a shorthand-over-longhand overlap. Every one takes the same route — warn and ask, never refuse
+- `lib/typography.js`: Added — the reader for that contract, built as `lib/nomenclature.js` reads its own, raising `TypographyError` for a shipped table nobody can read
+- `lib/design-system.js`: Added — **the block**: a typography token may carry a fenced YAML block of optional readings, under a `#### <token>` heading, directly beneath the Typography table, in the table's own row order. This module owns the block's shape and never looks inside one, so a block Phyllum cannot understand still round-trips. The four columns are unchanged and a token with no optional readings gets no block at all, which is what keeps every design system written before 0.7.3 byte-identical
+- `lib/execute.js`: Added — `TypographyError` joins the four decisions caught at the dispatch boundary, so an unreadable shipped table gets a sentence naming the file and `phyllum upgrade`, not a stack trace
+- `evals/assertions/typography.test.js`, `evals/fixtures/design-system/typography-readings.md`: Added — 31 assertions: back-compatibility asserted byte-for-byte across six pre-release fixtures, a round trip that survives commas, quotes and brackets, an orphan block preserved byte-identical and reported, and two blocks under one name yielding no reading at all
+
+### [15] — The roadmap working file stays out of the repo
+
+- `.gitignore`: Added — `/roadmap.md`, the in-flight pipeline roadmap, so a working note does not land in the history
+
 ## 2026-08-23
 
 ### [14] — The README header stops announcing 0.5.1

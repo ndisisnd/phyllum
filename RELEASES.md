@@ -2,6 +2,60 @@
 
 What's new for you, release by release.
 
+## v0.7.3 — 2026-08-24
+
+> A typography token used to record three things about type: its size, its weight and its
+> line-height. That is not a typeface decision — it leaves kerning, case, face, decoration
+> and figure style to be restated at every call site. From this release a token records
+> twenty-one readings, and they carry the whole way through: what you say, what gets written
+> down, the CSS you copy, the scan of your codebase, and the rewrite. Everything you have
+> already recorded is untouched and reads exactly as it did.
+
+### ✨ New
+- **Your type tokens can now hold eighteen more decisions.** Kerning, word spacing, indent,
+  measure, case, small caps, figure style, face, stretch, italic or oblique, feature
+  settings, optical sizing and text rendering all sit on the token now, beside the size and
+  weight you already record. A decision made once is a decision you stop repeating.
+- **Say it plainly and it gets read.** Describe a token as underlined, struck through,
+  superscript, subscript or small caps and Phyllum picks it up from the sentence. Anything
+  that needs a measurement is gathered in a single follow-up question, asked once, after the
+  size and weight are settled. Skip that question and nothing is recorded.
+- **The dashboard draws what you recorded.** An underlined token is drawn underlined. A
+  reading the page cannot safely draw is listed beneath the specimen with the reason, so you
+  can always see the difference between "not recorded" and "not drawn".
+- **Your codebase scan covers the new properties.** `assess` finds raw letter-spacing, case,
+  face and the rest, tells you which ones your system already names, and proposes names for
+  the ones it does not. `apply` then plans and makes those changes for you.
+
+### 📈 Improved
+- **Contradictions are raised as questions, not decisions.** Ask for superscript and
+  subscript on one token, or a shorthand that swallows a setting you also stated, and Phyllum
+  shows you the clash and asks. It never picks a winner for you and never quietly drops one
+  of them.
+- **A near-duplicate token is now a conversation.** Create a token matching an existing one
+  on size, weight and line-height but differing elsewhere and you are told what differs and
+  asked what you want. Previously that was simply refused as a duplicate.
+- **Underline and strikethrough on one token now work together.** They are written as one
+  instruction carrying both, so the second no longer cancels the first.
+- **Your face choice comes with an honest note.** A token naming a font family carries a line
+  saying the dashboard fetches no fonts, so a face you have not installed will show as a
+  fallback. The page stays fully offline, as before.
+
+### 🐛 Fixed
+- A design system file written before this release renders exactly as it did, byte for byte,
+  and a token that records none of the new readings generates exactly the CSS it generated
+  before. Nothing you have already recorded was rewritten or reinterpreted.
+
+### Not in release
+- **Paragraph settings stay out.** Alignment, wrapping, white space and hyphenation describe
+  a block of text rather than a typeface, so they are not token readings. Line length is the
+  one exception, because it is a typographic decision.
+- **Decoration stays coarse.** Underline is a plain yes. Its colour, thickness, style and
+  offset are not recorded yet.
+- **A component still names a whole token.** It cannot override one reading of one. A
+  component that needs different type names a different token, so a type decision never lives
+  in two places at once.
+
 ## v0.7.2 — 2026-08-23
 
 > A suite-and-process release, with nothing changed in what Phyllum does for your
