@@ -72,6 +72,12 @@ v0.8.0 ships the model and nothing else, which is why two stages have no
 commands yet. An empty stage is still a real stage: name it when the pipeline
 comes up, and say the release it lands in rather than pretending it is missing.
 
+`pipeline` (v0.8.0 M3) prints this model in the terminal — the four stages, the
+commands under each, and a reading of where the project you are standing in
+currently sits, derived from what is on disk and from nothing else. It never
+offers a position it could not read: an unreadable file is reported as
+unreadable, because a guessed position is an invented one.
+
 Some commands belong to no stage at all. Running the tool — the menu, help, the
 dashboard, printing the file, versions, installs — is grouped as **System**, and
 System is a grouping, not a fifth stage. Do not offer it as a step of the
@@ -87,6 +93,7 @@ and `lib/registry.js` can never say different things.
 | `phyllum` | System | — | Interactive session; a menu of the commands below |
 | `menu` | System | — | List every subskill, one line per command |
 | `help` | System | — | Explain Phyllum; `help [command]` explains one command in depth |
+| `pipeline` | System | — | Print the four stages, the commands under each, and where this project currently sits — read-only, derived from the files on disk |
 | `create` | Build | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
 | `assess` | Assess | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
 | `apply` | Build | — | Plan applying the design system to the codebase; `apply run` executes the plan |

@@ -85,6 +85,7 @@ The commands:
 | `init` | Guided setup — scaffold the file, install the skill |
 | `version` | Print the installed version and check npm for a newer one |
 | `upgrade` | Upgrade this install to the latest published version |
+| `pipeline` | Print the four stages, the commands under each, and where this project currently sits — read-only, derived from the files on disk |
 | `menu` / `help` | List the commands, or explain one in depth |
 
 ## Install
