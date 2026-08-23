@@ -246,7 +246,11 @@ test('assess update writes the systematic drift and leaves the exceptions alone'
     assert.ok(out.includes('used only once or twice'), 'and the report says which it declined, and why');
 
     const diff = diffSnapshots(before, snapshotContents(dir));
-    assert.deepEqual(diff.added, ['DESIGN-SYSTEM.md.bak'], 'the backup, and nothing else new');
+    assert.deepEqual(
+      diff.added.sort(),
+      ['.phyllum/assess-1.md', 'DESIGN-SYSTEM.md.bak'],
+      'the backup and the stage report, and nothing else new',
+    );
     assert.deepEqual(diff.removed, []);
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md'], 'one file edited, as ever');
   });
@@ -494,8 +498,10 @@ test('assessing a codebase full of shadows changes not one byte of it', async ()
     const before = snapshotContents(dir);
     const { code } = await run('assess', dir);
     assert.equal(code, 0);
+    // The report under `.phyllum/` is the stage's own output. Nothing the user
+    // wrote is added to, changed, or removed.
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
-      added: [],
+      added: ['.phyllum/assess-1.md'],
       changed: [],
       removed: [],
     });

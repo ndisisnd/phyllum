@@ -559,7 +559,11 @@ test('the page fetches nothing from the network — no webfont, no CDN, no exter
   const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
   assert.ok(requests.length > 0, 'the page does talk to its server');
   for (const route of requests) {
-    assert.match(route, /^\/(state|system|prompt|upload)$/, `${route} must be a same-origin route`);
+    assert.match(
+      route,
+      /^\/(state|system|reports|prompt|upload)$/,
+      `${route} must be a same-origin route`,
+    );
   }
 });
 
@@ -1039,7 +1043,11 @@ test('a stored theme choice round-trips, and an absent one reads as system', () 
 test('the theme choice is page-local — the server is never told and never asked', () => {
   const text = readPage();
   const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(new Set(requests), new Set(['/state', '/system', '/prompt', '/upload']), 'no theme route exists');
+  assert.deepEqual(
+    new Set(requests),
+    new Set(['/state', '/system', '/reports', '/prompt', '/upload']),
+    'no theme route exists',
+  );
 
   // Nothing posts the choice anywhere: the only place it is written is the
   // browser's own store, under the page's own key.
@@ -1054,7 +1062,7 @@ test('the theme choice is page-local — the server is never told and never aske
 test('the restyle left the server surface alone', () => {
   const server = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
   const routes = [...server.matchAll(/path == "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(new Set(routes), new Set(['/state', '/system', '/prompt', '/upload']));
+  assert.deepEqual(new Set(routes), new Set(['/state', '/system', '/reports', '/prompt', '/upload']));
   assert.ok(server.includes('def serve_static'), 'plus the static page, served from gui/');
   assert.equal(server.match(/def do_(GET|HEAD|POST)/g).length, 3, 'and no new HTTP verb');
 });

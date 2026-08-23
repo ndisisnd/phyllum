@@ -187,13 +187,24 @@ read-only: nothing in your codebase is written, renamed or created. Run it again
 and anything your design system already names is reported as covered rather than
 proposed again, so a rerun shows only what has drifted.
 
-Three chained modes narrow the same scan. `assess tokens` walks the token suggestions
+Five chained modes narrow the same scan. `assess tokens` walks the token suggestions
 only; `assess components` walks the component suggestions only, one candidate at a time
 with its own yes-or-no each; `assess update` skips the per-item review altogether and
 accepts the proposed tokens the assessment graded as errors, under the names it showed
 you. `assess update` still refuses to guess: a warning is reported and never accepted on
 your behalf, a value it could see but not read stays unnamed, a component is never
-recorded without its questions answered, and the only file it writes is `DESIGN-SYSTEM.md`.
+recorded without its questions answered, and the only file of yours it writes is
+`DESIGN-SYSTEM.md`. The last two narrow it further still: `assess score` returns the
+health score and the verdict alone, and `assess drift` returns the comparison against
+`DESIGN-SYSTEM.md` alone. Neither writes anything and neither asks anything.
+
+A full run leaves the stage's output behind: **`.phyllum/assess-[n].md`**, a numbered,
+dated report carrying the summary, the drift by family, the health score and a
+machine-readable recommendations block. Numbering is one past the highest report already
+there rather than one past the count, so a number is never reused and a deleted report
+never causes a renumber — a number names a scan you may have quoted. The date is carried
+by the report itself. `assess score`, `assess drift` and `assess --json` leave no
+numbered report.
 
 The report ends in one number and one word: a **drift score** on a seven-step
 Fibonacci scale (1, 2, 3, 5, 8, 13, 21 — lower is better) for how much

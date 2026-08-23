@@ -17,18 +17,19 @@ each stage still its own `rail-label`:
 
 | Stage | What sits under it |
 |-------|---------------------|
-| Assess | Library — the Backlog panel's own `#backlog-assess` button posts the literal `assess` prompt, so this is the view the Assess stage's one command already lives in |
+| Assess | Library and Reports — the Backlog panel's own `#backlog-assess` button posts the literal `assess` prompt, and Reports (v0.9.0 §5) shows what that command left behind under `.phyllum/` |
 | Governance | nothing yet — the heading still appears, with a quiet `nothing yet` chip in place of a button, because an empty stage is still a real stage (v0.8.0 §1) |
 | Build | Workbench and Token view — the active `create` session and the raw-value reading that feeds the next `tokenise` run, the two commands the Build stage already carries |
 | Refine | nothing yet — same quiet chip as Governance |
 
-No view is added, removed or renamed by the grouping: the three buttons keep
+No view was added, removed or renamed *by the grouping*: the buttons kept
 their `data-view` values, their click handling and their `aria-selected`
 wiring exactly as before, and the empty-stage chip is the page's own chip
 idiom (v0.7.0 §2) — a label, never a control — so no new visual language is
-invented for it.
+invented for it. The fourth button, Reports, arrived later (v0.9.0 §5) and
+took the same wiring rather than a second kind.
 
-## Three views
+## Four views
 
 1. **Library** — every component and token, read live from `DESIGN-SYSTEM.md`,
    each token *shown* rather than merely printed (see "Showing the values" in
@@ -37,11 +38,15 @@ invented for it.
    states toggle (`refs/gui/component-preview.md`) — and then its spec and its
    code. The scope argument picks the opening filter: `tokens`, `components`, or
    `all` (the default). The user can still switch filters inside the GUI.
-2. **Workbench** — the active `create` session: the user's input on one side,
+2. **Reports** — every numbered assessment `phyllum assess` has written under
+   `.phyllum/`, as tables: one row per report in the list, and inside a report
+   the drift findings and the recommendations as rows of their own. Read-only
+   over reports — see "The Reports view" below.
+3. **Workbench** — the active `create` session: the user's input on one side,
    the draft the terminal is building on the other, refreshed as the follow-up
    loop progresses. An input box relays edits from the page, and an image
    dropped on it becomes an image-mode `create` input.
-3. **Token view** — a component's token usage: which tokens it consumes, and
+4. **Token view** — a component's token usage: which tokens it consumes, and
    which values are still raw and therefore candidates for the next `tokenise`
    run.
 
@@ -192,6 +197,52 @@ prompt. The button enqueues and nothing more:
   the server surfaces through the status line's existing "server gone" message
   once the next `poll()` runs, and the Assess button's label still reverts on
   its own timer either way — no second error idiom is invented for it.
+
+## The Reports view (v0.9.0 §5)
+
+`phyllum assess` leaves a numbered, dated report behind at
+`.phyllum/assess-[n].md`. The Reports view is where a person reads them back,
+and it is built on two decisions.
+
+- **A report is a table here, never a wall of prose.** The list of assessments
+  is a table — number, date, score, verdict, how many recommendations — and
+  inside one report the drift findings and the recommendations are rows as
+  well. The drift rows are the file's own: the report template already writes
+  drift as a Markdown table, one row per family including the empty ones, and
+  the page renders those rows rather than rebuilding them. The recommendations
+  rows come from the fenced `phyllum-recommendations` block the template
+  carries for exactly this purpose.
+- **The page is read-only over reports.** It renders what `assess` wrote and
+  never writes one. No control in this view posts anything; the Backlog panel's
+  Assess button is still the only way the page asks for a new assessment, and
+  it asks by queueing a prompt for the terminal session.
+
+The data path is the one the dashboard already uses, with no second transport:
+`GET /reports` on the same server, which shells out to `node
+lib/reports-json.js <root>` exactly as `GET /system` shells out to
+`lib/system-json.js`. The numbering, the paths and the recommendations block
+are read through `lib/assess-reports.js` — the module that wrote them — so the
+page and the writer cannot disagree about what a report is.
+
+<!-- phyllum:reports -->
+
+| setting | value | meaning |
+|---------|-------|---------|
+| order | `newest first` | reports are listed in descending numeric order, and the newest is the one that opens by default; the server sorts and the page never re-orders |
+| numbering | `the file's own` | a report somebody deleted shows as a gap in the numbers rather than being closed up |
+| list columns | `Report, Date, Score, Verdict, Recommendations` | the fields a person scans a stack of reports by, in that order |
+| recommendation columns | `Severity, Rule, Family, Findings, Action, Evidence` | one row per recommendation, read from the machine-readable block |
+| empty | No assessments yet — run `phyllum assess` to write the first one. | what the view says with no report on disk: a plain line, not an empty grid, because nothing has gone wrong |
+| unstated field | `—` | a field the report does not carry; the page never invents one |
+| no block | `This report carries no recommendations block.` | a report written before the block existed, or edited since — different from having nothing to recommend, and said differently |
+| nothing to recommend | `(none yet)` | a block that parsed and holds no rows, in the page's own words for an empty section |
+| unreadable report | `This report could not be read.` | one hand-mangled file is a row carrying its own error, never a blank view |
+| refresh | `while the view is open` | the list is re-read on entering the view and every five seconds it stays open; a report appears minutes after the click that queued it, so nothing polls the directory behind a view nobody is looking at |
+| writes | `none` | the GUI renders `.phyllum/assess-[n].md` and never writes one |
+
+Those settings are the page's `REPORTS` constant, inside the region marked
+`phyllum:reports-contract`, and the assertion suite reads both this table and
+that region — so the ref and the page cannot drift apart quietly.
 
 ## The on-page rail (v0.6.0 §4)
 

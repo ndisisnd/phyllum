@@ -48,50 +48,21 @@ between a 13 and a 21 is a decision about the project.
 
 The score is built in two steps. Every finding is worth points by family and
 severity, the points are summed into one **drift mass**, and the mass falls
-into a step.
+into a step. The verdict is a third reading, taken from severities alone.
 
-<!-- phyllum:score-weights -->
+### Where the three tables live
 
-| Family | error | warn |
-|--------|-------|------|
-| lint | 3 | 1 |
-| similarity | 3 | 1 |
-| props | 3 | 1 |
-| naming | 2 | 1 |
-| hygiene | 2 | 1 |
-| extras | 2 | 1 |
+**`phyllum:score-weights`, `phyllum:score-steps` and `phyllum:verdicts` are
+marked in `refs/assess/protocol-assess-rubric.md`, and nowhere else.** That file
+is the protocol that owns the score, so the rows the CLI parses sit beside the
+reasoning that explains them.
 
-Lint, similarity and props weigh heaviest at `error` because each of them is a
-contradiction inside the code: the same value written out three times, two
-components that are one component, one prop called two things. Naming, hygiene
-and the extras weigh less because they are untidiness rather than contradiction
-— a stale token costs a reader nothing at runtime. Every `warn` is worth one
-point in every family, which is the point of a warning: it counts, and it never
-counts as much as the thing somebody has to fix.
-
-<!-- phyllum:score-steps -->
-
-| Step | Drift mass | Means |
-|------|------------|-------|
-| 1 | <= 2 | essentially systematised — what is here is named |
-| 2 | <= 5 | a handful of exceptions, and nothing systematic |
-| 3 | <= 10 | drift has started; it is still a morning's work |
-| 5 | <= 20 | a real backlog of unnamed values and untidy names |
-| 8 | <= 40 | the design system describes some of this codebase |
-| 13 | <= 80 | the codebase and the design system are two different systems |
-| 21 | — | untamed — the tokens are a document, not a contract |
-
-The cut-points double, so each step means "about twice as much as the one
-below". A row with an em dash in the mass column always matches, which is how
-the table spells "and everything above this".
-
-<!-- phyllum:verdicts -->
-
-| Verdict | When |
-|---------|------|
-| fail | one or more `error` findings anywhere in the assessment |
-| pass w/ warnings | no errors, and one or more warnings |
-| pass | nothing found at all |
+This file carried the marked copy until v0.9.0, while the rubric restated the
+same rows in prose. Two copies of one scale is how two answers to one question
+start — `lib/refs.js` refuses a marker that appears in two files for exactly
+that reason — so the markers moved to the rubric and the second copy was deleted
+rather than kept in step by hand. Read the weights, the steps and the verdict
+band there; what stays here is what the *report* does with them.
 
 The verdict is derived from **severities and never from the score**, and the two
 answer different questions on purpose. The verdict says whether anything here is

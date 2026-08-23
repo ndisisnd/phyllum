@@ -17,13 +17,16 @@ Contract:
       GET  /state    the shared session state read from .phyllum/session.json,
                      including the workbench draft and the opening filter
       GET  /system   tokens + components of DESIGN-SYSTEM.md
+      GET  /reports  the numbered assessment reports under .phyllum/, newest
+                     first, read back into fields the page renders as tables
       POST /prompt   enqueue a prompt into the same session state the terminal
                      reads
       POST /upload   save an image into .phyllum/uploads/ and enqueue it as an
                      image-mode `create` input
-  * One parse contract. This server does not parse DESIGN-SYSTEM.md itself: it
-    shells out to `node ../lib/system-json.js <root>`, the same parser
-    `phyllum system` uses. Two parsers would be two truths about one file.
+  * One parse contract. This server parses nothing itself: it shells out to
+    `node ../lib/system-json.js <root>` for DESIGN-SYSTEM.md, the same parser
+    `phyllum system` uses, and to `node ../lib/reports-json.js <root>` for the
+    numbered reports. Two parsers would be two truths about one file.
   * Writes only inside .phyllum/ — enforced by _write_under_state_dir below, not
     by convention. The Node write funnel (lib/write.js) stays the only path to
     DESIGN-SYSTEM.md; this process cannot reach it.
@@ -50,6 +53,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PACKAGE_ROOT = os.path.dirname(HERE)
 GUI_DIR = os.path.join(PACKAGE_ROOT, "gui")
 SYSTEM_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "system-json.js")
+REPORTS_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "reports-json.js")
 
 STATE_DIR = ".phyllum"
 STATE_FILE = os.path.join(STATE_DIR, "session.json")
@@ -165,11 +169,18 @@ def safe_upload_name(raw):
 # ---------------------------------------------------------------------------
 
 
-def system_json(root, node_bin):
-    """Parse DESIGN-SYSTEM.md by asking the canonical Node parser."""
+def node_json(script, root, node_bin):
+    """Run a read-only Node JSON view over the project and return its payload.
+
+    The one parse contract, generalised: the server owns no reader of its own.
+    DESIGN-SYSTEM.md is parsed by lib/system-json.js and the numbered reports
+    under .phyllum/ are read by lib/reports-json.js, both of which are the
+    modules the terminal already uses. Neither writes anything, which is why
+    this process -- the one outside the Node write funnel -- may call them.
+    """
     try:
         result = subprocess.run(
-            [node_bin, SYSTEM_JSON_SCRIPT, root],
+            [node_bin, script, root],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=20,
@@ -177,7 +188,7 @@ def system_json(root, node_bin):
     except (OSError, subprocess.SubprocessError) as error:
         return 500, {
             "error": "parser-unavailable",
-            "message": "could not run `%s %s`: %s" % (node_bin, SYSTEM_JSON_SCRIPT, error),
+            "message": "could not run `%s %s`: %s" % (node_bin, script, error),
         }
 
     text = result.stdout.decode("utf-8", "replace").strip()
@@ -193,6 +204,20 @@ def system_json(root, node_bin):
     if isinstance(payload, dict) and payload.get("error"):
         return 404, payload
     return 200, payload
+
+
+def system_json(root, node_bin):
+    """Parse DESIGN-SYSTEM.md by asking the canonical Node parser."""
+    return node_json(SYSTEM_JSON_SCRIPT, root, node_bin)
+
+
+def reports_json(root, node_bin):
+    """Read the numbered assessment reports under .phyllum/, newest first.
+
+    Read-only, always. The dashboard renders `.phyllum/assess-[n].md`; only
+    `phyllum assess` ever writes one.
+    """
+    return node_json(REPORTS_JSON_SCRIPT, root, node_bin)
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +287,10 @@ class PhyllumHandler(BaseHTTPRequestHandler):
             return
         if path == "/system":
             status, payload = system_json(self.root, self.node_bin)
+            self._json(payload, status)
+            return
+        if path == "/reports":
+            status, payload = reports_json(self.root, self.node_bin)
             self._json(payload, status)
             return
         self.serve_static(path)
