@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-24
 
+### [29] — The README announces 0.8.0
+
+- `README.md`: Changed — the header release blurb rewritten from 0.7.3 to 0.8.0 (the four-stage pipeline and the `pipeline` command)
+
 ### [28] — The dashboard's nav now reads as the pipeline: four stage labels over the same three views
 
 - `gui/index.html`: Changed — the view rail's single "Dashboard" label becomes four stage labels (Assess holds Library, Build holds Workbench and Token view); Governance and Refine appear with a quiet "nothing yet" chip. No view added, removed or renamed; routes, polling and the self-contained-file rules untouched

@@ -28,14 +28,13 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.7.3 -->
+<!-- mkpub:release 0.8.0 -->
 > [!NOTE]
-> **🚀 New in 0.7.3 · A type token now records twenty-one readings, not three**
+> **🚀 New in 0.8.0 · The commands now line up as a four-stage pipeline**
 >
-> Kerning, case, small caps, figure style, face, decoration and the rest sit on the token
-> beside the size, weight and line-height you already record, so a type decision is made
-> once instead of restated at every call site. `assess` finds those properties in your
-> code, the dashboard draws them, and everything you wrote before this release is untouched.
+> Assess, Governance, Build and Refine give every command a place, and the menu and the
+> dashboard group by stage instead of a flat list. A new `phyllum pipeline` prints the
+> stages and reads where your project sits on them — from what is on disk, never guessed.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
