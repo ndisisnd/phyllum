@@ -48,25 +48,63 @@ commit. `phyllum apply` writes that plan, plus the one derived `applied:` line p
 component (v0.5.0 §3.2), and changes nothing else — so the rule above holds
 unchanged for every other command.
 
+## The pipeline — four stages (v0.8.0)
+
+Every command belongs to a stage of one pipeline. The stages are the four
+questions a design system has to answer, in the order you would work through
+them:
+
+| # | Stage | Question it answers |
+|---|-------|---------------------|
+| 1 | Assess | "What state is my design system in?" |
+| 2 | Governance | "What are the rules for using it?" |
+| 3 | Build | "Make the thing real." |
+| 4 | Refine | "Is it ready for production?" |
+
+**Each stage can also run alone.** The pipeline is a shape, not a gate: a user
+who only wants to name one token runs the Build command that does it, and never
+touches the other three. Nothing checks that an earlier stage has been done.
+
+**Pipeline order is not delivery order.** The table above is the order the
+stages are worked through; the order the stages are *built* is a different list
+entirely — Assess in v0.9, Build in v0.10, Refine in v0.11, Governance in v0.12.
+v0.8.0 ships the model and nothing else, which is why two stages have no
+commands yet. An empty stage is still a real stage: name it when the pipeline
+comes up, and say the release it lands in rather than pretending it is missing.
+
+Some commands belong to no stage at all. Running the tool — the menu, help, the
+dashboard, printing the file, versions, installs — is grouped as **System**, and
+System is a grouping, not a fifth stage. Do not offer it as a step of the
+pipeline.
+
 ## Commands
 
-| Command | Alias | What it does |
-|---------|-------|--------------|
-| `phyllum` | — | Interactive session; a menu of the commands below |
-| `menu` | — | List every subskill, one line per command |
-| `help` | — | Explain Phyllum; `help [command]` explains one command in depth |
-| `create` | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
-| `assess` | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
-| `apply` | — | Plan applying the design system to the codebase; `apply run` executes the plan |
-| `update` | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lists the recorded components and revises the one you pick |
-| `delete` | — | Remove one component the design system records: the list, a breaking-change warning, a hard block when the codebase is using it, then the acceptance gate **and** the component's name typed back before the one write |
-| `tokenise` | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values become a queue, asked one at a time; with no sentence it asks what kind of token you are recording |
-| `gui` | `dashboard` | Local server plus HTML dashboard |
-| `kill` | — | Stop the running GUI server |
-| `display` | `system` | Print the design system to the terminal |
-| `version` | — | Print the installed version and check npm for a newer one |
-| `upgrade` | — | Upgrade this install to the latest published version |
-| `init` | — | Guided setup: scaffold the file, install this skill |
+The Stage column is the same field the CLI carries per command, so this table
+and `lib/registry.js` can never say different things.
+
+| Command | Stage | Alias | What it does |
+|---------|-------|-------|--------------|
+| `phyllum` | System | — | Interactive session; a menu of the commands below |
+| `menu` | System | — | List every subskill, one line per command |
+| `help` | System | — | Explain Phyllum; `help [command]` explains one command in depth |
+| `create` | Build | `build` | Craft a new component from prose, an image, or a pick; `create primitives` lays down primitive colour ramps instead — wholly mechanical |
+| `assess` | Assess | — | Read the codebase and inventory the raw styling in it; `--json [path]` writes the assessment to a file |
+| `apply` | Build | — | Plan applying the design system to the codebase; `apply run` executes the plan |
+| `update` | Build | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lists the recorded components and revises the one you pick |
+| `delete` | Build | — | Remove one component the design system records: the list, a breaking-change warning, a hard block when the codebase is using it, then the acceptance gate **and** the component's name typed back before the one write |
+| `tokenise` | Build | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values become a queue, asked one at a time; with no sentence it asks what kind of token you are recording |
+| `gui` | System | `dashboard` | Local server plus HTML dashboard |
+| `kill` | System | — | Stop the running GUI server |
+| `display` | System | `system` | Print the design system to the terminal |
+| `version` | System | — | Print the installed version and check npm for a newer one |
+| `upgrade` | System | — | Upgrade this install to the latest published version |
+| `init` | System | — | Guided setup: scaffold the file, install this skill |
+
+Governance and Refine hold no commands in this release. Every command that
+edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
+revising one, removing one, applying the system outward — is Build, because all
+of it is making the thing real. v0.10 re-homes those commands formally; the
+stage they declare here is already the one they will keep.
 
 Aliases are exact equivalents — same subskill, same behaviour.
 
