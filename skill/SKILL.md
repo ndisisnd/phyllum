@@ -78,6 +78,15 @@ currently sits, derived from what is on disk and from nothing else. It never
 offers a position it could not read: an unreadable file is reported as
 unreadable, because a guessed position is an invented one.
 
+**A stage that is built gains an input and an output.** Assess got both in
+v0.9.0: it reads the codebase and leaves a numbered drift report behind.
+Build's are stated in `refs/build/build.md` — the input is the recommendations
+of the latest drift report, unless explicit prose overrides them, and the
+output is a numbered `build-report-[n].md` under `.phyllum/` that the user
+reads and approves before anything is built. v0.10.0 delivers those in phases,
+and the stage reference says plainly which phase brings which, because a stage
+that overstates its own output is worse than a stage that has none yet.
+
 Some commands belong to no stage at all. Running the tool — the menu, help, the
 dashboard, printing the file, versions, installs — is grouped as **System**, and
 System is a grouping, not a fifth stage. Do not offer it as a step of the
@@ -110,8 +119,12 @@ and `lib/registry.js` can never say different things.
 Governance and Refine hold no commands in this release. Every command that
 edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
 revising one, removing one, applying the system outward — is Build, because all
-of it is making the thing real. v0.10 re-homes those commands formally; the
-stage they declare here is already the one they will keep.
+of it is making the thing real. v0.10.0 re-homes `create` (alias `build`),
+`tokenise` and `apply` formally, under a stage that now has a frame of its own
+at `refs/build/build.md`; `update` and `delete` were already there and are not
+moved. The `stage` each command declares below has read `build` since v0.8.0,
+so the re-home changes what the stage says about itself and nothing about what
+any command does.
 
 Aliases are exact equivalents — same subskill, same behaviour.
 
@@ -156,6 +169,16 @@ what it must never do. Everything else is a topic.
 | `update` | `refs/update/` | `update.md` the frame, the menu copy with its 0.4.x `apply` breadcrumb, the never-list · `grammar.md` menu, chains and prose, and reading a target out of prose · `token.md` `update token`: the type rows, the argument hints, the rename ripple, the convergence re-check · `component.md` `update component`: the recorded archetype, the pick, the revision |
 | `delete` | `refs/delete/` | `delete.md` the frame, the grammar with its reserved-and-refused `token`, the never-list, and what `delete` leaves for `apply` to clean up · `flow.md` the six steps, the copy contract, the in-use rule with its flag-or-live-check split, the double confirmation and the one write |
 | `init` | `refs/init/` | `init.md` the walkthrough, step by step |
+| Build stage | `refs/build/` | `build.md` what the Build stage is, the five commands it homes, its defined input (the latest drift report's recommendations, with explicit prose overriding) and its defined output (a numbered `build-report-[n].md` under `.phyllum/`, behind an approval gate), plus which phase of v0.10.0 brings which |
+
+One row of that table is a **stage** rather than a command. Assess keeps its
+stage protocol inside its command folder — `refs/assess/protocol-assess.md` —
+because Assess is one stage with one command. Build homes five, so it has no
+command folder to live in and takes a folder of its own. Load `refs/build/`
+when the question is about the stage: what it consumes, what it leaves behind,
+or which command belongs to it. A question about one command is still answered
+by that command's own folder, which outranks the stage file wherever the two
+disagree.
 
 Two references belong to no command and are the two that are still flat files,
 because each is a shared library rather than a protocol. Both are loaded
