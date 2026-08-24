@@ -11,7 +11,7 @@ decides anything.
 
 ## The view rail, grouped by pipeline stage (v0.8.0 §4)
 
-`nav#views` groups its three view buttons under the same four-stage pipeline
+`nav#views` groups its view buttons under the same four-stage pipeline
 `lib/registry.js` defines for the command set (v0.8.0 §1), in pipeline order,
 each stage still its own `rail-label`:
 
@@ -19,17 +19,18 @@ each stage still its own `rail-label`:
 |-------|---------------------|
 | Assess | Library and Reports — the Backlog panel's own `#backlog-assess` button posts the literal `assess` prompt, and Reports (v0.9.0 §5) shows what that command left behind under `.phyllum/` |
 | Governance | nothing yet — the heading still appears, with a quiet `nothing yet` chip in place of a button, because an empty stage is still a real stage (v0.8.0 §1) |
-| Build | Workbench and Token view — the active `create` session and the raw-value reading that feeds the next `tokenise` run, the two commands the Build stage already carries |
+| Build | Workbench, Build reports and Token view — the active `create` session, the numbered build reports `create`/`build` has written (v0.10.0 §5), and the raw-value reading that feeds the next `tokenise` run |
 | Refine | nothing yet — same quiet chip as Governance |
 
 No view was added, removed or renamed *by the grouping*: the buttons kept
 their `data-view` values, their click handling and their `aria-selected`
 wiring exactly as before, and the empty-stage chip is the page's own chip
 idiom (v0.7.0 §2) — a label, never a control — so no new visual language is
-invented for it. The fourth button, Reports, arrived later (v0.9.0 §5) and
-took the same wiring rather than a second kind.
+invented for it. Reports (v0.9.0 §5) and Build reports (v0.10.0 §5) each
+arrived later than the first three and took the same wiring rather than a
+second kind.
 
-## Four views
+## Five views
 
 1. **Library** — every component and token, read live from `DESIGN-SYSTEM.md`,
    each token *shown* rather than merely printed (see "Showing the values" in
@@ -46,7 +47,11 @@ took the same wiring rather than a second kind.
    the draft the terminal is building on the other, refreshed as the follow-up
    loop progresses. An input box relays edits from the page, and an image
    dropped on it becomes an image-mode `create` input.
-4. **Token view** — a component's token usage: which tokens it consumes, and
+4. **Build reports** — every numbered build report `create`/`build` has
+   written under `.phyllum/`, as a table, and a form that starts a new one the
+   way the terminal would. Read-only over the reports themselves — see "The
+   Build view" below.
+5. **Token view** — a component's token usage: which tokens it consumes, and
    which values are still raw and therefore candidates for the next `tokenise`
    run.
 
@@ -243,6 +248,72 @@ page and the writer cannot disagree about what a report is.
 Those settings are the page's `REPORTS` constant, inside the region marked
 `phyllum:reports-contract`, and the assertion suite reads both this table and
 that region — so the ref and the page cannot drift apart quietly.
+
+## The Build view (v0.10.0 §5)
+
+`create`/`build` leaves a numbered, dated report behind at
+`.phyllum/build-report-[n].md` (`refs/build/report.md`), mapped to the drift
+report or the description it answers, and split into ordered phases when there
+is a lot to read (`refs/build/gate.md`). The Build view is where a person reads
+that stack back, and where the dashboard's own build flow starts a new one —
+the GUI's mirror of the terminal path phase 5 of `refs/build/build.md` §4
+promises.
+
+It is the Reports view's sibling, not a rebuild of it: a build report answers
+a different question (what should be built, and in what order) with a
+different shape (Source and Work, not Drift and a health score), so the two
+views share their table idiom and nothing else.
+
+- **A build report is a table here too.** The list of build reports is one
+  table — number, date, what it answers, how many phases — and opening one
+  shows its Source sentence and its Work, exactly as the file itself wrote
+  them: the sentence naming the drift report or the description, then either
+  the flat list of work or the ordered `## Phase n` sections, verbatim.
+- **Phases are reading structure, never a second approval.** A phased report
+  renders as one container per phase, in order, and nothing in this view
+  offers a way to approve, accept or run a phase on its own. Approval is per
+  report, and it happens in the terminal, the same place `DESIGN-SYSTEM.md`
+  is always written — `refs/build/build.md` §3 and `lib/build-reports.js`
+  both say why, and the GUI repeats the boundary rather than quietly moving
+  it.
+- **The page is read-only over the reports it renders**, exactly as the
+  Reports view is: it shows what `create`/`build` wrote and never writes one
+  itself. What it *does* offer, beside the list, is the same relay every
+  other prompt on the page already uses — a "Start a build" form that
+  composes the `phyllum create` invocation (bare, or with the sentence typed)
+  and posts it to `POST /prompt`. Clicking it queues a prompt for the Claude
+  Code session exactly the way the Backlog's Assess button and the Workbench's
+  prompt box do; it never runs `create` itself, and it never reasons about
+  what to build. The reasoning, the write, and the approval all stay in the
+  terminal session — the dashboard is a viewer and a prompt relay here too,
+  never a second brain (see the top of this file).
+
+The data path is the one the Reports view already established, with no second
+transport: `GET /build-reports` on the same server, which shells out to `node
+lib/build-reports-json.js <root>` exactly as `GET /reports` shells out to
+`lib/reports-json.js`. The numbering, the paths and the source block are read
+through `lib/build-reports.js` — the module that wrote them — so the page and
+the writer cannot disagree about what a build report is (`refs/gui/server.md`).
+
+<!-- phyllum:build-reports -->
+
+| setting | value | meaning |
+|---------|-------|---------|
+| order | `newest first` | build reports are listed in descending numeric order, and the newest is the one that opens by default; the server sorts and the page never re-orders |
+| numbering | `the file's own` | a report somebody deleted shows as a gap in the numbers rather than being closed up |
+| list columns | `Report, Date, Source, Phases` | the fields a person scans a stack of build reports by, in that order |
+| empty | No build reports yet — run `phyllum create` (or `build`) to write the first one. | what the view says with no build report on disk: a plain line, not an empty grid |
+| unstated field | `—` | a field the report does not carry; the page never invents one |
+| flat report | `flat` | what the Phases column says for a report whose Work section did not split |
+| unreadable report | `This build report could not be read.` | one hand-mangled file is a row carrying its own error, never a blank view |
+| per-phase approval | `none` | no control in this view approves, accepts or runs a single phase; approval is per report, and stays the terminal's |
+| refresh | `while the view is open` | the list is re-read on entering the view and every five seconds it stays open |
+| writes | `none, except the relay` | the view renders `.phyllum/build-report-[n].md` and never writes one; the one thing it sends anywhere is a queued prompt, on the same `/prompt` route every other relay on the page uses |
+
+Those settings are the page's `BUILD_REPORTS` constant, inside the region
+marked `phyllum:build-reports-contract`, and the assertion suite reads both
+this table and that region — so the ref and the page cannot drift apart
+quietly.
 
 ## The on-page rail (v0.6.0 §4)
 

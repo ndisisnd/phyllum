@@ -134,7 +134,7 @@ works. v0.10.0 ships in phases, and this file lands in the first of them.
 | input resolved from the latest drift report, prose overriding | 2 | shipped |
 | `build-report-[n].md` emitted and mapped to its source | 3 | shipped |
 | approval gate and phased replacement | 4 | shipped |
-| the dashboard's build entry, mirroring the terminal flow | 5 | not built yet |
+| the dashboard's build entry, mirroring the terminal flow | 5 | shipped |
 
 Phase 2 changed one flow and no others. Bare `phyllum create` now leads with
 the latest drift report's recommendations when a readable one exists; prose,
