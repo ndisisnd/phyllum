@@ -69,6 +69,57 @@ test('declining the acceptance leaves the file alone and keeps the draft', async
   });
 });
 
+// ---------------------------------------------------------------------------
+// The gate (v0.10.0 phase 4) — the report is what is being approved
+// ---------------------------------------------------------------------------
+
+test('the build report is on disk before the acceptance question is answered', async () => {
+  await withProject(async (dir) => {
+    const before = read(dir);
+    let seen = null;
+    await runCreate(tokens('button danger with 12px padding-top'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'skip',
+      confirm: async (question) => {
+        // Everything this assertion needs is true *inside* the gate: the report
+        // exists, the question names it, and the design system is untouched.
+        seen = question;
+        assert.ok(
+          fs.existsSync(path.join(dir, '.phyllum', 'build-report-1.md')),
+          'the report must be written before the user is asked',
+        );
+        assert.equal(read(dir), before, 'nothing outside .phyllum/ may change before the yes');
+        return true;
+      },
+    });
+    assert.ok(seen.includes('.phyllum/build-report-1.md'), 'the question names the report to read');
+    assert.ok(seen.includes('Write Button/Danger to DESIGN-SYSTEM.md?'), 'the old question is intact');
+    assert.notEqual(read(dir), before, 'and the yes is what changed the file');
+  });
+});
+
+test('a declined acceptance keeps the build report and leaves the design system alone', async () => {
+  await withProject(async (dir) => {
+    const before = snapshotContents(dir);
+    const { out } = await runCreate(tokens('button danger with 12px padding-top'), {
+      cwd: dir,
+      env: {},
+      ask: async () => 'skip',
+      confirm: async () => false,
+    });
+
+    const diff = diffSnapshots(before, snapshotContents(dir));
+    assert.deepEqual(diff.changed, [], 'a no writes nothing outside .phyllum/');
+    assert.deepEqual(diff.added.sort(), ['.phyllum/build-report-1.md', '.phyllum/session.json']);
+    assert.ok(out.includes('Not accepted, so nothing was written'));
+    assert.ok(
+      out.includes('.phyllum/build-report-1.md stays where it is'),
+      'and the user is told the report is a record of what was proposed',
+    );
+  });
+});
+
 test('accepting changes exactly one file in the codebase', async () => {
   await withProject(async (dir) => {
     const before = snapshotContents(dir);

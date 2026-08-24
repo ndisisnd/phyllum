@@ -114,6 +114,12 @@ replacements land one careful phase at a time rather than in one sweep. A phase
 is a unit a person can read, approve and verify; a hundred replacements in one
 block is a unit nobody reads.
 
+Both of those are mechanism from v0.10.0 phase 4 onward, and the protocol is
+`refs/build/gate.md`: the order the report, the question and the write happen
+in, what a declined run leaves behind, the threshold a split starts at, and why
+a phase is a reading unit rather than an execution queue. Load that file before
+asking a user to accept anything in this stage.
+
 ---
 
 ## 4. What exists today
@@ -127,7 +133,7 @@ works. v0.10.0 ships in phases, and this file lands in the first of them.
 | the stage named, its commands homed, this reference | 1 | shipped |
 | input resolved from the latest drift report, prose overriding | 2 | shipped |
 | `build-report-[n].md` emitted and mapped to its source | 3 | shipped |
-| approval gate and phased replacement | 4 | not built yet |
+| approval gate and phased replacement | 4 | shipped |
 | the dashboard's build entry, mirroring the terminal flow | 5 | not built yet |
 
 Phase 2 changed one flow and no others. Bare `phyllum create` now leads with
@@ -135,14 +141,23 @@ the latest drift report's recommendations when a readable one exists; prose,
 image, custom and primitives read exactly the input they have always read, and
 a project with no report sees exactly the picker it saw before.
 
-Phase 3 makes the report mechanics real: `create`'s prose and pick doors now
-write `.phyllum/build-report-[n].md` on an accepted component, mapped back to
-the drift report or the sentence it answered. What phase 3 does **not** do is
-reorder the write around it — the report is still written *after* the
-component is accepted and saved, not read and approved beforehand, so "the
-gate is the point" in §3 above is not yet true of the mechanism, only of the
-intent. Say that a build report is written on acceptance; do not say it is
-approved before anything happens — that ordering, and the split into phases
-for a large drift answer, are phase 4's job. Image mode and a component seeded
-from an `assess` candidate write no build report yet either; only prose
-`create` and a bare `create` that consumed the latest drift report do.
+Phase 3 makes the report mechanics real: `create`'s prose and pick doors write
+`.phyllum/build-report-[n].md`, mapped back to the drift report or the sentence
+it answered. Image mode and a component seeded from an `assess` candidate write
+no build report; only prose `create` and a bare `create` that consumed the
+latest drift report do.
+
+Phase 4 puts the report where §3 always claimed it was. The report is written
+**before** the acceptance question, the question names it, and only a yes edits
+`DESIGN-SYSTEM.md` — so the report is the thing being approved rather than a
+receipt for a write that already happened. A declined run keeps its report, as
+the record of what was proposed. When the drift answered is large the Work
+section splits into ordered `## Phase n` sections by a mechanical rule, and the
+source block gains a `phases` field describing the split. `refs/build/gate.md`
+is the protocol for all of it, including the boundary that keeps phases a
+reading and approval structure rather than an execution queue.
+
+What phase 4 does **not** do is change any flow that carries no Build input.
+A pick in a project with no drift report, an image, `create primitives`: same
+question, same order, no report. And it does not add a per-phase acceptance —
+one report, one yes; executing outward one phase at a time is `apply`'s.

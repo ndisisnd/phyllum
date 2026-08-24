@@ -72,7 +72,8 @@ same fact as JSON:
   "schemaVersion": 1,
   "source": "report",
   "assessReport": 3,
-  "prose": null
+  "prose": null,
+  "phases": null
 }
 ```
 
@@ -82,6 +83,14 @@ when `source` is `"report"` and is `null` otherwise; `prose` carries the typed
 sentence when `source` is `"prose"` and is `null` otherwise. Exactly one of
 the two is non-null when a real input exists, and both are `null` for
 `"none"`.
+
+`phases` is the one field v0.10.0 phase 4 adds, and *adds* is the operative
+word — the schema version stays 1 because nothing changed meaning and nothing
+disappeared, so a reader written against the earlier block still works. It is
+`null` on a report that was not split, and an array of
+`{ "phase", "title", "items" }` on one that was, listing each phase's number,
+its title and the ids of the recommendations in it. Read the split from here
+rather than parsing `## Phase n` headings back out of the markdown.
 
 A declared info string, `phyllum-build-source` rather than plain `json`, finds
 this block specifically — the same reasoning `RECOMMENDATIONS_FENCE` gives in
@@ -111,6 +120,14 @@ from, in the same wording Build's other surfaces already use:
   build from, mirroring the Source section rather than inventing content for
   a section that has none.
 
+When the recommendations consumed are **large** — seven or more work items —
+the Work section does not print one long list. It prints a summary line and
+then one `## Phase n` section per phase, grouped by severity and then family,
+capped at five items each. The rule, its two numbers and the reasoning behind
+both are `refs/build/gate.md`; it is stated there rather than here because the
+split is what a user is being asked to read and approve, not a detail of the
+file format.
+
 ## Writing
 
 The write goes through `lib/write.js`, exactly as every other write in the
@@ -120,16 +137,18 @@ counterparts, and the path they produce is always inside `.phyllum/`, which
 was already inside the permission model before this report existed — Build's
 output adds no new write target, only a new name for one Phyllum already had.
 
-## What phase 3 does not do
+## What Build's report does not do
 
 `refs/build/build.md` §4 states the phase table; the short version repeated
-here because a report about a report needs it too. Phase 3 makes the
-mechanics above real and wires them into `create`'s prose and pick doors: an
-accepted component write now leaves a build report behind, mapped to what it
-answered. It does **not** reorder the write around the report — the report is
-still written after the design system is edited, not before it and read as
-something to approve. That reordering, and splitting a large drift answer
-into phases, is phase 4's job, and the call site in `lib/create-command.js`
-says so at the point it will move. Image mode and a component seeded from an
-`assess` candidate write no build report yet; only the two doors named above
-do.
+here because a report about a report needs it too. As of v0.10.0 phase 4 the
+report is written **before** the acceptance question and is the thing being
+approved, so a declined run leaves one behind on disk — the record of what was
+proposed. `refs/build/gate.md` is the order of events and the wording; this
+file stays the file format.
+
+Two limits remain, and neither is a gap this file can close. Image mode and a
+component seeded from an `assess` candidate write no build report at all; only
+`create`'s prose door and a bare `create` that consumed the latest drift report
+do. And a report's phases are a reading and approval structure, not an
+execution queue — one report takes one yes, and running work outward one phase
+at a time belongs to `apply` (`refs/apply/plan.md`).

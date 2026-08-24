@@ -19,6 +19,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  BUILD_PHASE_MAX_ITEMS,
+  BUILD_PHASE_THRESHOLD,
   BUILD_REPORT_PATTERN,
   BUILD_SOURCE_FENCE,
   BUILD_SOURCE_SCHEMA_VERSION,
@@ -27,6 +29,7 @@ import {
   listBuildReports,
   nextBuildReportNumber,
   parseBuildSource,
+  planBuildPhases,
   readBuildReport,
   renderBuildReport,
   writeBuildReport,
@@ -184,6 +187,126 @@ test('a report from a report input with no recommendations still renders every s
   const text = renderBuildReport({ number: 1, date: DAY, input: empty });
   assert.ok(text.includes('Answers: assess-5'));
   assert.ok(text.includes('Nothing to do. The report it answers recommended nothing.'));
+});
+
+// ---------------------------------------------------------------------------
+// Phasing (v0.10.0 phase 4)
+// ---------------------------------------------------------------------------
+
+/** `n` recommendations in one family at one severity, deterministically named. */
+function rows(family, severity, n, from = 0) {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `${family}.rule-${from + i}.evidence`,
+    family,
+    rule: `rule-${from + i}`,
+    severity,
+    count: n - i,
+    action: null,
+    evidence: [],
+  }));
+}
+
+const fromRows = (recommendations) => ({
+  source: 'report',
+  prose: null,
+  report: { number: 7, date: DAY, path: '.phyllum/assess-7.md' },
+  recommendations,
+});
+
+test('the threshold is a boundary, not a slope: six items stay flat, seven split', () => {
+  assert.equal(BUILD_PHASE_THRESHOLD, 6, 'six families, so six items average one apiece');
+
+  const six = rows('lint', 'error', 6);
+  assert.equal(planBuildPhases(six), null, 'at the threshold the Work section stays flat');
+  const flat = renderBuildReport({ number: 1, date: DAY, input: fromRows(six) });
+  assert.ok(!flat.includes('## Phase 1'), 'a small answer gets no phase headings');
+  assert.equal(parseBuildSource(flat).phases, null, 'and no phases in the block');
+
+  const seven = rows('lint', 'error', 7);
+  const phases = planBuildPhases(seven);
+  assert.equal(phases.length, 2, 'seven items in one group is five plus two');
+  const split = renderBuildReport({ number: 1, date: DAY, input: fromRows(seven) });
+  assert.ok(split.includes('## Phase 1 — error · lint'));
+  assert.ok(split.includes('## Phase 2 — error · lint (continued)'));
+});
+
+test('nothing at all, and one item, are never phased', () => {
+  assert.equal(planBuildPhases([]), null);
+  assert.equal(planBuildPhases(rows('lint', 'error', 1)), null);
+  assert.equal(planBuildPhases(), null);
+});
+
+test('phases group by severity first, then family, and never exceed the cap', () => {
+  const input = fromRows([
+    ...rows('lint', 'error', 6),
+    ...rows('naming', 'error', 2, 10),
+    ...rows('lint', 'warn', 3, 20),
+    ...rows('extras', 'note', 1, 30),
+  ]);
+  const phases = planBuildPhases(input.recommendations);
+
+  assert.deepEqual(
+    phases.map((phase) => phase.title),
+    [
+      'error · lint',
+      'error · lint (continued)',
+      'error · naming',
+      'warn · lint',
+      'note · extras',
+    ],
+    'worst severity first, then the order the families arrived in',
+  );
+  assert.deepEqual(phases.map((phase) => phase.phase), [1, 2, 3, 4, 5], 'numbered from one, in order');
+  for (const phase of phases) {
+    assert.ok(phase.items.length <= BUILD_PHASE_MAX_ITEMS, `${phase.title} is over the cap`);
+  }
+  assert.equal(
+    phases.reduce((total, phase) => total + phase.items.length, 0),
+    input.recommendations.length,
+    'every item lands in exactly one phase',
+  );
+});
+
+test('a phased split is deterministic, whatever order equal-ranked rows arrive in', () => {
+  const input = fromRows([...rows('lint', 'error', 5), ...rows('props', 'warn', 4, 40)]);
+  const once = planBuildPhases(input.recommendations);
+  const twice = planBuildPhases(input.recommendations);
+  assert.deepEqual(once, twice, 'the same rows produce the same phases');
+  assert.equal(
+    renderBuildReport({ number: 2, date: DAY, input }),
+    renderBuildReport({ number: 2, date: DAY, input }),
+    'and the same bytes',
+  );
+
+  // Severity ordering does not depend on the input being pre-sorted: a warn row
+  // read first still lands after every error row.
+  const shuffled = fromRows([...rows('props', 'warn', 4, 40), ...rows('lint', 'error', 5)]);
+  assert.deepEqual(
+    planBuildPhases(shuffled.recommendations).map((phase) => phase.title),
+    ['error · lint', 'warn · props'],
+  );
+});
+
+test('a phased report announces the split and carries it in the block', () => {
+  const input = fromRows([...rows('lint', 'error', 5), ...rows('props', 'warn', 4, 40)]);
+  const text = renderBuildReport({ number: 3, date: DAY, input });
+
+  assert.ok(text.includes('9 items, split into 2 phases'));
+  const headings = text
+    .split('\n')
+    .filter((line) => line.startsWith('## '))
+    .map((line) => line.slice(3));
+  assert.deepEqual(headings, ['Source', 'Work', 'Phase 1 — error · lint', 'Phase 2 — warn · props']);
+
+  const parsed = parseBuildSource(text);
+  assert.equal(parsed.schemaVersion, BUILD_SOURCE_SCHEMA_VERSION, 'an added field bumps nothing');
+  assert.deepEqual(parsed.phases.map((phase) => phase.phase), [1, 2]);
+  assert.deepEqual(parsed.phases[1].items, rows('props', 'warn', 4, 40).map((row) => row.id));
+});
+
+test('only a report-sourced run is ever phased', () => {
+  assert.equal(parseBuildSource(renderBuildReport({ number: 1, date: DAY, input: proseInput })).phases, null);
+  assert.equal(parseBuildSource(renderBuildReport({ number: 1, date: DAY, input: noneInput })).phases, null);
 });
 
 // ---------------------------------------------------------------------------

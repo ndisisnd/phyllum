@@ -287,6 +287,17 @@ test('nothing is written until the pick is accepted, and then only one file', as
     });
     assert.ok(declined.out.includes('Not accepted, so nothing was written'));
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, []);
+    // v0.10.0 phase 4: a pick in a project with no drift report carries no
+    // Build input, so no build report is written and the gate reads exactly as
+    // it always has — the phase changed the flows that have an input, and only
+    // those.
+    assert.deepEqual(
+      diffSnapshots(before, snapshotContents(dir)).added.filter((rel) =>
+        rel.startsWith('.phyllum/build-report-'),
+      ),
+      [],
+    );
+    assert.ok(!declined.out.includes('stays where it is'));
 
     const accepted = await run('create', dir, {
       env: { CLAUDECODE: '1' },
