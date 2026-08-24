@@ -79,6 +79,12 @@ Two rules bound the default:
   Reading the drift report is a *default*, added beside those doors; it does
   not become a door they have to pass through.
 
+Both rules are protocol from v0.10.0 phase 2 onward, and the protocol is
+`refs/build/input.md`: the order the three sources are consulted in, the five
+different ways there is no report to read, and what to say for each. Load that
+file when a run starts with no subject; this section is the reason it exists,
+not a substitute for it.
+
 ---
 
 ## 3. The stage's output
@@ -117,13 +123,16 @@ works. v0.10.0 ships in phases, and this file lands in the first of them.
 | What | Phase | State |
 |------|-------|-------|
 | the stage named, its commands homed, this reference | 1 | shipped |
-| input resolved from the latest drift report, prose overriding | 2 | not built yet |
+| input resolved from the latest drift report, prose overriding | 2 | shipped |
 | `build-report-[n].md` emitted and mapped to its source | 3 | not built yet |
 | approval gate and phased replacement | 4 | not built yet |
 | the dashboard's build entry, mirroring the terminal flow | 5 | not built yet |
 
-Until phase 2 lands, every Build command reads exactly the input it has always
-read. Until phase 3 lands, no build report is written. Do not describe either
-as current behaviour, and do not tell a user a report is waiting for them when
-nothing wrote one — a stage that overstates its own output is worse than a
-stage that has none yet.
+Phase 2 changed one flow and no others. Bare `phyllum create` now leads with
+the latest drift report's recommendations when a readable one exists; prose,
+image, custom and primitives read exactly the input they have always read, and
+a project with no report sees exactly the picker it saw before. Until phase 3
+lands, no build report is written. Do not describe an unbuilt phase as current
+behaviour, and do not tell a user a report is waiting for them when nothing
+wrote one — a stage that overstates its own output is worse than a stage that
+has none yet.
