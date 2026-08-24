@@ -81,7 +81,13 @@ test('accepting changes exactly one file in the codebase', async () => {
 
     const diff = diffSnapshots(before, snapshotContents(dir));
     assert.deepEqual(diff.changed, ['DESIGN-SYSTEM.md']);
-    assert.deepEqual(diff.added, ['.phyllum/session.json', 'DESIGN-SYSTEM.md.bak']);
+    // v0.10.0 phase 3: prose `create` is one of Build's two doors that leaves a
+    // numbered build report behind, mapped to the sentence it answered.
+    assert.deepEqual(diff.added, [
+      '.phyllum/build-report-1.md',
+      '.phyllum/session.json',
+      'DESIGN-SYSTEM.md.bak',
+    ]);
     assert.deepEqual(diff.removed, []);
     assert.ok(validateStructure(read(dir)).valid, 'the template contract still holds');
   });

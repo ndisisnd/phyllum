@@ -99,7 +99,9 @@ Each report is **mapped back to what it answers**: the drift report whose
 recommendations it was built from, or the prose input it was built from when
 there was no report. Numbered reports are how this product records what
 happened on a day, and a report that could not say what it was answering would
-break the chain the numbering exists to keep.
+break the chain the numbering exists to keep. The mechanics — numbering, the
+source block, what the mapping says for each of Build's inputs — are
+`refs/build/report.md`.
 
 **The gate is the point.** Building never changes the codebase in the same
 breath as deciding what to change. The user reads the report first and approves
@@ -124,15 +126,23 @@ works. v0.10.0 ships in phases, and this file lands in the first of them.
 |------|-------|-------|
 | the stage named, its commands homed, this reference | 1 | shipped |
 | input resolved from the latest drift report, prose overriding | 2 | shipped |
-| `build-report-[n].md` emitted and mapped to its source | 3 | not built yet |
+| `build-report-[n].md` emitted and mapped to its source | 3 | shipped |
 | approval gate and phased replacement | 4 | not built yet |
 | the dashboard's build entry, mirroring the terminal flow | 5 | not built yet |
 
 Phase 2 changed one flow and no others. Bare `phyllum create` now leads with
 the latest drift report's recommendations when a readable one exists; prose,
 image, custom and primitives read exactly the input they have always read, and
-a project with no report sees exactly the picker it saw before. Until phase 3
-lands, no build report is written. Do not describe an unbuilt phase as current
-behaviour, and do not tell a user a report is waiting for them when nothing
-wrote one — a stage that overstates its own output is worse than a stage that
-has none yet.
+a project with no report sees exactly the picker it saw before.
+
+Phase 3 makes the report mechanics real: `create`'s prose and pick doors now
+write `.phyllum/build-report-[n].md` on an accepted component, mapped back to
+the drift report or the sentence it answered. What phase 3 does **not** do is
+reorder the write around it — the report is still written *after* the
+component is accepted and saved, not read and approved beforehand, so "the
+gate is the point" in §3 above is not yet true of the mechanism, only of the
+intent. Say that a build report is written on acceptance; do not say it is
+approved before anything happens — that ordering, and the split into phases
+for a large drift answer, are phase 4's job. Image mode and a component seeded
+from an `assess` candidate write no build report yet either; only prose
+`create` and a bare `create` that consumed the latest drift report do.
