@@ -42,13 +42,15 @@ import { PACKAGE_ROOT } from './helpers.js';
 /**
  * Every name that owns a reference folder.
  *
- * All but one are protocols — one command, one folder, one frame file named
- * after it. `build` (v0.10.0 phase 1) is the exception and is listed anyway:
- * it is a *stage* folder rather than a command's, because Build homes five
- * commands and so has no command folder to live in. It obeys every rule in
- * this file regardless — the frame file named after the folder, the line
- * floor, unique markers, live cross-references — which is the reason it is
- * checked here rather than exempted.
+ * All but two are protocols — one command, one folder, one frame file named
+ * after it. `build` (v0.10.0 phase 1) and `refine` (v0.11.0 phase 6) are the
+ * exceptions and are listed anyway: both are *stage* folders rather than a
+ * command's. Build homes five commands and so has no command folder to live
+ * in; Refine's `refine` is one command with seven modes, and its folder carries
+ * the stage protocol beside a file per mode. Each obeys every rule in this file
+ * regardless — the frame file named after the folder, the line floor, unique
+ * markers, live cross-references — which is the reason both are checked here
+ * rather than exempted.
  */
 const PROTOCOLS = [
   'apply',
@@ -58,12 +60,33 @@ const PROTOCOLS = [
   'delete',
   'gui',
   'init',
+  'refine',
   'system',
   'tokenise',
   'update',
   'upgrade',
   'version',
 ];
+
+/**
+ * Reference folders that exist but do not own a frame file yet.
+ *
+ * Empty today, and that is the point of keeping it. `refine` was the one entry
+ * it ever held: v0.11.0 wrote the Refine protocol in phase 1, before the gate
+ * that runs it, so for five phases the folder carried `protocol-refine.md` and
+ * no `refine.md`. Phase 6 landed the frame file with the full gate, and `refine`
+ * moved into `PROTOCOLS` above.
+ *
+ * The list is an enumeration, not an exemption, and it stays here for the next
+ * stage folder written ahead of its command. Every tree-wide rule in this file
+ * — the line floor, unique markers, live cross-references, the install walk —
+ * already covers a pending folder, because those sweep `everyRefFile()` rather
+ * than `PROTOCOLS`. What the list buys is that a folder cannot appear in the
+ * tree unnoticed: the layout test below demands that every directory under
+ * `refs/` is on one of the two lists, and the routing test demands that
+ * `SKILL.md` points at it either way.
+ */
+const PENDING = [];
 
 /**
  * The references that are not folders, by design (v0.4.1 §8).
@@ -105,6 +128,33 @@ test('every protocol is a folder, and the folder carries the file named after it
     assert.ok(
       files.includes(`${protocol}.md`),
       `refs/${protocol}/ has no ${protocol}.md — the frame file is the entry point`,
+    );
+  }
+});
+
+test('every folder under refs/ is enumerated — as a protocol, or as a pending one', () => {
+  const dirs = fs
+    .readdirSync(REFS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  assert.deepEqual(
+    dirs,
+    [...PROTOCOLS, ...PENDING].sort(),
+    'a reference folder exists that neither PROTOCOLS nor PENDING names',
+  );
+});
+
+test('a pending folder carries a protocol file, and no frame file pretending to be one', () => {
+  for (const pending of PENDING) {
+    const files = refFiles(pending).map((file) => path.basename(file));
+    assert.ok(
+      files.includes(`protocol-${pending}.md`),
+      `refs/${pending}/ has no protocol-${pending}.md — a pending folder holds its stage protocol`,
+    );
+    assert.ok(
+      !files.includes(`${pending}.md`),
+      `refs/${pending}/${pending}.md exists — move ${pending} from PENDING into PROTOCOLS`,
     );
   }
 });
@@ -222,7 +272,7 @@ test('SKILL.md routes every command at a reference that exists', () => {
   }
   // And the table says which file to load, per protocol — the lazy-loading
   // payoff is the index, not the folder.
-  for (const protocol of PROTOCOLS) {
+  for (const protocol of [...PROTOCOLS, ...PENDING]) {
     assert.ok(skill.includes(`refs/${protocol}/`), `SKILL.md does not route ${protocol}`);
   }
 });

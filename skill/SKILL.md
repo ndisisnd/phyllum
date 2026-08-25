@@ -87,6 +87,12 @@ reads and approves before anything is built. v0.10.0 delivers those in phases,
 and the stage reference says plainly which phase brings which, because a stage
 that overstates its own output is worse than a stage that has none yet.
 
+Refine's are stated in `refs/refine/protocol-refine.md` — the input is the
+codebase and `DESIGN-SYSTEM.md`, read over one component, one token or the whole
+system, and the output is a numbered `refine-report-[n].md` under `.phyllum/`.
+Refine is report-only: it grades, it never fixes, and it writes nothing in the
+user's codebase at all.
+
 Some commands belong to no stage at all. Running the tool — the menu, help, the
 dashboard, printing the file, versions, installs — is grouped as **System**, and
 System is a grouping, not a fifth stage. Do not offer it as a step of the
@@ -116,8 +122,52 @@ and `lib/registry.js` can never say different things.
 | `upgrade` | System | — | Upgrade this install to the latest published version |
 | `init` | System | — | Guided setup: scaffold the file, install this skill |
 
-Governance and Refine hold no commands in this release. Every command that
-edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
+Governance holds no commands in this release. Refine's command, `refine`, is
+the subject of v0.11.0 and lands across that release's phases; its stage
+protocol — the gate order, the modes, the report, the ship criteria — is
+written first and lives at `refs/refine/protocol-refine.md`, with the stage
+frame beside it at `refs/refine/refine.md`. Phase 2 lands the three deterministic modes — coverage, naming and lint —
+as libraries with their own references (`refs/refine/coverage.md`,
+`refs/refine/naming.md`, `refs/refine/lint.md`) and their own assertion suites.
+Phase 3 adds a fourth, `refine tests`, which derives a component's usage
+contract from its spec block and renders the tests that assert it
+(`refs/refine/protocol-usage-contract.md`, `refs/refine/tests.md`). It renders
+the text and never places it: a test file inside the user's test tree is
+outside the permission rule above, so the path is a proposal and putting the
+file there is the user's act. Phase 4 adds a fifth, `refine a11y`
+(`refs/refine/a11y.md`), which audits contrast on the pairs a component spec
+binds, the presence of a focus treatment on an interactive archetype, and the
+ARIA expectation that archetype's row records. It reports and never repairs,
+and it says plainly what it could not read rather than passing it. Phase 5 adds
+the last two, `refine deprecate` and `refine ship`
+(`refs/refine/deprecate.md`, `refs/refine/ship.md`). `deprecate` marks a
+component or token dying **with a named replacement** — a replacement is
+mandatory, and without one there is no deprecation — lists what still uses it,
+and is the one mode in the stage that edits `DESIGN-SYSTEM.md`: the derivation
+writes nothing and the write sits behind the same acceptance gate and the same
+`lib/write.js` funnel every other write passes through. `delete` reads that
+record and refuses to remove a deprecated component while usages remain, naming
+the replacement to move them to. `ship` runs the six ship criteria and marks a
+component shippable only when all six pass; it re-runs nothing, writes nothing
+at all, and reports the docs criterion as unmet-with-reason until Governance
+ships rather than passing it by absence. A deprecated component is never
+shippable. Phase 6 is the gate itself: bare `refine` runs all seven sections in
+the fixed order — contract, coverage, naming, a11y, lint, tests, ship verdict —
+over one component, one token or the whole system, and writes
+`.phyllum/refine-report-[n].md` ending in the verdict. No section is skipped: one
+that could not run says why, and one outside the subject's reach — coverage
+against a token, which is not a thing that gets built — says that it does not
+apply. A subject the design system does not record is refused, and a refusal
+writes no report. `lib/refine-gate.js` is the gate and `refs/refine/refine.md` is
+the stage frame.
+
+**Refine is driven from this skill, not from the CLI's command table.** There is
+no `phyllum refine` to type, and `lib/registry.js` records no `refine` row —
+deliberately, and for the same reason Build's stage frame is a reference rather
+than a command: the stage's seven checks and its gate are libraries a session
+calls, exactly as phases 2 to 5 shipped them. The registry lists words the CLI
+dispatches, and `refine` is not one. So describe the gate as something this skill
+runs over a project, never as a word the user types at a terminal. Every command that edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
 revising one, removing one, applying the system outward — is Build, because all
 of it is making the thing real. v0.10.0 re-homes `create` (alias `build`),
 `tokenise` and `apply` formally, under a stage that now has a frame of its own
@@ -170,8 +220,9 @@ what it must never do. Everything else is a topic.
 | `delete` | `refs/delete/` | `delete.md` the frame, the grammar with its reserved-and-refused `token`, the never-list, and what `delete` leaves for `apply` to clean up · `flow.md` the six steps, the copy contract, the in-use rule with its flag-or-live-check split, the double confirmation and the one write |
 | `init` | `refs/init/` | `init.md` the walkthrough, step by step |
 | Build stage | `refs/build/` | `build.md` what the Build stage is, the five commands it homes, its defined input (the latest drift report's recommendations, with explicit prose overriding) and its defined output (a numbered `build-report-[n].md` under `.phyllum/`, behind an approval gate), plus which phase of v0.10.0 brings which · `input.md` the resolution protocol: the order prose, image and the latest drift report are consulted in, what prose overriding does and does not mean, the five different ways there is no report to read, and how recommendations are surfaced above the picker · `report.md` the numbered build report itself: numbering, date injection, the Source and Work sections, and the machine-readable `phyllum-build-source` block that maps a report back to the drift report or the prose it answers · `gate.md` the approval gate: the order the report, the question and the `DESIGN-SYSTEM.md` write happen in, what a declined run leaves behind, and the mechanical rule that splits a large drift answer into ordered `## Phase n` sections |
+| Refine stage | `refs/refine/` | `refine.md` the stage frame: what Refine is for, why every check is a mode of one command rather than a sibling of it, why the gate order is fixed and no section is ever skipped, the three scopes and the refusal an unrecorded subject gets, what the numbered report leaves behind, the never-list, and the write posture · `protocol-refine.md` the Refine stage end to end: the gate order (contract → coverage → naming → a11y → lint → tests → ship verdict) and why deterministic checks run first, the three scopes, the seven modes of the one `refine` command, the numbered `refine-report-[n].md`, the six ship criteria and the docs criterion that ties forward to Governance, and the read-only permission posture · `coverage.md` `refine coverage`: what counts as built, what counts as a raw value, the bypassed-token/unnamed-value split and why an unbuilt component is neither passed nor failed · `naming.md` `refine naming`: which scale grades which token table, the two spellings Phyllum's own naming adds, how a component name is graded against its recorded archetype, and why an off-scale name is a warn · `a11y.md` `refine a11y`: where a contrast pair comes from and why an unpaired token is not checked against everything else, the WCAG thresholds and which one a component's own type size earns, why an interactive archetype with no recorded focus treatment is a finding, the ARIA row per archetype and why a native element carries its own semantics, and the error/warn split between a fact about the component and a limit of the reading · `lint.md` `refine lint`: the linters it detects and how, why the project's own `lint` script is not what runs, the check-mode rule and the four answers a linter can give · `protocol-usage-contract.md` what a usage contract is: type strictness, where data may live, how a human and an agent are each meant to call a component, the clause table with what each clause asserts and when the spec is too silent to state it, and why a generated test file is handed over rather than placed · `tests.md` `refine tests`: the runners it detects and the stated `node:test` fallback, what a generated file looks like, why a clause it cannot express is reported rather than stubbed, and the difference between a test Phyllum rendered and a test the project carries · `deprecate.md` `refine deprecate`: why a replacement is mandatory, where a component's record and a token's record each go and why they differ, how the usage list is derived from the one adoption walk, how `delete` blocks a removal while usages remain, and why the derivation writes nothing · `ship.md` `refine ship`: the six criteria and the section each reads, why there are three answers rather than two, why the verdict is a conjunction and never a score, why a deprecated component is never shippable, and why the verdict is reported and never recorded |
 
-One row of that table is a **stage** rather than a command. Assess keeps its
+Two rows of that table are a **stage** rather than a command. Assess keeps its
 stage protocol inside its command folder — `refs/assess/protocol-assess.md` —
 because Assess is one stage with one command. Build homes five, so it has no
 command folder to live in and takes a folder of its own. Load `refs/build/`
@@ -179,6 +230,23 @@ when the question is about the stage: what it consumes, what it leaves behind,
 or which command belongs to it. A question about one command is still answered
 by that command's own folder, which outranks the stage file wherever the two
 disagree.
+
+`refs/refine/` is the second stage folder, and it is now whole. v0.11.0 wrote
+the Refine protocol first and added a file per mode as each mode landed; phase 6
+added `refine.md`, the frame the folder is named after, together with the gate
+that runs every mode in order. All seven modes have landed — `coverage.md`,
+`naming.md`, `a11y.md`, `lint.md` and `tests.md`, the deterministic checks, plus
+`deprecate.md` and `ship.md` — and each states the contract of a check that runs
+as a library. `deprecate.md` is the one that edits `DESIGN-SYSTEM.md`; `ship.md`
+is the one that writes nothing at all; the gate itself writes exactly one file,
+`.phyllum/refine-report-[n].md`. The folder also carries a second protocol file,
+`protocol-usage-contract.md`, which is what correct use of a component means
+rather than what one mode does; `refine tests` derives its output from it.
+
+Load `refine.md` for a question about the stage — what it is for, what it
+refuses, what it leaves behind. Load `protocol-refine.md` for the gate's own
+mechanics, and a mode's file for that mode. Where a mode's file and the stage
+protocol disagree, the mode's file wins.
 
 Two references belong to no command and are the two that are still flat files,
 because each is a shared library rather than a protocol. Both are loaded
