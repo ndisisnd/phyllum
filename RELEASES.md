@@ -2,6 +2,35 @@
 
 What's new for you, release by release.
 
+## 0.10.0 — 2026-08-25
+
+> Building a component no longer changes your codebase the moment you ask for
+> it. Every build now writes a report first, and nothing is replaced until you
+> have read it and said yes. When there is a lot to fix, that report arrives
+> split into phases, so a big cleanup happens one careful step at a time
+> instead of in one sweep you cannot review.
+
+### ✨ New
+- Every build leaves a numbered report under `.phyllum/`, so you can look back
+  at what was proposed and when — the same way assessment reports already work.
+- Building now reads the recommendations of your latest drift report by default.
+  You can run `assess` and then build without restating what needs fixing.
+- Nothing reaches `DESIGN-SYSTEM.md` until you approve the build report. If you
+  decline, the report still stays on disk as the record of what was proposed.
+- A large amount of drift now splits the build report into ordered phases, so
+  replacements happen one phase at a time rather than all at once.
+- The dashboard has a Build view that lists every build report and renders the
+  one you pick, mirroring what you get in the terminal.
+
+### 📈 Improved
+- `create`/`build`, `tokenise` and `apply` now sit together under the Build
+  stage instead of a flat menu, so it is clear which part of the pipeline you
+  are in and what it takes in and puts out.
+- Describing what you want in prose, or handing over an image, works exactly as
+  before. Those entry points are untouched.
+- You can still override the drift-report default at any time by describing the
+  build in your own words.
+
 ## 0.9.0 — 2026-08-24
 
 > Running `assess` no longer just prints and disappears. Every full run now
