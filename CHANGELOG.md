@@ -2,7 +2,63 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-26
+
+### [48] — One `refine` command now runs the whole quality gate and tells you if it ships
+
+- `lib/refine-gate.js`: Added — runs all seven sections in the protocol's fixed order over one component, one token, or the whole system, and writes `.phyllum/refine-report-[n].md`. The order lives in the reference table, not in the code, so a section can never quietly drop out of the gate
+- `lib/refine-spec.js`: Changed — readers for the gate-order and scope tables, so no section name or scope word is spelled in code
+- `lib/write.js`: Changed — the refine-report write path, under `.phyllum/` like every other report
+- `skill/refs/refine/refine.md`: Added — the Refine stage frame: the one command, its seven modes, and the three scopes
+- `skill/refs/refine/protocol-refine.md`: Changed — the scope table gained a marker so the scopes are read rather than restated
+- `skill/SKILL.md`: Changed — Refine is a wired stage now, not a folder ahead of its command
+- `evals/assertions/refine-gate.test.js`: Added — the fixed order, the three scopes, report numbering, the verdict, and a check that the report is dated by your clock rather than in UTC
+- `evals/assertions/refs-layout.test.js`: Changed — `refine` moves out of the pending list, which is now empty
+
 ## 2026-08-25
+
+### [47] — A component can be marked dying with a named replacement, and removing it is blocked while anything still uses it
+
+- `lib/refine-deprecate.js`: Added — `refine deprecate` records a component or token as deprecated **with a mandatory successor**, and lists everything still using it. A deprecation with nothing to move to is a note to nobody, so there is no state for "successor undecided"
+- `lib/refine-ship.js`: Added — `refine ship` answers whether a component is shippable as a conjunction of six criteria, never a score. It re-runs nothing and writes nothing. A criterion nothing could answer is reported unmet with its reason rather than passed by absence
+- `lib/delete-command.js`: Changed — deleting a deprecated component that is still in use now refuses with the replacement named, so the refusal is one you can act on. A deprecated component nobody uses still reaches the gate
+- `lib/refine-spec.js`: Changed — readers for the deprecation-record, deprecation-copy, ship-criteria and ship-status tables
+- `skill/refs/refine/deprecate.md`, `skill/refs/refine/ship.md`: Added — why a replacement is mandatory, where a component's record and a token's record each go, and why the ship verdict is a conjunction
+- `skill/refs/delete/flow.md`, `skill/SKILL.md`: Changed — the deprecation-aware refusal and the two new modes
+- `evals/assertions/refine-deprecate.test.js`, `evals/assertions/refine-ship.test.js`, `evals/assertions/delete-cli.test.js`: Added/Changed — the four refusals, both record homes, the usage listing, the conjunction, and the three rows of the delete block
+
+### [46] — Refine audits accessibility: contrast, focus, and the ARIA a component's archetype expects
+
+- `lib/refine-a11y.js`: Added — checks the contrast of the token pairs a component actually binds, whether an interactive archetype records a focus treatment, and the ARIA expectation its archetype carries. It reports and never repairs
+- `lib/refine-spec.js`: Changed — readers for the contrast thresholds, the slot pairs, the per-archetype ARIA table, and the rule severities
+- `skill/refs/refine/a11y.md`: Added — where a contrast pair comes from, which WCAG threshold a component's own type size earns, and the split between an error that is a fact about the component and a warning that is a limit of the reading
+- `skill/SKILL.md`: Changed — documents the a11y mode
+- `evals/assertions/refine-a11y.test.js`: Added — thresholds, pairs, archetypes, and the error/warn split
+
+### [45] — Refine can generate the tests that prove a component is used correctly
+
+- `skill/refs/refine/protocol-usage-contract.md`: Added — what correct use of a component means: type strictness, where data may live, and how a human and an agent are each meant to call it
+- `lib/refine-tests.js`: Added — `refine tests` renders those clauses as a test file for your own runner, falling back to `node:test` with the reason stated. It writes nothing: the file is handed over, and placing it in your test tree stays your act
+- `lib/refine-spec.js`: Changed — the clause-table reader
+- `skill/refs/refine/tests.md`: Added — the runners it detects, what a generated file looks like, and why a clause it cannot express is reported rather than stubbed
+- `skill/SKILL.md`: Changed — documents the tests mode
+- `evals/assertions/refine-tests.test.js`: Added — clause coverage, runner detection, and the write-nothing guarantee
+
+### [44] — Three deterministic checks: token coverage, naming, and lint
+
+- `lib/refine-coverage.js`: Added — verifies that a built component uses tokens rather than hardcoded values, and separates a bypassed token from an unnamed value. An unbuilt component is neither passed nor failed
+- `lib/refine-naming.js`: Added — grades token names against their scale and component names against the archetype the system recorded. An off-scale name is a warning, not a failure
+- `lib/refine-lint.js`: Added — detects the linters your project already has and runs them in check mode. It refuses fix flags outright and never runs your own `lint` script, because reporting is not rewriting
+- `lib/refine-spec.js`: Added — the one reader for every rule table under `refs/refine/`, so no rule is spelled twice
+- `skill/refs/refine/coverage.md`, `skill/refs/refine/naming.md`, `skill/refs/refine/lint.md`: Added — the contract of each check
+- `skill/SKILL.md`: Changed — documents the three modes
+- `evals/assertions/refine-coverage.test.js`, `evals/assertions/refine-naming.test.js`, `evals/assertions/refine-lint.test.js`: Added — the rules, the splits, and the refusal to rewrite
+
+### [43] — The Refine stage has a protocol: deterministic checks run before judgement calls
+
+- `skill/refs/refine/protocol-refine.md`: Added — the Refine stage end to end: the gate order (contract → coverage → naming → a11y → lint → tests → ship verdict), why the mechanical checks run first, the three scopes, the numbered `refine-report-[n].md`, the six ship criteria, and the read-only posture
+- `skill/SKILL.md`: Changed — routes to the new stage folder
+- `evals/assertions/refs-layout.test.js`: Changed — a stage folder may exist before its command does, and the layout rules say so rather than failing on it
 
 ### [42] — A build report is the thing you approve, not a receipt for a write
 
