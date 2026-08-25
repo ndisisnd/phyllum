@@ -19,14 +19,20 @@ Contract:
       GET  /system   tokens + components of DESIGN-SYSTEM.md
       GET  /reports  the numbered assessment reports under .phyllum/, newest
                      first, read back into fields the page renders as tables
+      GET  /build-reports
+                     the numbered build reports under .phyllum/, newest first,
+                     read back into fields the page renders as tables — the
+                     Build stage's own reports, distinct from /reports above
       POST /prompt   enqueue a prompt into the same session state the terminal
                      reads
       POST /upload   save an image into .phyllum/uploads/ and enqueue it as an
                      image-mode `create` input
   * One parse contract. This server parses nothing itself: it shells out to
     `node ../lib/system-json.js <root>` for DESIGN-SYSTEM.md, the same parser
-    `phyllum system` uses, and to `node ../lib/reports-json.js <root>` for the
-    numbered reports. Two parsers would be two truths about one file.
+    `phyllum system` uses, to `node ../lib/reports-json.js <root>` for the
+    numbered assessment reports, and to `node ../lib/build-reports-json.js
+    <root>` for the numbered build reports. Two parsers would be two truths
+    about one file.
   * Writes only inside .phyllum/ — enforced by _write_under_state_dir below, not
     by convention. The Node write funnel (lib/write.js) stays the only path to
     DESIGN-SYSTEM.md; this process cannot reach it.
@@ -54,6 +60,7 @@ PACKAGE_ROOT = os.path.dirname(HERE)
 GUI_DIR = os.path.join(PACKAGE_ROOT, "gui")
 SYSTEM_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "system-json.js")
 REPORTS_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "reports-json.js")
+BUILD_REPORTS_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "build-reports-json.js")
 
 STATE_DIR = ".phyllum"
 STATE_FILE = os.path.join(STATE_DIR, "session.json")
@@ -220,6 +227,19 @@ def reports_json(root, node_bin):
     return node_json(REPORTS_JSON_SCRIPT, root, node_bin)
 
 
+def build_reports_json(root, node_bin):
+    """Read the numbered build reports under .phyllum/, newest first.
+
+    Read-only, always, exactly as `reports_json` is for assessment reports.
+    The dashboard renders `.phyllum/build-report-[n].md`; only `create`/`build`
+    ever writes one, and it writes the report before the user is asked to
+    approve it — the report is what they approve, not a receipt for a write
+    that already happened. A declined run still leaves its report on disk, as
+    the record of what was proposed; only a yes edits DESIGN-SYSTEM.md.
+    """
+    return node_json(BUILD_REPORTS_JSON_SCRIPT, root, node_bin)
+
+
 # ---------------------------------------------------------------------------
 # HTTP
 # ---------------------------------------------------------------------------
@@ -291,6 +311,10 @@ class PhyllumHandler(BaseHTTPRequestHandler):
             return
         if path == "/reports":
             status, payload = reports_json(self.root, self.node_bin)
+            self._json(payload, status)
+            return
+        if path == "/build-reports":
+            status, payload = build_reports_json(self.root, self.node_bin)
             self._json(payload, status)
             return
         self.serve_static(path)

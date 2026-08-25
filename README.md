@@ -88,6 +88,15 @@ The commands:
 | `pipeline` | Print the four stages, the commands under each, and where this project currently sits — read-only, derived from the files on disk |
 | `menu` / `help` | List the commands, or explain one in depth |
 
+Every command belongs to a stage of one pipeline — Assess, Governance, Build, Refine —
+and `phyllum pipeline` prints that model along with where your project currently sits.
+**Build** is the stage where something actually gets made, and from 0.10.0 it formally
+homes `create` (alias `build`), `tokenise` and `apply`, alongside `update` and `delete`,
+which were already there. The rest of 0.10.0 gives that stage a defined input — the
+recommendations of your latest drift report, unless you say something else in prose —
+and a defined output: a numbered build report under `.phyllum/` that you read and
+approve before anything is built.
+
 ## Install
 
 Phyllum needs **Node 20 or newer** and has no dependencies to install.

@@ -561,7 +561,7 @@ test('the page fetches nothing from the network — no webfont, no CDN, no exter
   for (const route of requests) {
     assert.match(
       route,
-      /^\/(state|system|reports|prompt|upload)$/,
+      /^\/(state|system|reports|build-reports|prompt|upload)$/,
       `${route} must be a same-origin route`,
     );
   }
@@ -1045,7 +1045,7 @@ test('the theme choice is page-local — the server is never told and never aske
   const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
   assert.deepEqual(
     new Set(requests),
-    new Set(['/state', '/system', '/reports', '/prompt', '/upload']),
+    new Set(['/state', '/system', '/reports', '/build-reports', '/prompt', '/upload']),
     'no theme route exists',
   );
 
@@ -1062,7 +1062,7 @@ test('the theme choice is page-local — the server is never told and never aske
 test('the restyle left the server surface alone', () => {
   const server = fs.readFileSync(path.join(PACKAGE_ROOT, 'server', 'serve.py'), 'utf8');
   const routes = [...server.matchAll(/path == "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(new Set(routes), new Set(['/state', '/system', '/reports', '/prompt', '/upload']));
+  assert.deepEqual(new Set(routes), new Set(['/state', '/system', '/reports', '/build-reports', '/prompt', '/upload']));
   assert.ok(server.includes('def serve_static'), 'plus the static page, served from gui/');
   assert.equal(server.match(/def do_(GET|HEAD|POST)/g).length, 3, 'and no new HTTP verb');
 });

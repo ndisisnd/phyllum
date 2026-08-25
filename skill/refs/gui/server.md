@@ -21,6 +21,7 @@ Arguments: `--root <project> --host 127.0.0.1 --port <n> --scope <scope>
 | `GET /state` | — | `.phyllum/session.json` verbatim, plus `scope` (the opening filter), `draft`, `queue`, `designSystem`, `root`, `readAt` |
 | `GET /system` | — | `{ header, columns, tokens: { colours, numbers, typography }, components, backlog, counts }`; each component carries `name`, `spec`, `blocks`, and its parsed slots `archetype`, `custom`, `properties`, `states` (see `refs/gui/component-preview.md`) |
 | `GET /reports` | — | `{ reports, count, root }` — every `.phyllum/assess-[n].md`, newest first, each read back into `{ number, path, date, summary, drift: { columns, rows, note }, health: { score, scaleTop, means, verdict, detail }, schemaVersion, recommendations }`; a report that could not be read comes back as `{ number, path, error }` rather than blanking the list |
+| `GET /build-reports` | — | `{ reports, count, root }` — every `.phyllum/build-report-[n].md`, newest first, each read back into `{ number, path, date, source, assessReport, prose, schemaVersion, sourceLines, phases, work, sections }`; a report that could not be read comes back as `{ number, path, error }` rather than blanking the list — see "The Build view" in `refs/gui/gui.md` |
 | `POST /prompt` | `{ text, view? }` | `201 { ok, queued }`; empty text is `400` |
 | `POST /upload` | raw file bytes, `X-Phyllum-Filename` header (optional `X-Phyllum-Prompt`) | `201 { ok, queued }` |
 
@@ -48,11 +49,22 @@ use.
 `GET /reports` follows the same rule for the numbered assessment reports: it
 shells out to `node lib/reports-json.js <root>`, which reads the numbering, the
 paths and the machine-readable recommendations block back through
-`lib/assess-reports.js` — the module that wrote them. Both routes go through one
-helper, `node_json`, so the server owns no reader of its own. Both scripts are
-read-only, which is what lets this process — the one outside the Node write
-funnel — call them at all: the dashboard renders `.phyllum/assess-[n].md` and
-never writes one.
+`lib/assess-reports.js` — the module that wrote them.
+
+`GET /build-reports` follows the same rule again, for the numbered build
+reports (v0.10.0 phase 5): it shells out to `node lib/build-reports-json.js
+<root>`, which reads the numbering, the paths and the machine-readable
+`phyllum-build-source` block back through `lib/build-reports.js` — the module
+that wrote them. It is a sibling of `lib/reports-json.js`, not an extension of
+it: a build report's prose is a different shape (Source and Work, a Work
+section that may split into `## Phase n` headings), so the two readers stay
+apart the way their writers do.
+
+All three routes go through one helper, `node_json`, so the server owns no
+reader of its own. All three scripts are read-only, which is what lets this
+process — the one outside the Node write funnel — call them at all: the
+dashboard renders `.phyllum/assess-[n].md` and `.phyllum/build-report-[n].md`
+and never writes either.
 
 Why this way, over a minimal Python reader with a round-trip test:
 

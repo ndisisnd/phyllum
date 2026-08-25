@@ -20,6 +20,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { archetypes } from '../../lib/archetypes.js';
+import { writeAssessReport } from '../../lib/assess-reports.js';
+import { scoreAssessment } from '../../lib/assess-score.js';
 import {
   archetypeForSignature,
   pickList,
@@ -58,6 +60,25 @@ async function withProject(body, { system = POPULATED_FIXTURE } = {}) {
 }
 
 const model = () => parse(readFixture(POPULATED_FIXTURE));
+
+/** An assessment with two rules' worth of findings, shaped as the scan emits. */
+function assessed() {
+  const result = {
+    values: {
+      uncovered: [
+        { severity: 'error', rule: 'raw-colour', value: '#3b82f6', count: 12, files: ['a.css'] },
+        { severity: 'warn', rule: 'raw-spacing', value: '13px', count: 1, files: ['d.css'] },
+      ],
+    },
+    naming: { findings: [] },
+    props: { findings: [] },
+    similarity: { findings: [] },
+    hygiene: { findings: [] },
+    extras: { findings: [] },
+  };
+  result.score = scoreAssessment(result);
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // The scan
@@ -266,6 +287,17 @@ test('nothing is written until the pick is accepted, and then only one file', as
     });
     assert.ok(declined.out.includes('Not accepted, so nothing was written'));
     assert.deepEqual(diffSnapshots(before, snapshotContents(dir)).changed, []);
+    // v0.10.0 phase 4: a pick in a project with no drift report carries no
+    // Build input, so no build report is written and the gate reads exactly as
+    // it always has — the phase changed the flows that have an input, and only
+    // those.
+    assert.deepEqual(
+      diffSnapshots(before, snapshotContents(dir)).added.filter((rel) =>
+        rel.startsWith('.phyllum/build-report-'),
+      ),
+      [],
+    );
+    assert.ok(!declined.out.includes('stays where it is'));
 
     const accepted = await run('create', dir, {
       env: { CLAUDECODE: '1' },
@@ -281,6 +313,66 @@ test('nothing is written until the pick is accepted, and then only one file', as
       diff.added.filter((rel) => !rel.startsWith('.phyllum/')),
       ['DESIGN-SYSTEM.md.bak'],
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The Build stage's default input (v0.10.0 phase 2)
+// ---------------------------------------------------------------------------
+
+test('bare create leads with the latest drift report, and numbers nothing new', async () => {
+  await withProject(async (dir) => {
+    const written = writeAssessReport(dir, assessed(), { date: '2026-08-24' });
+    const { out, code } = await run('create', dir, { env: { CLAUDECODE: '1' } });
+    assert.equal(code, 0);
+
+    assert.ok(out.includes(`From your latest drift report — assess-${written.number}, 2026-08-24`));
+    assert.ok(out.includes('`raw-colour`'), 'the report’s recommendations are the leading section');
+    assert.ok(
+      out.indexOf('raw-colour') < out.indexOf('What would you like to create?'),
+      'the report comes above the picker, not inside it',
+    );
+
+    // A recommendation is a piece of work, not a component to seed a draft
+    // from, so it is never numbered beside the archetypes — the picker's own
+    // numbering is exactly the numbering that was there before this phase.
+    assert.ok(out.includes('  1. Button'));
+    const picker = pickList(dir, model());
+    assert.ok(out.includes(`  ${picker.archetypes.length + 1}. Badge/Info`));
+    assert.equal(resolvePick('1', picker).archetypeName, 'Button');
+  });
+});
+
+test('a project with no drift report sees exactly the picker it always saw', async () => {
+  await withProject(async (dir) => {
+    const { out } = await run('create', dir, { env: { CLAUDECODE: '1' } });
+    assert.ok(!out.includes('drift report'), 'nothing is said about a report that does not exist');
+    assert.ok(out.startsWith('What would you like to create?'));
+  });
+});
+
+test('a mangled recommendations block is reported, and the picker still runs', async () => {
+  await withProject(async (dir) => {
+    fs.mkdirSync(path.join(dir, '.phyllum'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, '.phyllum', 'assess-2.md'),
+      '# Assessment 2\n\nDate: 2026-08-24\n\n```phyllum-recommendations\n{ nope }\n```\n',
+    );
+    const { out } = await run('create', dir, { env: { CLAUDECODE: '1' } });
+    assert.ok(out.includes('could not be read'), 'the parse failure is surfaced, not swallowed');
+    assert.ok(out.includes('assess-2, 2026-08-24'), 'and it names the report to fix');
+    assert.ok(out.includes('  1. Button'), 'the flow falls back to exactly today’s picker');
+  });
+});
+
+test('a description outranks the report — prose mode never opens one', async () => {
+  await withProject(async (dir) => {
+    writeAssessReport(dir, assessed(), { date: '2026-08-24' });
+    const { out } = await run('create "button primary with 12px padding-top"', dir, {
+      env: { CLAUDECODE: '1' },
+    });
+    assert.ok(out.includes('From your description: "button primary with 12px padding-top"'));
+    assert.ok(!out.includes('drift report'), 'a sentence the user typed is never filtered by a file');
   });
 });
 

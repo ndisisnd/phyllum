@@ -39,10 +39,21 @@ import { REFS_DIR, markerIndex, readRef, refFiles } from '../../lib/refs.js';
 import { skillFiles } from '../../lib/template.js';
 import { PACKAGE_ROOT } from './helpers.js';
 
-/** Every protocol that owns a reference folder. */
+/**
+ * Every name that owns a reference folder.
+ *
+ * All but one are protocols — one command, one folder, one frame file named
+ * after it. `build` (v0.10.0 phase 1) is the exception and is listed anyway:
+ * it is a *stage* folder rather than a command's, because Build homes five
+ * commands and so has no command folder to live in. It obeys every rule in
+ * this file regardless — the frame file named after the folder, the line
+ * floor, unique markers, live cross-references — which is the reason it is
+ * checked here rather than exempted.
+ */
 const PROTOCOLS = [
   'apply',
   'assess',
+  'build',
   'create',
   'delete',
   'gui',

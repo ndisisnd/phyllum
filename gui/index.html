@@ -907,6 +907,7 @@
 
         <span class="rail-label">Build</span>
         <button data-view="workbench" aria-selected="false">Workbench</button>
+        <button data-view="build-reports" aria-selected="false">Build reports</button>
         <button data-view="tokens" aria-selected="false">Token view</button>
 
         <span class="rail-label">Refine</span>
@@ -950,6 +951,29 @@
           <div class="panel">
             <h2>Report</h2>
             <div id="report-detail" class="muted">Pick a report to see its drift and its recommendations.</div>
+          </div>
+        </section>
+
+        <section class="view" id="view-build-reports" hidden>
+          <div class="panel lede">
+            <h2>Build</h2>
+            <p class="muted">Every build <code>create</code>/<code>build</code> has written under <code>.phyllum/</code>, newest first — each mapped to the drift report or the description it answers, and split into phases when there is a lot to read. This view reads them and starts new ones; the writing, the reading and the approval all stay yours, in your Claude Code session.</p>
+          </div>
+          <div class="panel">
+            <div class="panel__header"><h2>Start a build</h2></div>
+            <p class="section__note">Describe a component to build it, or leave the field blank to build your latest drift report's recommendations — the same default the terminal uses.</p>
+            <form class="prompt" id="build-form">
+              <input id="build-prose" placeholder="Describe what to build, or leave blank for your latest drift report" />
+              <button class="btn btn--primary" type="submit">Build</button>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="panel__header"><h2>Build reports <span class="count" id="build-reports-count">0</span></h2></div>
+            <div id="build-reports-list" class="muted">reading…</div>
+          </div>
+          <div class="panel">
+            <h2>Report</h2>
+            <div id="build-report-detail" class="muted">Pick a build report to see its source and its work.</div>
           </div>
         </section>
 
@@ -1775,6 +1799,11 @@
         // means "read, and there are none", and the view says so.
         reports: null,
         selectedReport: null,
+        // The numbered build reports as `/build-reports` served them, and
+        // which one is open (v0.10.0 §5) — same `null`-means-"not read yet"
+        // shape as `reports` above.
+        buildReports: null,
+        selectedBuildReport: null,
         // Which reading of the selected component the preview is showing —
         // `default`, or one of the states the spec records (v0.4.1 §4.2).
         previewState: PREVIEW.baseState,
@@ -1800,13 +1829,15 @@
         if (!view) return;
         state.view = view;
         select(el('views'), 'view', view);
-        for (const name of ['library', 'reports', 'workbench', 'tokens']) {
+        for (const name of ['library', 'reports', 'workbench', 'build-reports', 'tokens']) {
           el('view-' + name).hidden = name !== view;
         }
         updateRailVisibility();
-        // Reports change only when `assess` runs, so they are read when the
-        // view is opened rather than polled alongside the session.
+        // Reports change only when `assess` (or `create`/`build`) runs, so
+        // they are read when their view is opened rather than polled
+        // alongside the session.
         if (view === 'reports') loadReports();
+        if (view === 'build-reports') loadBuildReports();
       });
 
       el('filters').addEventListener('click', (event) => {
@@ -2621,6 +2652,221 @@
       }
       // --- end phyllum:reports-contract ----------------------------------------
 
+      // --- phyllum:build-reports-contract --------------------------------------
+      // The Build view (v0.10.0 §5). `create`/`build` leaves a numbered build
+      // report behind at `.phyllum/build-report-[n].md`, mapped back to the
+      // drift report or the description it answers (`lib/build-reports.js`),
+      // and this is where a person reads that stack back and starts new ones.
+      //
+      // It is the Reports view's sibling, not a second copy of it: a build
+      // report's own shape is Source and Work rather than Drift and Health
+      // score, and Work may itself split into ordered phases. So this region
+      // is self-contained — it repeats the one small table helper the Reports
+      // region also carries, rather than reaching across script blocks — and
+      // it is lifted and run the same way: no DOM, no network, `esc` from the
+      // surrounding scope.
+      //
+      // Two decisions carry the view, both inherited from `refs/build/build.md`
+      // §3 and §4 and repeated here because a GUI reader is exactly the place
+      // they would quietly slip:
+      //
+      //   1. **Approval is per report, never per phase.** Phases are reading
+      //      structure — a report split into units a person can read in
+      //      order — and nothing in this region renders a control on a phase.
+      //      There is no approve/accept button anywhere in this view: the
+      //      report is read here, and approved and executed in the terminal,
+      //      exactly where every other write already happens.
+      //   2. **Starting a build is the same relay every other prompt uses.**
+      //      The "Start a build" form composes the `phyllum create` invocation
+      //      — bare, or with the sentence typed — and posts it to `POST
+      //      /prompt` like the Backlog's Assess button and the Workbench's own
+      //      prompt box. It never runs `create` itself.
+      const BUILD_REPORTS = {
+        // What the view says with no build report on disk.
+        empty: 'No build reports yet — run `phyllum create` (or `build`) to write the first one.',
+        // The list table's own columns, in order.
+        columns: ['Report', 'Date', 'Source', 'Phases'],
+        // A field the report does not carry. The page never invents one.
+        unstated: '—',
+        // The page's own answer to an empty section, borrowed rather than
+        // reworded (v0.7.0 §3) — the same word the Reports view uses.
+        none: '(none yet)',
+        // A report that split into no phases — the Work section stayed one
+        // list, which is most build reports.
+        flat: 'flat',
+        // A report the reader could not read. One mangled file is a row,
+        // never a blank view.
+        unread: 'This build report could not be read.',
+        // The line above the "Start a build" form's input.
+        startNote: "Describe a component to build it, or leave the field blank to build your latest drift report's recommendations — the same default the terminal uses.",
+      };
+
+      /** The build reports the payload carries, in the order it carries them. */
+      function buildReportList(payload) {
+        const reports = payload && Array.isArray(payload.reports) ? payload.reports : [];
+        return reports.filter((report) => report && typeof report === 'object');
+      }
+
+      /** One cell, with the page's own em dash for a field with no value. */
+      const buildCell = (value) =>
+        value === null || value === undefined || value === '' ? BUILD_REPORTS.unstated : String(value);
+
+      /** What a report answers, in the list table's short form. */
+      function buildSourceLabel(report) {
+        if (report.source === 'report') {
+          return report.assessReport === null || report.assessReport === undefined
+            ? 'drift report'
+            : 'assess-' + report.assessReport;
+        }
+        if (report.source === 'prose') return 'description';
+        if (report.source === 'none') return BUILD_REPORTS.unstated;
+        return BUILD_REPORTS.unstated;
+      }
+
+      /** How many phases a report split into, or that it did not. */
+      function buildPhasesLabel(report) {
+        const phases = Array.isArray(report.phases) ? report.phases : null;
+        if (!phases || phases.length === 0) return BUILD_REPORTS.flat;
+        return phases.length + (phases.length === 1 ? ' phase' : ' phases');
+      }
+
+      /** One row of the list table: the fields a person scans a stack of build reports by. */
+      function buildReportSummaryRow(report) {
+        if (report.error) {
+          return [String(report.number ?? ''), BUILD_REPORTS.unread, '', ''];
+        }
+        return [
+          String(report.number ?? ''),
+          buildCell(report.date),
+          buildSourceLabel(report),
+          buildPhasesLabel(report),
+        ];
+      }
+
+      /** A table, given its head row and its body rows — this region's own copy of the page's one table idiom. */
+      function buildDataTableHtml(columns, rows, options) {
+        const settings = options || {};
+        const head =
+          '<thead><tr>' +
+          columns.map((column) => '<th scope="col">' + esc(column) + '</th>').join('') +
+          '</tr></thead>';
+        const body =
+          '<tbody>' +
+          rows
+            .map((row) => {
+              const cells = (Array.isArray(row) ? row : row.cells) || [];
+              const attrs = Array.isArray(row) ? '' : row.attrs || '';
+              return (
+                '<tr' + attrs + '>' +
+                cells.map((cell) => '<td>' + esc(cell) + '</td>').join('') +
+                '</tr>'
+              );
+            })
+            .join('') +
+          '</tbody>';
+        return (
+          '<div class="table-scroll"><table class="data"' +
+          (settings.label ? ' aria-label="' + esc(settings.label) + '"' : '') +
+          '>' + head + body + '</table></div>'
+        );
+      }
+
+      /**
+       * The list of build reports as one table, newest first.
+       *
+       * With nothing on disk it is one plain line rather than an empty grid,
+       * for the same reason the Reports view's list is: the stage simply has
+       * not built anything yet, and that is not a broken view.
+       */
+      function buildReportsTableHtml(payload, selected) {
+        const reports = buildReportList(payload);
+        if (reports.length === 0) return '<p class="muted">' + esc(BUILD_REPORTS.empty) + '</p>';
+        const rows = reports.map((report) => ({
+          cells: buildReportSummaryRow(report),
+          attrs:
+            ' data-build-report="' + esc(String(report.number)) + '"' +
+            ' aria-selected="' + String(Number(selected) === Number(report.number)) + '"',
+        }));
+        return buildDataTableHtml(BUILD_REPORTS.columns, rows, { label: 'Build reports' });
+      }
+
+      /** The Source section: the sentence(s) the report itself wrote, verbatim. */
+      function buildSourceHtml(report) {
+        const lines = report && Array.isArray(report.sourceLines) ? report.sourceLines : [];
+        if (lines.length === 0) return '<p class="muted">' + esc(BUILD_REPORTS.none) + '</p>';
+        return lines.map((line) => '<p>' + esc(line) + '</p>').join('');
+      }
+
+      /**
+       * One phase, as a reading unit — never an approval or execution unit of
+       * its own. `refs/build/build.md` §3 and `lib/build-reports.js` both say
+       * why: a build report is approved once, as a whole, and executing work
+       * outward one phase at a time is `apply`'s job, not this page's.
+       */
+      function buildPhaseHtml(phase) {
+        const entry = phase && typeof phase === 'object' ? phase : {};
+        const lines = Array.isArray(entry.lines) ? entry.lines : [];
+        const title = 'Phase ' + buildCell(entry.phase) + (entry.title ? ' — ' + entry.title : '');
+        return (
+          '<div class="container">' +
+          '<h3>' + esc(title) + '</h3>' +
+          (lines.length
+            ? '<ul>' + lines.map((line) => '<li>' + esc(line) + '</li>').join('') + '</ul>'
+            : '<p class="muted">' + esc(BUILD_REPORTS.none) + '</p>') +
+          '</div>'
+        );
+      }
+
+      /** The Work section: the phases in order when the report split, its own prose when it did not. */
+      function buildWorkHtml(report) {
+        const phases = report && Array.isArray(report.phases) ? report.phases : null;
+        if (phases && phases.length > 0) {
+          return (
+            '<p class="section__note">Read them in order — each is a unit you can build and verify on ' +
+            'its own. This report is approved once, as a whole.</p>' +
+            phases.map(buildPhaseHtml).join('')
+          );
+        }
+        const lines = report && Array.isArray(report.work) ? report.work : [];
+        if (lines.length === 0) return '<p class="muted">' + esc(BUILD_REPORTS.none) + '</p>';
+        return lines.map((line) => '<p>' + esc(line) + '</p>').join('');
+      }
+
+      /** One build report opened: its source attribution, then its work as phases or as prose. */
+      function buildReportDetailHtml(report) {
+        if (!report || typeof report !== 'object') {
+          return '<p class="muted">' + esc(BUILD_REPORTS.empty) + '</p>';
+        }
+        const title = 'Build report ' + String(report.number ?? '');
+        if (report.error) {
+          return (
+            '<h3>' + esc(title) + '</h3>' +
+            '<p class="muted">' + esc(BUILD_REPORTS.unread) + '</p>' +
+            '<p class="muted">' + esc(report.error) + '</p>'
+          );
+        }
+        const meta = [report.date ? 'Date: ' + report.date : null, report.path || null].filter(Boolean);
+        return (
+          '<h3>' + esc(title) + '</h3>' +
+          (meta.length ? '<p class="section__note">' + esc(meta.join(' · ')) + '</p>' : '') +
+          '<h3>Source</h3>' + buildSourceHtml(report) +
+          '<h3>Work</h3>' + buildWorkHtml(report)
+        );
+      }
+
+      /**
+       * The prompt the "Start a build" form composes — bare, or with the
+       * sentence typed. Quoting mirrors the terminal's own prose grammar
+       * (`refs/build/build.md` §2, `lib/registry.js`'s `'"<prose>"'` argument
+       * shape for `create`), so the relayed text reads exactly like the
+       * invocation a person would type by hand.
+       */
+      function buildPromptFor(prose) {
+        const said = typeof prose === 'string' ? prose.trim() : '';
+        return said === '' ? 'create' : 'create "' + said + '"';
+      }
+      // --- end phyllum:build-reports-contract -----------------------------------
+
       /** A heading's own text, its count span excluded — the rail's label. */
       function headingLabel(h) {
         const clone = h.cloneNode(true);
@@ -2948,6 +3194,48 @@
         renderReports();
       });
 
+      /**
+       * The Build view (v0.10.0 §5): the list of build reports as one table,
+       * and the open one beneath it as its Source and its Work.
+       *
+       * Same "reading… vs. no build reports yet" distinction the Reports view
+       * draws, for the same reason: a project that has not run `create`/`build`
+       * has not gone wrong.
+       */
+      function renderBuildReports() {
+        const payload = state.buildReports;
+        const reports = payload ? buildReportList(payload) : [];
+        el('build-reports-count').textContent = String(reports.length);
+        if (!payload) {
+          el('build-reports-list').textContent = 'reading…';
+          return;
+        }
+        if (payload.error) {
+          el('build-reports-list').textContent = payload.message || 'the build reports could not be read';
+          el('build-report-detail').textContent = BUILD_REPORTS.unread;
+          return;
+        }
+        const numbers = reports.map((report) => Number(report.number));
+        if (state.selectedBuildReport === null || !numbers.includes(Number(state.selectedBuildReport))) {
+          state.selectedBuildReport = numbers.length ? numbers[0] : null;
+        }
+        el('build-reports-list').innerHTML = buildReportsTableHtml(payload, state.selectedBuildReport);
+        const open = reports.find((report) => Number(report.number) === Number(state.selectedBuildReport));
+        el('build-report-detail').innerHTML = open
+          ? buildReportDetailHtml(open)
+          : '<p class="muted">' + esc(BUILD_REPORTS.empty) + '</p>';
+      }
+
+      // A row opens its own report and nothing else — same idiom as the
+      // Reports view's own list, and for the same reason: the whole list
+      // arrived with its reports already read, so opening one costs nothing.
+      el('build-reports-list').addEventListener('click', (event) => {
+        const row = event.target.closest ? event.target.closest('tr[data-build-report]') : null;
+        if (!row) return;
+        state.selectedBuildReport = Number(row.dataset.buildReport);
+        renderBuildReports();
+      });
+
       // --- talking to the server ---------------------------------------------
 
       async function poll() {
@@ -2990,6 +3278,53 @@
         }
         renderReports();
       }
+
+      /**
+       * Read the numbered build reports. Same one-route-one-direction shape
+       * as `loadReports`: the page asks and renders, and there is no path
+       * from here back to the files.
+       */
+      async function loadBuildReports() {
+        try {
+          const response = await fetch('/build-reports');
+          state.buildReports = await response.json();
+        } catch (error) {
+          state.buildReports = { error: 'unreachable', message: 'could not read the build reports' };
+        }
+        renderBuildReports();
+      }
+
+      // "Start a build" (v0.10.0 §5): the same relay every other prompt on
+      // this page uses. It composes the `phyllum create` invocation — bare,
+      // consuming the latest drift report the way a bare terminal `create`
+      // does, or with the sentence typed — and posts it exactly like the
+      // prompt box and the Backlog's Assess button do: `POST /prompt`, the
+      // same `{ text, view }` payload, then `poll()`. It never runs `create`
+      // itself, approves a report, or reasons about what to build — that all
+      // stays in the Claude Code session the prompt is relayed to.
+      el('build-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const input = el('build-prose');
+        const text = buildPromptFor(input.value);
+        input.value = '';
+        const button = event.target.querySelector('button[type="submit"]');
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Queued…';
+        try {
+          await fetch('/prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, view: state.view }),
+          });
+        } finally {
+          poll();
+          setTimeout(() => {
+            button.disabled = false;
+            button.textContent = label;
+          }, 1200);
+        }
+      });
 
       el('prompt-form').addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -3063,6 +3398,7 @@
       // a view nobody is looking at.
       setInterval(() => {
         if (state.view === 'reports') loadReports();
+        if (state.view === 'build-reports') loadBuildReports();
       }, 5000);
     </script>
   </body>

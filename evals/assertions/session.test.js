@@ -106,7 +106,10 @@ test('the session runs the whole create loop: questions, answer, acceptance', as
     const file = fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8');
     assert.ok(file.includes('### Button/Danger'));
     assert.ok(file.includes('padding-top: 12px'));
+    // v0.10.0 phase 3: prose `create` is one of Build's two doors that leaves a
+    // numbered build report behind, mapped to the sentence it answered.
     assert.deepEqual(snapshotPaths(dir).sort(), [
+      '.phyllum/build-report-1.md',
       '.phyllum/session.json',
       'DESIGN-SYSTEM.md',
       'DESIGN-SYSTEM.md.bak',
