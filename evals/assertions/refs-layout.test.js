@@ -66,6 +66,24 @@ const PROTOCOLS = [
 ];
 
 /**
+ * Reference folders that exist but do not own a frame file yet.
+ *
+ * `refine` (v0.11.0 phase 1) is the first: the Refine stage's protocol is
+ * written before its command is wired, so the folder holds
+ * `protocol-refine.md` and no `refine.md`. It moves into `PROTOCOLS` the moment
+ * that frame file lands with the command.
+ *
+ * The list is an enumeration, not an exemption. Every tree-wide rule in this
+ * file — the line floor, unique markers, live cross-references, the install
+ * walk — already covers a pending folder, because those sweep `everyRefFile()`
+ * rather than `PROTOCOLS`. What the list buys is that a folder cannot appear in
+ * the tree unnoticed: the layout test below demands that every directory under
+ * `refs/` is on one of the two lists, and the routing test demands that
+ * `SKILL.md` points at it either way.
+ */
+const PENDING = ['refine'];
+
+/**
  * The references that are not folders, by design (v0.4.1 §8).
  *
  * A flat file is a **shared library** rather than a protocol: it belongs to no
@@ -105,6 +123,33 @@ test('every protocol is a folder, and the folder carries the file named after it
     assert.ok(
       files.includes(`${protocol}.md`),
       `refs/${protocol}/ has no ${protocol}.md — the frame file is the entry point`,
+    );
+  }
+});
+
+test('every folder under refs/ is enumerated — as a protocol, or as a pending one', () => {
+  const dirs = fs
+    .readdirSync(REFS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  assert.deepEqual(
+    dirs,
+    [...PROTOCOLS, ...PENDING].sort(),
+    'a reference folder exists that neither PROTOCOLS nor PENDING names',
+  );
+});
+
+test('a pending folder carries a protocol file, and no frame file pretending to be one', () => {
+  for (const pending of PENDING) {
+    const files = refFiles(pending).map((file) => path.basename(file));
+    assert.ok(
+      files.includes(`protocol-${pending}.md`),
+      `refs/${pending}/ has no protocol-${pending}.md — a pending folder holds its stage protocol`,
+    );
+    assert.ok(
+      !files.includes(`${pending}.md`),
+      `refs/${pending}/${pending}.md exists — move ${pending} from PENDING into PROTOCOLS`,
     );
   }
 });
@@ -222,7 +267,7 @@ test('SKILL.md routes every command at a reference that exists', () => {
   }
   // And the table says which file to load, per protocol — the lazy-loading
   // payoff is the index, not the folder.
-  for (const protocol of PROTOCOLS) {
+  for (const protocol of [...PROTOCOLS, ...PENDING]) {
     assert.ok(skill.includes(`refs/${protocol}/`), `SKILL.md does not route ${protocol}`);
   }
 });

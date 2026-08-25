@@ -87,6 +87,12 @@ reads and approves before anything is built. v0.10.0 delivers those in phases,
 and the stage reference says plainly which phase brings which, because a stage
 that overstates its own output is worse than a stage that has none yet.
 
+Refine's are stated in `refs/refine/protocol-refine.md` — the input is the
+codebase and `DESIGN-SYSTEM.md`, read over one component, one token or the whole
+system, and the output is a numbered `refine-report-[n].md` under `.phyllum/`.
+Refine is report-only: it grades, it never fixes, and it writes nothing in the
+user's codebase at all.
+
 Some commands belong to no stage at all. Running the tool — the menu, help, the
 dashboard, printing the file, versions, installs — is grouped as **System**, and
 System is a grouping, not a fifth stage. Do not offer it as a step of the
@@ -116,8 +122,13 @@ and `lib/registry.js` can never say different things.
 | `upgrade` | System | — | Upgrade this install to the latest published version |
 | `init` | System | — | Guided setup: scaffold the file, install this skill |
 
-Governance and Refine hold no commands in this release. Every command that
-edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
+Governance holds no commands in this release. Refine's command, `refine`, is
+the subject of v0.11.0 and lands across that release's phases; its stage
+protocol — the gate order, the modes, the report, the ship criteria — is
+written first and lives at `refs/refine/protocol-refine.md`. Do not offer
+`refine` as something that runs until the phase that wires it has shipped; the
+`built` flag in `lib/registry.js` is the only honest answer to "does it work
+yet". Every command that edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
 revising one, removing one, applying the system outward — is Build, because all
 of it is making the thing real. v0.10.0 re-homes `create` (alias `build`),
 `tokenise` and `apply` formally, under a stage that now has a frame of its own
@@ -170,8 +181,9 @@ what it must never do. Everything else is a topic.
 | `delete` | `refs/delete/` | `delete.md` the frame, the grammar with its reserved-and-refused `token`, the never-list, and what `delete` leaves for `apply` to clean up · `flow.md` the six steps, the copy contract, the in-use rule with its flag-or-live-check split, the double confirmation and the one write |
 | `init` | `refs/init/` | `init.md` the walkthrough, step by step |
 | Build stage | `refs/build/` | `build.md` what the Build stage is, the five commands it homes, its defined input (the latest drift report's recommendations, with explicit prose overriding) and its defined output (a numbered `build-report-[n].md` under `.phyllum/`, behind an approval gate), plus which phase of v0.10.0 brings which · `input.md` the resolution protocol: the order prose, image and the latest drift report are consulted in, what prose overriding does and does not mean, the five different ways there is no report to read, and how recommendations are surfaced above the picker · `report.md` the numbered build report itself: numbering, date injection, the Source and Work sections, and the machine-readable `phyllum-build-source` block that maps a report back to the drift report or the prose it answers · `gate.md` the approval gate: the order the report, the question and the `DESIGN-SYSTEM.md` write happen in, what a declined run leaves behind, and the mechanical rule that splits a large drift answer into ordered `## Phase n` sections |
+| Refine stage | `refs/refine/` | `protocol-refine.md` the Refine stage end to end: the gate order (contract → coverage → naming → a11y → lint → tests → ship verdict) and why deterministic checks run first, the three scopes, the seven modes of the one `refine` command, the numbered `refine-report-[n].md`, the six ship criteria and the docs criterion that ties forward to Governance, and the read-only permission posture |
 
-One row of that table is a **stage** rather than a command. Assess keeps its
+Two rows of that table are a **stage** rather than a command. Assess keeps its
 stage protocol inside its command folder — `refs/assess/protocol-assess.md` —
 because Assess is one stage with one command. Build homes five, so it has no
 command folder to live in and takes a folder of its own. Load `refs/build/`
@@ -179,6 +191,12 @@ when the question is about the stage: what it consumes, what it leaves behind,
 or which command belongs to it. A question about one command is still answered
 by that command's own folder, which outranks the stage file wherever the two
 disagree.
+
+`refs/refine/` is the second stage folder, and it is a folder ahead of its
+command: v0.11.0 writes the Refine protocol first and wires `refine` in later
+phases, so the folder holds the stage protocol and gains a file per mode as
+each mode lands. Load it for any question about readiness — what the gate
+checks, in what order, and what makes a component shippable.
 
 Two references belong to no command and are the two that are still flat files,
 because each is a shared library rather than a protocol. Both are loaded
