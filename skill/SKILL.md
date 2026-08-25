@@ -128,7 +128,12 @@ protocol — the gate order, the modes, the report, the ship criteria — is
 written first and lives at `refs/refine/protocol-refine.md`. Do not offer
 `refine` as something that runs until the phase that wires it has shipped; the
 `built` flag in `lib/registry.js` is the only honest answer to "does it work
-yet". Every command that edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
+yet". Phase 2 lands the three deterministic modes — coverage, naming and lint —
+as libraries with their own references (`refs/refine/coverage.md`,
+`refs/refine/naming.md`, `refs/refine/lint.md`) and their own assertion suites.
+They are the gate's checks, not yet its command: nothing dispatches `refine`
+until the phase that wires it, so `lib/registry.js` still records no `refine`
+row at all. Every command that edits what `DESIGN-SYSTEM.md` records — naming a token, creating a component,
 revising one, removing one, applying the system outward — is Build, because all
 of it is making the thing real. v0.10.0 re-homes `create` (alias `build`),
 `tokenise` and `apply` formally, under a stage that now has a frame of its own
@@ -181,7 +186,7 @@ what it must never do. Everything else is a topic.
 | `delete` | `refs/delete/` | `delete.md` the frame, the grammar with its reserved-and-refused `token`, the never-list, and what `delete` leaves for `apply` to clean up · `flow.md` the six steps, the copy contract, the in-use rule with its flag-or-live-check split, the double confirmation and the one write |
 | `init` | `refs/init/` | `init.md` the walkthrough, step by step |
 | Build stage | `refs/build/` | `build.md` what the Build stage is, the five commands it homes, its defined input (the latest drift report's recommendations, with explicit prose overriding) and its defined output (a numbered `build-report-[n].md` under `.phyllum/`, behind an approval gate), plus which phase of v0.10.0 brings which · `input.md` the resolution protocol: the order prose, image and the latest drift report are consulted in, what prose overriding does and does not mean, the five different ways there is no report to read, and how recommendations are surfaced above the picker · `report.md` the numbered build report itself: numbering, date injection, the Source and Work sections, and the machine-readable `phyllum-build-source` block that maps a report back to the drift report or the prose it answers · `gate.md` the approval gate: the order the report, the question and the `DESIGN-SYSTEM.md` write happen in, what a declined run leaves behind, and the mechanical rule that splits a large drift answer into ordered `## Phase n` sections |
-| Refine stage | `refs/refine/` | `protocol-refine.md` the Refine stage end to end: the gate order (contract → coverage → naming → a11y → lint → tests → ship verdict) and why deterministic checks run first, the three scopes, the seven modes of the one `refine` command, the numbered `refine-report-[n].md`, the six ship criteria and the docs criterion that ties forward to Governance, and the read-only permission posture |
+| Refine stage | `refs/refine/` | `protocol-refine.md` the Refine stage end to end: the gate order (contract → coverage → naming → a11y → lint → tests → ship verdict) and why deterministic checks run first, the three scopes, the seven modes of the one `refine` command, the numbered `refine-report-[n].md`, the six ship criteria and the docs criterion that ties forward to Governance, and the read-only permission posture · `coverage.md` `refine coverage`: what counts as built, what counts as a raw value, the bypassed-token/unnamed-value split and why an unbuilt component is neither passed nor failed · `naming.md` `refine naming`: which scale grades which token table, the two spellings Phyllum's own naming adds, how a component name is graded against its recorded archetype, and why an off-scale name is a warn · `lint.md` `refine lint`: the linters it detects and how, why the project's own `lint` script is not what runs, the check-mode rule and the four answers a linter can give |
 
 Two rows of that table are a **stage** rather than a command. Assess keeps its
 stage protocol inside its command folder — `refs/assess/protocol-assess.md` —
@@ -195,7 +200,11 @@ disagree.
 `refs/refine/` is the second stage folder, and it is a folder ahead of its
 command: v0.11.0 writes the Refine protocol first and wires `refine` in later
 phases, so the folder holds the stage protocol and gains a file per mode as
-each mode lands. Load it for any question about readiness — what the gate
+each mode lands. Three have landed — `coverage.md`, `naming.md` and `lint.md`,
+the deterministic ones — and each states the contract of a check that runs
+today as a library, with no command in front of it yet. Where a mode's file and
+the stage protocol disagree, the mode's file wins. Load it for any question
+about readiness — what the gate
 checks, in what order, and what makes a component shippable.
 
 Two references belong to no command and are the two that are still flat files,
