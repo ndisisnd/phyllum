@@ -232,7 +232,10 @@ def build_reports_json(root, node_bin):
 
     Read-only, always, exactly as `reports_json` is for assessment reports.
     The dashboard renders `.phyllum/build-report-[n].md`; only `create`/`build`
-    ever writes one, and only after the user has approved it.
+    ever writes one, and it writes the report before the user is asked to
+    approve it — the report is what they approve, not a receipt for a write
+    that already happened. A declined run still leaves its report on disk, as
+    the record of what was proposed; only a yes edits DESIGN-SYSTEM.md.
     """
     return node_json(BUILD_REPORTS_JSON_SCRIPT, root, node_bin)
 
