@@ -28,14 +28,14 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.9.0 -->
+<!-- mkpub:release 0.10.0 -->
 > [!NOTE]
-> **🚀 New in 0.9.0 · `assess` now leaves a numbered drift report behind**
+> **🚀 New in 0.10.0 · Builds now wait for your approval**
 >
-> Every full run writes a dated report to `.phyllum/`, so the state of your design system
-> is something you can look back on rather than something you had to catch in the
-> terminal. `assess score` and `assess drift` answer the two halves on their own, and the
-> dashboard lists every report as a table.
+> A build writes a numbered report to `.phyllum/` and stops there. Nothing reaches
+> `DESIGN-SYSTEM.md` until you have read it and said yes, and a large amount of drift
+> arrives split into phases you can take one at a time. Builds also pick up the latest
+> drift report on their own, so you no longer restate what needs fixing.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
