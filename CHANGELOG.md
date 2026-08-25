@@ -2,7 +2,58 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-08-25
+
+### [42] — A build report is the thing you approve, not a receipt for a write
+
+- `server/serve.py`: Fixed — `build_reports_json`'s docstring said a report is only written after approval. The gate writes the report first, because the report is what the user reads before deciding. A declined run keeps its report on disk as the record of what was proposed; only a yes edits `DESIGN-SYSTEM.md`
+
 ## 2026-08-24
+
+### [41] — The dashboard offers a build entry that mirrors the terminal flow
+
+- `gui/index.html`: Added — a Build view listing every `build-report-[n].md`, rendering the selected report, and mirroring the terminal build path so neither surface leads the other
+- `lib/build-reports-json.js`: Added — the read-only feed the dashboard renders build reports from, shaped exactly as the assessment-report feed is
+- `server/serve.py`: Added — the build-reports endpoint, read-only like `reports_json`; the server never writes a report
+- `skill/refs/gui/gui.md`: Changed — documents the Build view and how it reaches the report feed
+- `skill/refs/gui/server.md`: Changed — documents the new endpoint and its read-only contract
+- `evals/assertions/gui-build-reports.test.js`: Added — the feed shape, the view's rendering, and the read-only guarantee
+
+### [40] — Building never edits your codebase until you approve the report
+
+- `skill/refs/build/gate.md`: Added — the approval gate: a build writes its report, then stops. Nothing reaches `DESIGN-SYSTEM.md` until the user says yes
+- `lib/build-reports.js`: Changed — large drift now splits the report into ordered phases, so replacements happen one careful phase at a time rather than in one sweep
+- `lib/create-command.js`: Changed — the command routes through the gate instead of writing straight through
+- `lib/registry.js`: Changed — the Build commands declare the gate
+- `skill/refs/build/build.md`, `skill/refs/build/report.md`, `skill/SKILL.md`: Changed — the gate and the phasing rule are written into the stage protocol
+- `evals/assertions/build-reports.test.js`, `evals/assertions/create-pick.test.js`, `evals/assertions/create-write.test.js`: Changed — the gate holds, a decline writes nothing, and phases come out ordered
+
+### [39] — Every build leaves a numbered report under `.phyllum/`
+
+- `lib/build-reports.js`: Added — writes `build-report-[n].md`, numbered the way assessment reports are, and maps each report to the drift report it answers or the prose input it came from
+- `lib/create-command.js`: Changed — emits a report on every build
+- `lib/write.js`: Added — the report write path
+- `skill/refs/build/report.md`: Added — the report's shape and its mapping rule
+- `skill/refs/build/build.md`, `skill/SKILL.md`: Changed — the stage now names its output
+- `evals/assertions/build-reports.test.js`, `evals/assertions/create-write.test.js`, `evals/assertions/session.test.js`: Added/Changed — numbering, mapping, and one report per build
+
+### [38] — Build picks up where Assess left off, with no restating
+
+- `lib/build-input.js`: Added — resolves Build's input from the latest drift report's recommendations, so Assess and Build chain without the user repeating themselves. Explicit prose input overrides the default
+- `lib/assess-reports.js`: Added — finds the latest drift report to read from
+- `lib/create-command.js`, `lib/registry.js`, `lib/reports-json.js`: Changed — the Build commands take their input through the resolver
+- `skill/refs/build/input.md`: Added — the resolution order and the override rule
+- `skill/refs/build/build.md`, `skill/SKILL.md`: Changed — the stage now names its input
+- `evals/assertions/build-input.test.js`, `evals/assertions/create-pick.test.js`: Added — the drift-report default, the prose override, and the fallback when no report exists
+
+### [37] — `create`/`build`, `tokenise` and `apply` now live under the Build stage
+
+- `skill/SKILL.md`: Changed — the three commands are formally re-homed under Build instead of sitting in a flat menu
+- `skill/refs/build/build.md`: Added — the Build stage protocol: what the stage takes in, what it puts out, and what it must never do on its own
+- `lib/registry.js`: Changed — each command declares Build as its stage
+- `README.md`: Changed — the pipeline section names Build
+- `evals/assertions/refs-layout.test.js`: Changed — the new `refs/build/` layout is asserted
+- Prose and image entry points are untouched
 
 ### [36] — The release script now moves the baseline's release stamps with the version
 
