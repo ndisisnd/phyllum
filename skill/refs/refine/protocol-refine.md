@@ -79,11 +79,18 @@ run, and says why. Silence is the one answer a gate may not give.
 `refine` runs over one of three subjects, and the subject is what the argument
 names.
 
-| Subject | Invocation | What the gate covers |
-|---------|------------|----------------------|
-| one component | `refine <component>` | that component's contract, its token coverage, its name, its a11y, its lint findings, its tests |
-| one token | `refine <token>` | that token's role and value, its name against the scale, its contrast pairings, and where it is used |
-| the whole system | `refine` with no subject | every recorded component and token, section by section, rolled into one report |
+<!-- phyllum:refine-scopes -->
+
+| Scope | Subject | Invocation | What the gate covers |
+|-------|---------|------------|----------------------|
+| `component` | one component | `refine <component>` | that component's contract, its token coverage, its name, its a11y, its lint findings, its tests |
+| `token` | one token | `refine <token>` | that token's role and value, its name against the scale, its contrast pairings, and where it is used |
+| `system` | the whole system | `refine` with no subject | every recorded component and token, section by section, rolled into one report |
+
+The first column is the word the code holds a scope by, and it is in the table
+rather than in the code for the reason every other table here is: a scope
+spelled one way in the reference and another in the reader is a scope the
+reference stops describing.
 
 Two rules keep the scope honest:
 
