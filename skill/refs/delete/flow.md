@@ -35,6 +35,8 @@ read one source.
 | `confirm-refused` | That is not `{name}`, so nothing was written. |
 | `in-use` | `{name}` is in use in this codebase right now, so it was not deleted. |
 | `way-out` | Remove the usage from your code, run `phyllum apply` so the reading catches up, then run `phyllum delete` again. |
+| `deprecated-in-use` | `{name}` is deprecated and `{replacement}` replaces it, and it is still in use in this codebase, so it was not deleted. |
+| `deprecated-way-out` | Move each usage to `{replacement}`, run `phyllum apply` so the reading catches up, then run `phyllum delete` again. |
 | `token-refused` | `delete token` is reserved and refused: removing a token ripples through every component slot and every Backlog line naming it, which is a different risk and its own release. |
 | `no-components` | There are no components in DESIGN-SYSTEM.md yet, so there is nothing to delete. |
 | `create-pointer` | `phyllum create "a primary button with 12px padding"` records the first one. |
@@ -72,6 +74,25 @@ disagree about what "in use" means.
 The refusal names the evidence (the sites, and the files they are in) and the
 way out, and exits **0**. A refusal honoured is not an error: nothing went
 wrong, the user asked and Phyllum answered.
+
+### When the component is deprecated
+
+`refine deprecate` (`refs/refine/deprecate.md`) records a component as
+deprecated **with a named replacement**, in that component's own spec block. The
+block above reads that record, and it changes the refusal rather than the rule:
+
+| The component is | In use | The block does |
+|------------------|--------|----------------|
+| not deprecated | yes | refuses, naming the sites — the rule above, unchanged |
+| deprecated | yes | refuses, naming the sites **and** the replacement to move them to |
+| deprecated | no | proceeds to the acceptance gate |
+
+The third row is the point of recording the state at all. Deprecation does not
+lock a component in the file forever; it blocks removal *while usages remain*,
+which is exactly as long as removal would break something. And the second row is
+why a deprecation must name a successor: a refusal that can say "move these to
+`Button/New`" is a refusal somebody can act on, and one that can only say "no"
+is a wall.
 
 ## The double confirmation (§4.2 steps 4 and 5)
 

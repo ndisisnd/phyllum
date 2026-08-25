@@ -30,6 +30,7 @@ import { executeArgv } from '../../lib/execute.js';
 import { resolveCommand } from '../../lib/registry.js';
 import { parse } from '../../lib/design-system.js';
 import { setAppliedLines } from '../../lib/applied.js';
+import { setComponentDeprecation } from '../../lib/refine-deprecate.js';
 import {
   applyDelete,
   backlogFor,
@@ -405,6 +406,81 @@ test('the block reads the flag when there is one, and the codebase only when the
       assert.ok(live.sites.length > 0);
     },
     { files: { 'src/Toolbar.jsx': ADOPTED_JSX } },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The deprecation the block reads (refs/delete/flow.md, step 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * The same file with `Button/Primary` recorded as deprecated.
+ *
+ * The record is written by the same setter `refine deprecate` writes it with,
+ * so the three rows below are read out of a real record rather than out of two
+ * lines typed into a fixture by hand.
+ */
+const DEPRECATED = setComponentDeprecation(SYSTEM, 'Button/Primary', 'Card/Basic');
+
+test('a component nobody deprecated is refused in exactly the words it always was', async () => {
+  await project(
+    async (dir) => {
+      const { out, code } = await run(dir, 'delete Button/Primary', scripted(['Button/Primary']));
+      assert.equal(code, 0);
+      assert.ok(out.includes(deleteCopy('in-use', { name: 'Button/Primary' })));
+      assert.ok(out.includes(deleteCopy('way-out')));
+      assert.equal(out.includes('replaces it'), false, 'there is no successor to name, so none is named');
+    },
+    { files: { 'src/Toolbar.jsx': ADOPTED_JSX } },
+  );
+});
+
+test('a deprecated component in use is refused with the replacement to move to', async () => {
+  await project(
+    async (dir) => {
+      const before = snapshotContents(dir);
+      const conversation = scripted(['Button/Primary']);
+      const { out, code } = await run(dir, 'delete Button/Primary', conversation);
+
+      assert.equal(code, 0);
+      assert.ok(
+        out.includes(deleteCopy('deprecated-in-use', { name: 'Button/Primary', replacement: 'Card/Basic' })),
+        'the refusal carries the way out rather than only the wall',
+      );
+      assert.ok(out.includes(deleteCopy('deprecated-way-out', { replacement: 'Card/Basic' })));
+      assert.equal(
+        out.includes(deleteCopy('in-use', { name: 'Button/Primary' })),
+        false,
+        'one refusal, not two sentences saying the same no',
+      );
+      assert.ok(out.includes('src/Toolbar.jsx'), 'and the sites are still the evidence');
+
+      // The rule did not widen: no gate opened, and nothing was written.
+      assert.deepEqual(conversation.gates, []);
+      assert.deepEqual(diffSnapshots(before, snapshotContents(dir)), {
+        added: [],
+        changed: [],
+        removed: [],
+      });
+    },
+    { system: DEPRECATED, files: { 'src/Toolbar.jsx': ADOPTED_JSX } },
+  );
+});
+
+test('a deprecated component nobody uses reaches the acceptance gate — deprecation is not a block', async () => {
+  await project(
+    async (dir) => {
+      const conversation = scripted(['Button/Primary'], { accept: true });
+      const { out, code } = await run(dir, 'delete Button/Primary', conversation);
+
+      assert.equal(code, 0);
+      assert.equal(conversation.gates.length, 1, 'the gate opened, which a refusal never lets happen');
+      assert.equal(out.includes('replaces it'), false);
+      assert.ok(!read(dir).includes('### Button/Primary'), 'and the entry went');
+      // Deprecation blocks removal *while usages remain*, which is exactly as
+      // long as removal would break something.
+    },
+    { system: setAppliedLines(DEPRECATED, new Map([['Button/Primary', false]])) },
   );
 });
 
