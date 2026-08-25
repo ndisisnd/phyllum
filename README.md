@@ -28,14 +28,15 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.10.0 -->
+<!-- mkpub:release 0.11.0 -->
 > [!NOTE]
-> **🚀 New in 0.10.0 · Builds now wait for your approval**
+> **🚀 New in 0.11.0 · Ask whether a component is ready to ship**
 >
-> A build writes a numbered report to `.phyllum/` and stops there. Nothing reaches
-> `DESIGN-SYSTEM.md` until you have read it and said yes, and a large amount of drift
-> arrives split into phases you can take one at a time. Builds also pick up the latest
-> drift report on their own, so you no longer restate what needs fixing.
+> One `refine` command runs a full quality gate over a component, a token, or your whole
+> system: token coverage, naming, accessibility, lint, and usage tests, ending in a single
+> ship verdict and a numbered report under `.phyllum/`. It checks and reports; it never
+> rewrites your code. You can also mark something deprecated with a named replacement, and
+> deleting it stays blocked while anything still uses it.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
