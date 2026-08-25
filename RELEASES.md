@@ -2,7 +2,54 @@
 
 What's new for you, release by release.
 
-## 0.10.0 — 2026-08-25
+## 0.11.0 — 2026-08-26
+
+> Phyllum can now tell you whether a component is actually ready to ship. One
+> `refine` command runs a full quality gate — token coverage, naming,
+> accessibility, lint, and usage tests — and gives you a single verdict backed
+> by a report you can read. It checks and reports; it never quietly rewrites
+> your code.
+
+### ✨ New
+- Ask `refine` whether something is ready, and get a straight answer. It runs
+  every check in a fixed order and writes a numbered report under `.phyllum/`,
+  so you can point at the reasons rather than take the verdict on trust.
+- Run the gate over one component, one token, or your whole system, depending
+  on how wide a question you are asking.
+- Find out where hardcoded values slipped into a component that was meant to use
+  your tokens. A value that bypassed a token you already have is told apart from
+  one that has no token yet, because those are different problems.
+- Check your token names against their scale, and your component names against
+  the archetype your system recorded — so naming drift shows up before it
+  spreads.
+- Audit accessibility on what a component actually uses: the contrast of the
+  colour pairs it binds, whether an interactive component has a focus
+  treatment, and the ARIA its archetype expects.
+- Run the linters your project already has, in check mode. Phyllum will not
+  accept a fix flag and will not run your own `lint` script, because reporting
+  on your code is not the same as rewriting it.
+- Generate tests that prove a component is being used correctly — the right
+  types, data in the right place, and calls that work for a human and an agent
+  alike. The file is handed to you; putting it in your test tree stays your
+  decision.
+- Mark a component or token as dying, and say what replaces it. Naming the
+  successor is required, because "this is bad" with no answer to "so what do I
+  use?" helps nobody.
+- Deleting something deprecated that is still in use is now refused, and the
+  refusal names the replacement to move to. Once nothing uses it, deletion
+  proceeds as normal.
+- Ask `refine ship` for the readiness checklist. A component is shippable only
+  when all six criteria pass — it is a yes-or-no answer, never a score you can
+  round up.
+
+### 📈 Improved
+- A criterion nothing could check is reported as unmet, with the reason, rather
+  than silently counting as a pass. An absent answer is not a good one.
+- Reports are dated by your own clock rather than in UTC, so a report you write
+  in the evening does not arrive stamped with yesterday.
+- Nothing in the Refine gate writes to your codebase. The one exception is
+  marking something deprecated, which records that state in `DESIGN-SYSTEM.md`
+  through the same approval gate every other change passes.
 
 > Building a component no longer changes your codebase the moment you ask for
 > it. Every build now writes a report first, and nothing is replaced until you
