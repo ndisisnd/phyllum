@@ -51,6 +51,8 @@ What's new for you, release by release.
   marking something deprecated, which records that state in `DESIGN-SYSTEM.md`
   through the same approval gate every other change passes.
 
+## 0.10.0 — 2026-08-25
+
 > Building a component no longer changes your codebase the moment you ask for
 > it. Every build now writes a report first, and nothing is replaced until you
 > have read it and said yes. When there is a lot to fix, that report arrives
