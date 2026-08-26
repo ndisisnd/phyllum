@@ -60,7 +60,11 @@ Three ideas govern every command:
   session state, settings, and `apply`'s plan — and, on `init`, the skill install. From
   0.12.0, `govern log` appends to `DESIGN-SYSTEM-CHANGELOG.md`, one entry at a time,
   oldest first — the file may only grow, and the one call that may shorten it needs a
-  deletion grant minted from a reason you gave by name. Two things are allowed past that
+  deletion grant minted from a reason you gave by name. Also from 0.12.0, and only when
+  you ask for them by name, `govern init` writes `.git/hooks/pre-commit` and
+  `.github/workflows/phyllum.yml` — those two filenames exactly, never a directory under
+  either, never over a file Phyllum did not write, and neither one blocks a commit or
+  fails a build. Two things are allowed past that
   line, and only when you ask for them by name: `assess --json <path>` writes the `.json`
   file you typed, and `apply run` edits source, from a plan you have read, on a branch of
   its own, one phase at a time. From 0.5.0 `phyllum apply` also writes one line back into

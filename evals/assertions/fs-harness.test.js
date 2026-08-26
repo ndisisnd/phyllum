@@ -57,6 +57,9 @@ test('the harness recognises exactly the paths §1 enumerates', () => {
   assert.ok(enumerationLabel(`${project}/.phyllum/uploads/shot.png`));
   assert.ok(enumerationLabel(`${project}/.claude/skills/phyllum/SKILL.md`));
   assert.ok(enumerationLabel(`${project}/.gitignore`));
+  // v0.12.0 phase 5: `govern init`'s two files, by their full names.
+  assert.ok(enumerationLabel(`${project}/.git/hooks/pre-commit`));
+  assert.ok(enumerationLabel(`${project}/.github/workflows/phyllum.yml`));
   // The funnel's own temp file is the enumerated path mid-flight.
   assert.ok(enumerationLabel(`${project}/DESIGN-SYSTEM.md.phyllum-tmp-4242-1`));
 
@@ -69,6 +72,11 @@ test('the harness recognises exactly the paths §1 enumerates', () => {
     'tailwind.config.js',
     'DESIGN-SYSTEM.md.old',
     'assess.json',
+    // The near misses around the two names phase 5 added. A directory allowance
+    // would have swallowed every one of these.
+    '.git/hooks/pre-push',
+    '.git/config',
+    '.github/workflows/ci.yml',
   ]) {
     assert.equal(enumerationLabel(`${project}/${rel}`), null, `${rel} is not enumerated`);
   }

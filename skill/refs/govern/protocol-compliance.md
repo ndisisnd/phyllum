@@ -198,14 +198,21 @@ directory around every command and fails on anything outside that list.
 **This file adds no write target at all.** A protocol is a file in Phyllum's own
 reference tree; reading it changes nothing in anybody's project.
 
-The stage added exactly one new name in the release, and it added it the loud way
-rather than the quiet one: `DESIGN-SYSTEM-CHANGELOG.md`, appended to by
-`govern log`, written in phase 2 of v0.12.0 and declared by name beside
-`DESIGN-SYSTEM.md.bak` and `.phyllum/` in phase 3, in the permission tables of
-`README.md` and `SKILL.md`. The one-write-target rule
-survives that because the list stays closed, stays short and stays enumerated —
-and because that file may only ever be made longer, which `refs/govern/log.md`
-states and `lib/govern-log.js` enforces on the bytes.
+The stage added three new names in the release, and it added each the loud way
+rather than the quiet one.
+
+`DESIGN-SYSTEM-CHANGELOG.md` is the first, appended to by `govern log`, written
+in phase 2 of v0.12.0 and declared by name beside `DESIGN-SYSTEM.md.bak` and
+`.phyllum/` in phase 3, in the permission tables of `README.md` and `SKILL.md`.
+The one-write-target rule survives that because the list stays closed, stays
+short and stays enumerated — and because that file may only ever be made longer,
+which `refs/govern/log.md` states and `lib/govern-log.js` enforces on the bytes.
+
+`.git/hooks/pre-commit` and `.github/workflows/phyllum.yml` are the other two,
+written by `govern init` in phase 5 and declared in the same two tables. They are
+two filenames rather than the directories they sit in, they are admitted only
+under the setup flag, and neither is ever written over a file Phyllum did not
+write. `refs/govern/init.md` carries the four locks in full.
 
 `govern docs` writes since phase 4 and adds no name at all. A component's
 documentation entry goes into `DESIGN-SYSTEM.md`, under that component's own

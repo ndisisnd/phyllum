@@ -19,7 +19,7 @@ where this file and that one disagree, that one wins and this one is wrong.
 | question | What are the rules for using it? |
 | command | `govern`, one word; `log`, `docs` and `init` are modes of it |
 | input | `DESIGN-SYSTEM.md`, and the compliance rules in `refs/govern/protocol-compliance.md` |
-| output | delivered across the phases of v0.12.0 — §3 says which phase brings which, and nothing is claimed before its phase |
+| output | the compliance protocol, an append-only `DESIGN-SYSTEM-CHANGELOG.md`, a five-part documentation entry per component, and the enforcement plumbing — all three modes run |
 | character | prescriptive — it states the rules and records what changed; it grades nothing |
 
 ---
@@ -71,8 +71,8 @@ This section is about honesty, and it is written the way `refs/build/build.md`
 that something works is made only when it works. **A stage that overstates its
 own output is worse than a stage that has none yet.**
 
-v0.12.0 ships in five phases. This file landed in the first of them, and phase 4
-is in.
+v0.12.0 shipped in five phases. This file landed in the first of them, and all
+five are in.
 
 | What | Phase | State |
 |------|-------|-------|
@@ -80,25 +80,25 @@ is in.
 | `govern log` — append-only entries to `DESIGN-SYSTEM-CHANGELOG.md` | 2 | shipped |
 | `DESIGN-SYSTEM-CHANGELOG.md` declared by name as a write target | 3 | shipped |
 | `govern docs` — the five-part documentation template | 4 | shipped |
-| `govern init` — the pre-commit hook, the CI workflow, or both | 5 | planned |
+| `govern init` — the pre-commit hook, the CI workflow, or both | 5 | shipped |
 
-Each mode gains its own file in this folder **when its phase lands**, not before,
-which is the pattern `refs/refine/` followed through v0.11.0: the protocol was
-written first, and a file per mode arrived with the mode. `refs/govern/log.md`
-arrived with phase 2 and is the folder's first mode file; `refs/govern/docs.md`
-arrived with phase 4 and is the second. A placeholder file describing a mode
-nobody can run is a contract nobody can check, and this folder holds none.
+Each mode gained its own file in this folder **when its phase landed**, not
+before, which is the pattern `refs/refine/` followed through v0.11.0: the
+protocol was written first, and a file per mode arrived with the mode.
+`refs/govern/log.md` arrived with phase 2, `refs/govern/docs.md` with phase 4 and
+`refs/govern/init.md` with phase 5. A placeholder file describing a mode nobody
+can run is a contract nobody can check, and this folder holds none — it never
+did, and now it has no reason to.
 
 What each mode is for, stated once here so the stage can be reasoned about
-whole. The first two rows are behaviour — they run, and `refs/govern/log.md` and
-`refs/govern/docs.md` are their contracts. The third is still intent, and stays
-written as intent until its phase lands:
+whole. All three rows are behaviour: they run, and `refs/govern/log.md`,
+`refs/govern/docs.md` and `refs/govern/init.md` are their contracts.
 
 | Mode | What it is for |
 |------|----------------|
 | `govern log` | record what changed in the design system, appended to `DESIGN-SYSTEM-CHANGELOG.md`; it appends and never deletes, and a deletion happens only on explicit permission |
 | `govern docs` | write a component's documentation entry against one fixed five-part template — what it is, how to use it, where to use it, where it appears in the codebase with an example, and up to three "do not do" examples; the entry is one block under the component's own heading in `DESIGN-SYSTEM.md`, replaced in place rather than appended to |
-| `govern init` | set up the enforcement plumbing the user asks for: a pre-commit hook, a CI workflow, or both |
+| `govern init` | install the enforcement plumbing the user names: a pre-commit hook, a CI workflow, or both. Each generated file runs `phyllum assess drift` — the workflow runs `assess score` first — and neither one blocks a commit or fails a build, because Governance states the bar and Refine is what grades against it |
 
 `govern docs` is also the thing Refine had been waiting on, and phase 4 closed
 the handoff. Ship criterion 6 — docs exist — is the one criterion Refine cannot
@@ -139,31 +139,44 @@ directory around every command and fails on anything outside that list.
 | `DESIGN-SYSTEM.md` | read by every mode; written by `govern docs` since phase 4, and only the one documentation block under one component's own heading |
 | the user's codebase | not touched at all |
 | `DESIGN-SYSTEM-CHANGELOG.md` | written by `govern log` since phase 2, through the one funnel, and only ever by being made longer |
+| `.git/hooks/pre-commit` and `.github/workflows/phyllum.yml` | written by `govern init` since phase 5, one or both, only on a choice the user stated, and never over a file Phyllum did not write |
 
-**The stage added exactly one name to the write-target list, and phase 2 added
-it.** `govern docs` writes no new file: it writes the design system's own file,
-which every stage that records anything already writes, and its write is
-surgical — one fenced block replaced or inserted under one `###` heading, never
-the file re-rendered around it. `refs/govern/docs.md` says why the entry is a
-block there rather than a document of its own, and the short version is that the
-list of names Phyllum may write is closed and a documentation file would have
-been a fourth name on it.
+**The stage added exactly three names to the write-target list across the
+release: one in phase 2, and two in phase 5.** `govern docs` added none. It
+writes the design system's own file, which every stage that records anything
+already writes, and its write is surgical — one fenced block replaced or inserted
+under one `###` heading, never the file re-rendered around it.
+`refs/govern/docs.md` says why the entry is a block there rather than a document
+of its own, and the short version is that the list of names Phyllum may write is
+closed and a documentation file would have been another name on it.
 
-The one name the stage did add arrived the loud way rather than the quiet one:
-`lib/write.js` names it on the funnel's own list,
-`evals/harness/fs-harness.js` enumerates it beside
-`DESIGN-SYSTEM.md.bak`, and the assertion suite fails the run if anything else
-appears in a project diff. Phase 3 declares it by name in the permission table of
-`README.md` and `SKILL.md`, beside `DESIGN-SYSTEM.md.bak` and `.phyllum/`, so it
-may now be offered as a write target in conversation, the same as any other name
-on that list.
+Every name the stage did add arrived the loud way rather than the quiet one:
+`lib/write.js` names each on the funnel's own list,
+`evals/harness/fs-harness.js` enumerates each beside `DESIGN-SYSTEM.md.bak`, and
+the assertion suite fails the run if anything else appears in a project diff.
+Phase 3 declared the changelog by name in the permission table of `README.md` and
+`SKILL.md`, beside `DESIGN-SYSTEM.md.bak` and `.phyllum/`; phase 5 declared the
+hook and the workflow in the same two tables. All three may be offered as write
+targets in conversation, the same as any other name on that list.
 
-The one-write-target rule holds through the addition because the list stays
-closed, short and enumerated, because the changelog's own history stays tracked
-in git, and because of one property no other target on the list has: **the file
-may only grow.** `lib/govern-log.js` checks every write against the bytes already
-on disk, and the only call that may shorten it needs a grant minted from a reason
-a person gave. `refs/govern/log.md` is where that contract is written down.
+The one-write-target rule holds through all three additions because the list
+stays closed, short and enumerated, and because each addition carries a lock of
+its own.
+
+The changelog's lock is one property no other target has: **the file may only
+grow.** `lib/govern-log.js` checks every write against the bytes already on disk,
+and the only call that may shorten it needs a grant minted from a reason a person
+gave. `refs/govern/log.md` is where that contract is written down.
+
+The plumbing's locks are four, and `refs/govern/init.md` is where they are
+written down. The two paths are **filenames, not directories** — `.git/hooks/**`
+and `.github/**` would have been a widening, and `.git/hooks/pre-push` is still a
+violation. They are **init-only**, admitted under the same flag that admits the
+skill install and the `.gitignore` line. They are **never created from nothing**:
+a project with no `.git/hooks/` gets a stated reason rather than a repository
+Phyllum made for it. And they are **never overwritten in silence** — a hook
+somebody else wrote survives the run and is reported, and replacing it takes a
+permission stated per piece.
 
 ---
 
@@ -180,11 +193,19 @@ a person gave. `refs/govern/log.md` is where that contract is written down.
   derived from something that already exists, and a rule the product contradicts
   is a bug in the rule.
 - **Claim a mode before its phase.** The table in §3 is the answer to "does it
-  work yet", and `planned` is a complete answer.
+  work yet", and `planned` is a complete answer. Every row reads `shipped` now,
+  which is a fact about what landed rather than a licence to stop checking.
 - **Write a placeholder file for a mode that does not run.** A contract nobody
   can check is worse than an absent one.
-- **Widen the write target.** One new name, declared in one phase, on a list that
-  stays closed.
+- **Widen the write target.** Three names, declared in the two phases that added
+  them, on a list that stays closed.
+- **Install plumbing nobody asked for.** `govern init` takes a stated choice —
+  the hook, the workflow, or both — and a default would be the file somebody
+  finds later and did not want.
+- **Block a commit or fail a build.** The generated files report and exit zero.
+  A hook with a veto is a grader, and Governance grades nothing.
+- **Overwrite a hook or a workflow Phyllum did not write.** An occupied path is a
+  question, and the answer belongs to the person whose work is at that path.
 - **Document something the design system does not record.** An entry for an
   unrecorded component would document an invention.
 - **Change the documentation template.** Five parts, in one order, in every
