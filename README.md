@@ -28,15 +28,15 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.11.0 -->
+<!-- mkpub:release 0.12.0 -->
 > [!NOTE]
-> **🚀 New in 0.11.0 · Ask whether a component is ready to ship**
+> **🚀 New in 0.12.0 · Write down the rules your design system runs on**
 >
-> One `refine` command runs a full quality gate over a component, a token, or your whole
-> system: token coverage, naming, accessibility, lint, and usage tests, ending in a single
-> ship verdict and a numbered report under `.phyllum/`. It checks and reports; it never
-> rewrites your code. You can also mark something deprecated with a named replacement, and
-> deleting it stays blocked while anything still uses it.
+> Governance states what correct use of a token or a component means, in one compliance
+> protocol the other stages measure against. It also keeps an append-only record of every
+> change in `DESIGN-SYSTEM-CHANGELOG.md`, writes a component's documentation from one
+> fixed template, and installs the pre-commit hook or CI workflow that runs the check
+> for you.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 

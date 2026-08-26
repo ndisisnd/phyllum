@@ -2,6 +2,38 @@
 
 What's new for you, release by release.
 
+## 0.12.0 — 2026-08-26
+
+> Phyllum now writes down the rules. Governance is the stage that says what
+> correct use of a token or a component actually means, so the other stages
+> measure against something written rather than against taste. It also keeps the
+> record of how your design system got to be the way it is, writes the
+> documentation a component needs before anyone can use it, and installs the
+> checks that enforce all of it.
+
+### ✨ New
+- Read one compliance protocol that states the rules an agent must follow before
+  it touches a token or a component. The rules live in one place, so Assess,
+  Build, and Refine no longer each carry their own idea of "correct".
+- Keep an append-only record of every design system change in
+  `DESIGN-SYSTEM-CHANGELOG.md`. `DESIGN-SYSTEM.md` records the state; the
+  changelog records the journey, and no line is ever taken back.
+- Generate a component's documentation with `govern docs` — one template, five
+  parts, in one fixed order, written into that component's own section of
+  `DESIGN-SYSTEM.md`. A spec block says what the slots are; this says what the
+  component is for.
+- Install the enforcement plumbing with `govern init` — a pre-commit hook, a CI
+  workflow, or both. You get only the pieces you ask for, and nothing you
+  already have is overwritten.
+
+### 📈 Improved
+- The `refine ship` documentation criterion now reads the real documentation
+  block instead of taking its presence on trust.
+- Every file phyllum may write is declared in one list, including the two new
+  paths outside the design system that `govern init` touches. The append-only
+  changelog is the single write target allowed to carry a deletion grant, and
+  that exception is written down rather than implied.
+
 ## 0.11.0 — 2026-08-26
 
 > Phyllum can now tell you whether a component is actually ready to ship. One
