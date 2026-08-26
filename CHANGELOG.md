@@ -4,6 +4,54 @@ All notable changes to this project will be documented here.
 
 ## 2026-08-26
 
+### [53] — `govern init` installs the pre-commit hook and CI workflow that run the compliance check for you
+
+- `lib/govern-init.js`: Added — installs only the enforcement pieces you ask for, so the compliance pre-flight has somewhere to run automatically instead of relying on somebody remembering to run it
+- `lib/write.js`: Changed — the two init-only write targets, `.git/hooks/pre-commit` and `.github/workflows/phyllum.yml`, are the first paths phyllum writes outside the design system, so each needs its own declared grant
+- `skill/refs/govern/init.md`: Added — what the mode installs, what it refuses to overwrite, and why it writes outside `DESIGN-SYSTEM.md`
+- `skill/refs/govern/govern.md`: Changed — the stage frame now covers all three modes
+- `skill/SKILL.md`: Changed — Governance is a wired stage with its third mode in place
+- `evals/harness/fs-harness.js`: Changed — the harness can stand up hook and workflow paths so the install is tested rather than assumed
+- `evals/assertions/govern-init.test.js`: Added — install, refuse-to-clobber, and the two new write targets
+- `evals/assertions/permissions.test.js`: Changed — the init-only grants are held to the same closed-funnel rule as every other write
+- `evals/assertions/fs-harness.test.js`: Changed — coverage for the new harness paths
+- `README.md`: Changed — `govern init` named alongside the other modes
+
+### [52] — `govern docs` writes the missing half of a component's page: what it is and how to use it
+
+- `lib/govern-docs.js`: Added — renders one five-part template, in one fixed order, into the component's own section of `DESIGN-SYSTEM.md`, so a reader no longer has to reverse-engineer a component from its spec block
+- `lib/refine-ship.js`: Changed — the ship gate's documentation criterion now reads the real docs block instead of taking it on trust
+- `skill/refs/govern/docs.md`: Added — the template, the order, and why the contract alone is not documentation
+- `skill/refs/govern/govern.md`: Changed — second mode folded into the stage frame
+- `skill/refs/refine/ship.md`, `skill/refs/refine/refine.md`, `skill/refs/refine/protocol-refine.md`: Changed — the ship criterion points at the docs block as its source
+- `skill/SKILL.md`: Changed — `govern docs` surfaced on the command list
+- `evals/assertions/govern-docs.test.js`: Added — template order, placement inside the component section, and idempotent rewrites
+- `evals/assertions/refine-ship.test.js`: Changed — the criterion is checked against a real docs block
+
+### [51] — Every file phyllum may write is declared in one place, so nothing writes by surprise
+
+- `README.md`: Changed — the write-target list is stated up front, including the new Governance targets
+- `skill/refs/govern/govern.md`, `skill/refs/govern/protocol-compliance.md`: Changed — the declaration is read from one table rather than restated per mode
+- `skill/SKILL.md`: Changed — the write-target wording matches the declaration
+
+### [50] — `govern log` keeps an append-only record of how the design system got to be this way
+
+- `lib/govern-log.js`: Added — appends one line at a time to `DESIGN-SYSTEM-CHANGELOG.md` and never takes a line back, so the journey lives beside the state instead of inside it
+- `lib/write.js`: Changed — the append-only changelog is the one write target that carries a deletion grant, and that exception is declared rather than implied
+- `skill/refs/govern/log.md`: Added — why the record is append-only and why `DESIGN-SYSTEM.md` must not carry it
+- `skill/refs/govern/govern.md`, `skill/refs/govern/protocol-compliance.md`: Changed — the first mode with a file behind it is wired into the stage
+- `skill/SKILL.md`: Changed — `govern log` added to the command surface
+- `evals/harness/fs-harness.js`: Changed — append-only behaviour is exercisable in the harness
+- `evals/assertions/govern-log.test.js`: Added — append-only enforcement, ordering, and the deletion grant
+- `evals/assertions/permissions.test.js`: Changed — the deletion grant is held to the closed-funnel rule
+
+### [49] — The rules an agent must read before touching a token or component are written down once
+
+- `skill/refs/govern/protocol-compliance.md`: Added — the compliance protocol: what correct use of a token or a component means, stated once so Assess, Build, and Refine measure against writing rather than taste
+- `skill/refs/govern/govern.md`: Added — the Governance stage frame: what the stage is for, what it homes, what goes in and comes out
+- `skill/SKILL.md`: Changed — Governance introduced as stage two of the pipeline
+- `evals/assertions/refs-layout.test.js`: Changed — the new `refs/govern/` folder is covered by the layout rules
+
 ### [48] — One `refine` command now runs the whole quality gate and tells you if it ships
 
 - `lib/refine-gate.js`: Added — runs all seven sections in the protocol's fixed order over one component, one token, or the whole system, and writes `.phyllum/refine-report-[n].md`. The order lives in the reference table, not in the code, so a section can never quietly drop out of the gate
