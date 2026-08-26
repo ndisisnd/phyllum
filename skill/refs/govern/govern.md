@@ -71,7 +71,7 @@ This section is about honesty, and it is written the way `refs/build/build.md`
 that something works is made only when it works. **A stage that overstates its
 own output is worse than a stage that has none yet.**
 
-v0.12.0 ships in five phases. This file landed in the first of them, and phase 3
+v0.12.0 ships in five phases. This file landed in the first of them, and phase 4
 is in.
 
 | What | Phase | State |
@@ -79,32 +79,33 @@ is in.
 | the compliance protocol, and this frame | 1 | shipped |
 | `govern log` — append-only entries to `DESIGN-SYSTEM-CHANGELOG.md` | 2 | shipped |
 | `DESIGN-SYSTEM-CHANGELOG.md` declared by name as a write target | 3 | shipped |
-| `govern docs` — the five-part documentation template | 4 | planned |
+| `govern docs` — the five-part documentation template | 4 | shipped |
 | `govern init` — the pre-commit hook, the CI workflow, or both | 5 | planned |
 
 Each mode gains its own file in this folder **when its phase lands**, not before,
 which is the pattern `refs/refine/` followed through v0.11.0: the protocol was
 written first, and a file per mode arrived with the mode. `refs/govern/log.md`
-arrived with phase 2 and is the folder's first mode file. A placeholder file
-describing a mode nobody can run is a contract nobody can check, and this folder
-holds none.
+arrived with phase 2 and is the folder's first mode file; `refs/govern/docs.md`
+arrived with phase 4 and is the second. A placeholder file describing a mode
+nobody can run is a contract nobody can check, and this folder holds none.
 
 What each mode is for, stated once here so the stage can be reasoned about
-whole. The first row is behaviour — it runs, and `refs/govern/log.md` is its
-contract. The other two are still intent, and stay written as intent until their
-phases land:
+whole. The first two rows are behaviour — they run, and `refs/govern/log.md` and
+`refs/govern/docs.md` are their contracts. The third is still intent, and stays
+written as intent until its phase lands:
 
 | Mode | What it is for |
 |------|----------------|
 | `govern log` | record what changed in the design system, appended to `DESIGN-SYSTEM-CHANGELOG.md`; it appends and never deletes, and a deletion happens only on explicit permission |
-| `govern docs` | write a component's documentation entry against one fixed five-part template — what it is, how to use it, where to use it, where it appears in the codebase with an example, and up to three "do not do" examples |
+| `govern docs` | write a component's documentation entry against one fixed five-part template — what it is, how to use it, where to use it, where it appears in the codebase with an example, and up to three "do not do" examples; the entry is one block under the component's own heading in `DESIGN-SYSTEM.md`, replaced in place rather than appended to |
 | `govern init` | set up the enforcement plumbing the user asks for: a pre-commit hook, a CI workflow, or both |
 
-`govern docs` is also the thing Refine has been waiting on. Ship criterion 6 —
-docs exist — is the one criterion Refine cannot satisfy on its own, and
-`refs/refine/ship.md` reports it as unmet with its reason named rather than
-passing it by absence. Refine states the requirement; Governance supplies the
-thing that meets it. That handoff closes when phase 4 lands, and not before.
+`govern docs` is also the thing Refine had been waiting on, and phase 4 closed
+the handoff. Ship criterion 6 — docs exist — is the one criterion Refine cannot
+satisfy on its own: Refine states the requirement, Governance supplies the thing
+that meets it, and `refs/refine/ship.md` now reads the entry this stage writes
+using `lib/govern-docs.js`, the parser that wrote it. A component with no entry
+is still reported as unmet with its reason named rather than passed by absence.
 
 ---
 
@@ -135,13 +136,22 @@ directory around every command and fails on anything outside that list.
 | What Governance touches | Status |
 |-------------------------|--------|
 | `refs/govern/**` — this folder | Phyllum's own reference tree; reading it changes nothing in anybody's project |
-| `DESIGN-SYSTEM.md` | read only — no mode of this stage writes it |
+| `DESIGN-SYSTEM.md` | read by every mode; written by `govern docs` since phase 4, and only the one documentation block under one component's own heading |
 | the user's codebase | not touched at all |
 | `DESIGN-SYSTEM-CHANGELOG.md` | written by `govern log` since phase 2, through the one funnel, and only ever by being made longer |
 
-**The stage has exactly one write target, and it is the one phase 2 added.** It
-arrived the loud way rather than the quiet one: `lib/write.js` names it on the
-funnel's own list, `evals/harness/fs-harness.js` enumerates it beside
+**The stage added exactly one name to the write-target list, and phase 2 added
+it.** `govern docs` writes no new file: it writes the design system's own file,
+which every stage that records anything already writes, and its write is
+surgical — one fenced block replaced or inserted under one `###` heading, never
+the file re-rendered around it. `refs/govern/docs.md` says why the entry is a
+block there rather than a document of its own, and the short version is that the
+list of names Phyllum may write is closed and a documentation file would have
+been a fourth name on it.
+
+The one name the stage did add arrived the loud way rather than the quiet one:
+`lib/write.js` names it on the funnel's own list,
+`evals/harness/fs-harness.js` enumerates it beside
 `DESIGN-SYSTEM.md.bak`, and the assertion suite fails the run if anything else
 appears in a project diff. Phase 3 declares it by name in the permission table of
 `README.md` and `SKILL.md`, beside `DESIGN-SYSTEM.md.bak` and `.phyllum/`, so it
@@ -177,3 +187,10 @@ a person gave. `refs/govern/log.md` is where that contract is written down.
   stays closed.
 - **Document something the design system does not record.** An entry for an
   unrecorded component would document an invention.
+- **Change the documentation template.** Five parts, in one order, in every
+  entry, and at most three "do not do" examples. A set whose entries each choose
+  their own shape is a set nobody reads twice, and `refs/govern/docs.md` is where
+  both the order and the ceiling are written down.
+- **Invent an example.** The fourth part is evidence from the codebase. A call
+  composed to look plausible is the never-invent rule broken with syntax
+  highlighting.

@@ -207,6 +207,13 @@ survives that because the list stays closed, stays short and stays enumerated â€
 and because that file may only ever be made longer, which `refs/govern/log.md`
 states and `lib/govern-log.js` enforces on the bytes.
 
+`govern docs` writes since phase 4 and adds no name at all. A component's
+documentation entry goes into `DESIGN-SYSTEM.md`, under that component's own
+heading, as one fenced block â€” the same file every stage that records anything
+already writes, through the same funnel and behind the same acceptance. A
+documentation file of its own would have been a fourth name on a list that is
+closed, and `refs/govern/docs.md` is where that reasoning is written down.
+
 Compliance itself still writes nothing. A rule is read, not run, and this file's
 write surface is: none.
 

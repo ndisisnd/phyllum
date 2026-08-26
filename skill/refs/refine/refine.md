@@ -121,7 +121,8 @@ things.
 - **Skip a section quietly.** It says so, and says why.
 - **Grade something the design system does not record.**
 - **Pass a criterion by absence.** Six criteria, all six met, or not shippable —
-  the docs criterion included, which stays unmet until Governance ships.
+  the docs criterion included, which is unmet until `govern docs` has written
+  the component's entry.
 - **Turn a section into its own command.**
 - **Soften the verdict into a score.** Shippable is a conjunction. The drift
   score is Assess's, and one scale in the product is enough.

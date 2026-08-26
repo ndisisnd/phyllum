@@ -227,12 +227,14 @@ anyway rather than left out until it can be.
 
 Documentation is Governance's, stage two of the pipeline and v0.12.0's release:
 `govern docs` writes a component's entry against a fixed template — what it is,
-how to use it, where to use it, where it appears in the codebase, and what not
-to do. Refine's job is to check that the entry exists, not to write it.
+how to use it, where to use it, where it appears in the codebase with an example,
+and up to three "do not do" examples. Refine's job is to check that the entry
+exists, not to write it.
 
-That is the tie forward. Refine states the requirement; Governance supplies the
-thing that meets it. Until Governance ships, the criterion is reported as unmet
-with its reason named — the stage that satisfies it does not exist yet — and it
+That is the tie forward, and phase 4 of v0.12.0 closed it. Refine states the
+requirement; Governance supplies the thing that meets it, and
+`refs/govern/docs.md` is the contract for what a satisfying entry looks like. A
+component with no entry is still reported as unmet with its reason named, and it
 is never quietly passed, because a criterion that passes by absence is a
 criterion that was never checked.
 
