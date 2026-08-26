@@ -71,14 +71,14 @@ This section is about honesty, and it is written the way `refs/build/build.md`
 that something works is made only when it works. **A stage that overstates its
 own output is worse than a stage that has none yet.**
 
-v0.12.0 ships in five phases. This file landed in the first of them, and phase 2
+v0.12.0 ships in five phases. This file landed in the first of them, and phase 3
 is in.
 
 | What | Phase | State |
 |------|-------|-------|
 | the compliance protocol, and this frame | 1 | shipped |
 | `govern log` — append-only entries to `DESIGN-SYSTEM-CHANGELOG.md` | 2 | shipped |
-| `DESIGN-SYSTEM-CHANGELOG.md` declared by name as a write target | 3 | planned |
+| `DESIGN-SYSTEM-CHANGELOG.md` declared by name as a write target | 3 | shipped |
 | `govern docs` — the five-part documentation template | 4 | planned |
 | `govern init` — the pre-commit hook, the CI workflow, or both | 5 | planned |
 
@@ -143,9 +143,10 @@ directory around every command and fails on anything outside that list.
 arrived the loud way rather than the quiet one: `lib/write.js` names it on the
 funnel's own list, `evals/harness/fs-harness.js` enumerates it beside
 `DESIGN-SYSTEM.md.bak`, and the assertion suite fails the run if anything else
-appears in a project diff. Phase 3 is what declares it by name in the permission
-table of `README.md` and `SKILL.md`, so **do not offer it as a write target in
-conversation until that phase lands.**
+appears in a project diff. Phase 3 declares it by name in the permission table of
+`README.md` and `SKILL.md`, beside `DESIGN-SYSTEM.md.bak` and `.phyllum/`, so it
+may now be offered as a write target in conversation, the same as any other name
+on that list.
 
 The one-write-target rule holds through the addition because the list stays
 closed, short and enumerated, because the changelog's own history stays tracked

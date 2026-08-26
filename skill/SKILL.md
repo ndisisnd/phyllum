@@ -32,6 +32,7 @@ directory around every command and fails on anything not in this list:
 | `DESIGN-SYSTEM.md`, the `applied:` lines only | `apply` and `apply run`, with no question asked — a derived reading of the codebase, scoped to the `applied:` line of each component's spec block and nothing else in the file (v0.5.0 §3.2; `refs/apply/apply.md`) |
 | `DESIGN-SYSTEM.md.bak` | the same write, one step earlier — the pre-edit copy the funnel always takes (v0.2.1 §6.5.2) |
 | `.phyllum/**` | session state, `apply`'s plan at `.phyllum/PRD.md`, `assess`'s numbered reports at `.phyllum/assess-[n].md`, Build's numbered reports at `.phyllum/build-report-[n].md`, and `assess --json`'s default output; gitignored |
+| `DESIGN-SYSTEM-CHANGELOG.md` | `govern log` only — one entry appended at a time, oldest first; the file may only grow, and the one call that may shorten it needs a deletion grant minted from a reason the user gave by name (v0.12.0 §3; `refs/govern/log.md`) |
 | `.claude/skills/phyllum/**` | `init` — the skill install; and `upgrade`, which re-syncs that same copy and, on confirmation, removes files this version no longer ships (v0.7.1) |
 | Phyllum's two `.gitignore` lines | `init` only, with the user's confirmation |
 | a JSON path you name | `assess --json <path>` only, and only a `.json` file inside the project |
@@ -147,15 +148,14 @@ own judgement — a long changelog is the design system telling the truth about 
 much has happened to it. `refs/govern/log.md` is the mode's contract and
 `lib/govern-log.js` is where it is enforced. Phase 3 declares that file by name as
 a write target here and in `README.md`, beside `DESIGN-SYSTEM.md.bak` and
-`.phyllum/`; phase 4 brings
+`.phyllum/`, in the table above. Phase 4 brings
 `govern docs` and its fixed five-part template — what it is, how to use it, where
 to use it, where it appears in the codebase with an example, and up to three "do
 not do" examples — which is what finally satisfies Refine's sixth ship criterion;
 phase 5 brings `govern init`, the pre-commit hook, the CI workflow, or both, as
 the user specifies. Do not describe a mode as something that runs until its phase
-has shipped, and do not offer `DESIGN-SYSTEM-CHANGELOG.md` as a write target
-until phase 3 declares it — a stage that overstates its own output is worse than
-a stage that has none yet. Refine's command, `refine`, is
+has shipped — a stage that overstates its own output is worse than a stage that
+has none yet. Refine's command, `refine`, is
 the subject of v0.11.0 and lands across that release's phases; its stage
 protocol — the gate order, the modes, the report, the ship criteria — is
 written first and lives at `refs/refine/protocol-refine.md`, with the stage

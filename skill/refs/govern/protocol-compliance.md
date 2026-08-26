@@ -201,7 +201,8 @@ reference tree; reading it changes nothing in anybody's project.
 The stage added exactly one new name in the release, and it added it the loud way
 rather than the quiet one: `DESIGN-SYSTEM-CHANGELOG.md`, appended to by
 `govern log`, written in phase 2 of v0.12.0 and declared by name beside
-`DESIGN-SYSTEM.md.bak` and `.phyllum/` when phase 3 lands. The one-write-target rule
+`DESIGN-SYSTEM.md.bak` and `.phyllum/` in phase 3, in the permission tables of
+`README.md` and `SKILL.md`. The one-write-target rule
 survives that because the list stays closed, stays short and stays enumerated —
 and because that file may only ever be made longer, which `refs/govern/log.md`
 states and `lib/govern-log.js` enforces on the bytes.
