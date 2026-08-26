@@ -57,13 +57,20 @@ Three ideas govern every command:
   follow-up with a suggestion attached — never a blank required field.
 - **One write target.** `DESIGN-SYSTEM.md` is the only file Phyllum touches, aside from
   the `DESIGN-SYSTEM.md.bak` it leaves one undo behind, its own gitignored `.phyllum/` —
-  session state, settings, and `apply`'s plan — and, on `init`, the skill install. Two
-  things are allowed past that line, and only when you ask for them by name: `assess
-  --json <path>` writes the `.json` file you typed, and `apply run` edits source, from a
-  plan you have read, on a branch of its own, one phase at a time. From 0.5.0 `phyllum
-  apply` also writes one line back into `DESIGN-SYSTEM.md` — the `applied:` line of each
-  component's spec block, and nothing else in the file — because that line is a reading
-  of your codebase that only `apply` is in a position to take.
+  session state, settings, and `apply`'s plan — and, on `init`, the skill install. From
+  0.12.0, `govern log` appends to `DESIGN-SYSTEM-CHANGELOG.md`, one entry at a time,
+  oldest first — the file may only grow, and the one call that may shorten it needs a
+  deletion grant minted from a reason you gave by name. Also from 0.12.0, and only when
+  you ask for them by name, `govern init` writes `.git/hooks/pre-commit` and
+  `.github/workflows/phyllum.yml` — those two filenames exactly, never a directory under
+  either, never over a file Phyllum did not write, and neither one blocks a commit or
+  fails a build. Two things are allowed past that
+  line, and only when you ask for them by name: `assess --json <path>` writes the `.json`
+  file you typed, and `apply run` edits source, from a plan you have read, on a branch of
+  its own, one phase at a time. From 0.5.0 `phyllum apply` also writes one line back into
+  `DESIGN-SYSTEM.md` — the `applied:` line of each component's spec block, and nothing
+  else in the file — because that line is a reading of your codebase that only `apply` is
+  in a position to take.
 
 Two rules outrank being helpful. Phyllum never invents a value — a slot nobody filled is
 a question or a `TODO`, never a plausible guess. And it never corrects a value — four

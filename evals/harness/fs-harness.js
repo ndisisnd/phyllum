@@ -3,10 +3,11 @@
  *
  * The promise Phyllum makes is small enough to check mechanically: the only paths
  * it may ever create or modify in a user's project are `DESIGN-SYSTEM.md`, its
- * `.bak` copy, `.phyllum/**`, and — during `init` only — `.claude/skills/phyllum/**`
- * plus its lines in `.gitignore`. This file turns that promise into something the
- * whole assertion suite runs under, rather than something individual tests remember
- * to check.
+ * `.bak` copy, `DESIGN-SYSTEM-CHANGELOG.md`, `.phyllum/**`, and — during `init`
+ * only — `.claude/skills/phyllum/**`, its lines in `.gitignore`, and the two
+ * files `govern init` installs by name. This file
+ * turns that promise into something the whole assertion suite runs under, rather
+ * than something individual tests remember to check.
  *
  * Two paths are named by the user rather than by the enumeration — the files an
  * `apply run` phase is entitled to write, and `assess --json`'s output path —
@@ -50,12 +51,30 @@ const ALLOWED = [
   // a new path Phyllum may write is a change to the promise, and the promise is
   // this list.
   { label: 'DESIGN-SYSTEM.md.bak', test: (rel) => rel === 'DESIGN-SYSTEM.md.bak' },
+  // v0.12.0 phase 2: `govern log`'s append-only record, beside the file it is a
+  // record of. Enumerated here for the same reason the `.bak` is — the promise
+  // is this list, so a file Phyllum may write that is not on it is a promise
+  // nobody can check. It is the only target on the list that may never get
+  // shorter, and `lib/govern-log.js` is where that half is enforced.
+  {
+    label: 'DESIGN-SYSTEM-CHANGELOG.md',
+    test: (rel) => rel === 'DESIGN-SYSTEM-CHANGELOG.md',
+  },
   { label: '.phyllum/**', test: (rel) => rel === '.phyllum' || rel.startsWith('.phyllum/') },
   {
     label: '.claude/skills/phyllum/** (init only)',
     test: (rel) => rel === '.claude/skills/phyllum' || rel.startsWith('.claude/skills/phyllum/'),
   },
   { label: '.gitignore (init only)', test: (rel) => rel === '.gitignore' },
+  // v0.12.0 phase 5: the two files `govern init` installs, enumerated by their
+  // full names rather than by the directories they sit in. `.git/hooks/**` and
+  // `.github/**` would have been a widening; two filenames are two filenames,
+  // and `.git/hooks/pre-push` is still a violation.
+  { label: '.git/hooks/pre-commit (init only)', test: (rel) => rel === '.git/hooks/pre-commit' },
+  {
+    label: '.github/workflows/phyllum.yml (init only)',
+    test: (rel) => rel === '.github/workflows/phyllum.yml',
+  },
 ];
 
 /** The funnel's temp file sits beside its target and is renamed onto it. */
@@ -129,12 +148,18 @@ function enumerationLabel(abs) {
 
 /**
  * Directories Phyllum creates on the way to an enumerated path: the sandbox root
- * itself (`fs.mkdirSync(dirname(DESIGN-SYSTEM.md))`) and the `.claude/skills`
- * spine above the skill install.
+ * itself (`fs.mkdirSync(dirname(DESIGN-SYSTEM.md))`), the `.claude/skills` spine
+ * above the skill install, and the two directories `govern init`'s files sit in.
+ *
+ * `.git/hooks` is a parent and never a target: the funnel's `mkdirSync` runs
+ * against a directory git already made, because `govern init` refuses to install
+ * a hook where there is no repository. `.git` itself is deliberately absent from
+ * this list — nothing in Phyllum may create one.
  */
 function isEnumerationParent(abs) {
   const parts = abs.split(path.sep).filter(Boolean);
   const tail2 = parts.slice(-2).join('/');
+  if (tail2 === '.git/hooks' || tail2 === '.github/workflows') return true;
   return tail2 === '.claude/skills' || parts.at(-1) === '.claude';
 }
 

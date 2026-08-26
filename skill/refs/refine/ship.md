@@ -46,15 +46,23 @@ it.
 | a11y-pass | a11y | the component's contrast, focus and ARIA readings carry no error-severity finding | the component claims no archetype contract, or the markup could not be read |
 | lint-pass | lint | every configured linter ran and reported nothing against the subject | no linter is configured, or a configured linter could not be started |
 | tests-exist | tests | the project already carries a usage-contract test file for the component | — |
-| docs-exist | docs | the component's spec block records a documentation entry | Governance has not shipped, so nothing writes the entry yet |
+| docs-exist | docs | the component's entry in `DESIGN-SYSTEM.md` records all five parts of the documentation template, none of them left open | no documentation entry is recorded for this component |
 
 The `Reads` column is the section each answer comes from, and it is the whole
 guarantee behind "the verdict re-runs nothing". Every value is a result one of
 the six gate sections already produced, handed in rather than re-derived. The
 `docs` row is the exception in shape rather than in principle: there is no docs
-section yet, so what is read is the `docs:` line the spec block may carry — the
-same word as the criterion's own, because one name spelled twice is one name too
-many.
+*section* in the gate, because documentation is Governance's stage and not one of
+Refine's seven. What is read is the entry `govern docs` writes into the
+component's own subsection of `DESIGN-SYSTEM.md`, read with Governance's own
+parser in `lib/govern-docs.js` rather than a second one here. One file, one
+reader, one answer to "is there an entry".
+
+That entry has three states, and the criterion has three answers for exactly
+that reason. No entry is `unmet` — nothing has documented this component, and
+`govern docs` is what would. An entry with a part still recorded `TODO` is a
+`fail` naming the part: the gap was stated, which is the honest thing to do with
+it, and it is still a gap. Only the complete five-part entry passes.
 
 The contract reading comes from `lib/refine-tests.js`'s derivation rather than
 from a second parse of the spec block. A contract is what the usage-contract
@@ -82,9 +90,10 @@ tool to install. Both stop a ship, and only one of them is anybody's fault.
 
 `unmet` never ships, and that is the rule `protocol-refine.md` states as **a
 criterion that passes by absence is a criterion that was never checked**. The
-docs criterion lives permanently in this column until `govern docs` ships in
-v0.12.0, and every result says so with the reason named rather than quietly
-counting five criteria as six.
+docs criterion lived permanently in this column until `govern docs` shipped in
+v0.12.0 phase 4; it now moves through all three answers like every other
+criterion, and an undocumented component still lands here with the reason named
+rather than quietly counting five criteria as six.
 
 ---
 
@@ -98,11 +107,10 @@ Phyllum already has one scale — Assess's drift score — and one is enough. A
 second, softer number here would let a failing gate read as a passing mood,
 which is precisely the failure mode a gate is installed to prevent.
 
-Not shippable is a normal outcome, and today it is the *expected* one: the docs
-criterion cannot be met by anything that exists yet, so every component in every
-project comes back not shippable with `docs-exist` unmet. That is the honest
-answer, and stating it plainly is better than shipping a gate that passes
-everything until Governance arrives.
+Not shippable is a normal outcome, and it is the *expected* one for a component
+nobody has documented: `docs-exist` comes back unmet, and five green criteria do
+not add up to a verdict. That is the honest answer, and the way to change it is
+to run `govern docs` rather than to soften the bar.
 
 ---
 

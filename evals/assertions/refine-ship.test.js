@@ -15,9 +15,12 @@
  *   - **`unmet` never ships.** "The linter found an error" and "no linter is
  *     configured" are different facts, and the second one is not a pass. The
  *     rule is read from `phyllum:ship-statuses`, where somebody can see it.
- *   - **The docs criterion reports unmet with its reason.** It is the one the
- *     protocol names when it says a criterion that passes by absence is a
- *     criterion nobody checked, and it stays unmet until Governance ships.
+ *   - **The docs criterion reads Governance's entry, and reports all three
+ *     answers.** No entry is unmet — the one the protocol names when it says a
+ *     criterion that passes by absence is a criterion nobody checked. An entry
+ *     with a part still `TODO` is a fail naming the part, because a stated gap
+ *     is honest and is still a gap. Only a complete five-part entry passes, and
+ *     the reading is `lib/govern-docs.js`'s so there is one parser, not two.
  *   - **A deprecated component is never shippable.** Not as a seventh criterion
  *     — the six are still read and still reported — but as the conjunction on
  *     top, and the verdict names the replacement to ship instead.
@@ -31,6 +34,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { parse } from '../../lib/design-system.js';
+import { parseEntry, renderEntry, writeDocs } from '../../lib/govern-docs.js';
 import { componentShip, criteria, docsKey, refineShip } from '../../lib/refine-ship.js';
 import { setComponentDeprecation } from '../../lib/refine-deprecate.js';
 import {
@@ -123,6 +127,15 @@ function project(dir, components = [{ name: 'Button', spec: BUTTON }], files = {
   return { text, model: parse(text) };
 }
 
+/** A five-part entry with nothing left open — what `govern docs` writes when it is told everything. */
+const COMPLETE_DOCS = {
+  'what-it-is': 'The button this design system records.',
+  'how-to-use': 'Set `label`; the slots come from the spec block.',
+  'where-to-use': 'Wherever a press commits something.',
+  'in-the-codebase': 'src/Button.jsx line 1.',
+  'do-not': ['Do not pass a colour at the call site.'],
+};
+
 /** No linter configured — the section's own answer, handed in rather than re-run. */
 const NO_LINTER = { pass: null, reason: 'no linter is configured in this project' };
 
@@ -137,7 +150,8 @@ const statusOf = (entry, criterion) => entry.criteria.find((row) => row.criterio
  */
 const allPass = (overrides = {}) => ({
   component: 'Button',
-  spec: 'name: Button\ndocs: docs/button.md\n',
+  spec: 'name: Button\n',
+  docs: parseEntry(renderEntry('Button', COMPLETE_DOCS)),
   coverage: { ran: true, components: [] },
   coverageEntry: { component: 'Button', checked: true, pass: true, findings: [] },
   a11y: { ran: true, components: [] },
@@ -297,17 +311,32 @@ test('the tests criterion reads what the project carries, not what refine tests 
   assert.match(result.criteria[4].reason, /placing it is yours to do/, 'a rendered file is not a placed one');
 });
 
-test('the docs criterion is unmet by absence, with Governance named as the reason', () => {
-  const absent = componentShip(allPass({ spec: 'name: Button\n' }));
+test('the docs criterion is unmet by absence, with govern docs named as the answer', () => {
+  const absent = componentShip(allPass({ docs: null }));
   const docs = absent.criteria.find((row) => row.criterion === 'docs-exist');
   assert.equal(docs.status, SHIP_UNMET, 'passing it by absence would be a criterion nobody checked');
-  assert.match(docs.reason, /Governance has not shipped/);
+  assert.match(docs.reason, /no documentation entry is recorded/);
   assert.match(docs.reason, /govern docs/, 'and the reader is told what will satisfy it');
   assert.equal(
     statusOf(componentShip(allPass()), 'docs-exist'),
     SHIP_PASS,
-    'a hand-written entry is still an entry the criterion can read',
+    'a complete five-part entry is what the criterion is asking for',
   );
+});
+
+test('an entry with a part still open fails, and the reason names the part', () => {
+  // A stated gap is the honest thing to do with a part nobody has an answer
+  // for. It is still a gap, so it is a fail rather than an unmet: somebody did
+  // run `govern docs` here, and the criterion is not un-checkable.
+  const open = componentShip(
+    allPass({
+      docs: parseEntry(renderEntry('Button', { ...COMPLETE_DOCS, 'where-to-use': null })),
+    }),
+  );
+  const docs = open.criteria.find((row) => row.criterion === 'docs-exist');
+  assert.equal(docs.status, SHIP_FAIL);
+  assert.match(docs.reason, /where-to-use/, 'a fail with no named part is a verdict nobody can act on');
+  assert.equal(open.shippable, false);
 });
 
 test('a criterion nothing is wired to read is unmet, not quietly skipped', () => {
@@ -349,15 +378,30 @@ test('the deprecation the verdict reads is the record refine deprecate wrote', a
 // Over a whole design system
 // ---------------------------------------------------------------------------
 
-test('every component today comes back not shippable, and docs-exist is why', async () => {
+test('an undocumented component comes back not shippable, and docs-exist is why', async () => {
   await withTempDir(async (dir) => {
     const { model } = project(dir, [{ name: 'Button', spec: BUTTON }], { 'src/Button.jsx': BUTTON_MARKUP });
     const result = refineShip(dir, model, { lint: NO_LINTER });
 
     assert.equal(result.ran, true);
-    assert.equal(result.pass, false, 'not shippable is a normal outcome, and today it is the expected one');
+    assert.equal(result.pass, false, 'not shippable is a normal outcome for a component nobody documented');
     assert.ok(result.components[0].open.includes('docs-exist'));
     assert.equal(statusOf(result.components[0], 'docs-exist'), SHIP_UNMET);
+  });
+});
+
+test('the entry the verdict reads is the one govern docs wrote into the file', async () => {
+  await withTempDir(async (dir) => {
+    const { text } = project(dir, [{ name: 'Button', spec: BUTTON }], { 'src/Button.jsx': BUTTON_MARKUP });
+    writeDocs(dir, 'Button', COMPLETE_DOCS, { text });
+    const written = fs.readFileSync(path.join(dir, DESIGN_SYSTEM_FILE), 'utf8');
+
+    const result = refineShip(dir, parse(written), { lint: NO_LINTER, text: written });
+    assert.equal(
+      statusOf(result.components[0], 'docs-exist'),
+      SHIP_PASS,
+      'one parser writes the entry and reads it, so there is one answer rather than two',
+    );
   });
 });
 

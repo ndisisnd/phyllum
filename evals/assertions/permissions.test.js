@@ -13,6 +13,7 @@ import test from 'node:test';
 
 import {
   APPLY_BRANCH_PREFIX,
+  ENFORCEMENT_FILES,
   PermissionError,
   SourceWriteError,
   appendGitignoreLine,
@@ -21,6 +22,7 @@ import {
   mkdirGuarded,
   openSourceGrant,
   writeDesignSystem,
+  writeEnforcementFile,
   writeGuarded,
   writeSourceGuarded,
 } from '../../lib/write.js';
@@ -36,24 +38,52 @@ import {
 import { parse, validateStructure } from '../../lib/design-system.js';
 import { PACKAGE_ROOT, POPULATED_FIXTURE, readFixture, snapshotPaths, withTempDir } from './helpers.js';
 
-test('the permission model allows exactly the four enumerated targets', () => {
+test('the permission model allows exactly the enumerated targets', () => {
   assert.ok(isAllowedPath('DESIGN-SYSTEM.md'));
+  assert.ok(isAllowedPath('DESIGN-SYSTEM.md.bak'));
+  // v0.12.0 phase 2: the changelog is a second name on a closed list, not a
+  // widening. `lib/govern-log.js` is the only module that reaches it, and it may
+  // only ever make it longer — that half is asserted in govern-log.test.js.
+  assert.ok(isAllowedPath('DESIGN-SYSTEM-CHANGELOG.md'));
   assert.ok(isAllowedPath('.phyllum/session.json'));
   assert.ok(isAllowedPath('.claude/skills/phyllum/SKILL.md', { init: true }));
   assert.ok(isAllowedPath('.gitignore', { init: true }));
+  // v0.12.0 phase 5: `govern init`'s two files. Named in full rather than as the
+  // directories they sit in — `.git/hooks/**` and `.github/**` would have been a
+  // widening, and the near misses two lines below are why.
+  assert.ok(isAllowedPath('.git/hooks/pre-commit', { init: true }));
+  assert.ok(isAllowedPath('.github/workflows/phyllum.yml', { init: true }));
 
   // The init-only exceptions are closed outside init.
   assert.ok(!isAllowedPath('.claude/skills/phyllum/SKILL.md'));
   assert.ok(!isAllowedPath('.gitignore'));
+  assert.ok(!isAllowedPath('.git/hooks/pre-commit'));
+  assert.ok(!isAllowedPath('.github/workflows/phyllum.yml'));
 
   // Everything else, always.
   for (const rel of [
     'src/Button.jsx',
     'package.json',
     'README.md',
+    // The project's own changelog is not Phyllum's, and a name one word away
+    // from a target on the list is exactly the mistake the list exists to stop.
+    'CHANGELOG.md',
+    'docs/DESIGN-SYSTEM-CHANGELOG.md',
     '.claude/settings.json',
     '.claude/skills/other/SKILL.md',
     'tailwind.config.js',
+    // The near misses around `govern init`'s two names. Every one of these is a
+    // file somebody's repository plausibly has, and not one of them is on the
+    // list — which is the whole difference between two filenames and a directory.
+    '.git/hooks/pre-push',
+    '.git/hooks/post-commit',
+    '.git/hooks/pre-commit.sample',
+    '.git/config',
+    '.git/HEAD',
+    '.github/workflows/ci.yml',
+    '.github/workflows/phyllum.yaml',
+    '.github/dependabot.yml',
+    'hooks/pre-commit',
   ]) {
     assert.ok(!isAllowedPath(rel, { init: true }), `${rel} should never be writable`);
   }
@@ -66,6 +96,45 @@ test('the funnel refuses a write outside the model, including escapes', async ()
     }
     assert.throws(() => mkdirGuarded(dir, 'src'), PermissionError);
     assert.deepEqual(snapshotPaths(dir), []);
+  });
+});
+
+/**
+ * `govern init`'s door, which is narrower than the flag that opens it
+ * (v0.12.0 phase 5).
+ *
+ * The init flag admits the skill install, the `.gitignore` line and these two
+ * files. `writeEnforcementFile` admits the two files and nothing else, so a
+ * caller holding the narrow writer cannot reach the wide allowance — the same
+ * shape `writeChangelogFile` has, one release earlier.
+ */
+test('the enforcement writer takes the two names it is for, and no other path', async () => {
+  await withTempDir(async (dir) => {
+    fs.mkdirSync(path.join(dir, '.git', 'hooks'), { recursive: true });
+    assert.equal(writeEnforcementFile(dir, '.git/hooks/pre-commit', '#!/bin/sh\n'), '.git/hooks/pre-commit');
+    assert.equal(
+      writeEnforcementFile(dir, '.github/workflows/phyllum.yml', 'name: x\n'),
+      '.github/workflows/phyllum.yml',
+    );
+    // The hook is executable and the workflow is not: one is run by git, the
+    // other is read by a service.
+    assert.ok(fs.statSync(path.join(dir, '.git', 'hooks', 'pre-commit')).mode & 0o100);
+
+    for (const wrong of [
+      '.git/hooks/pre-push',
+      '.git/config',
+      '.github/workflows/ci.yml',
+      '.claude/skills/phyllum/SKILL.md',
+      'DESIGN-SYSTEM.md',
+      '../outside/pre-commit',
+    ]) {
+      assert.throws(() => writeEnforcementFile(dir, wrong, 'nope'), PermissionError, wrong);
+    }
+    // And no ordinary write reaches either name, flag or no flag.
+    for (const target of ENFORCEMENT_FILES) {
+      assert.throws(() => writeGuarded(dir, target, 'nope'), PermissionError);
+    }
+    assert.deepEqual(snapshotPaths(dir), ['.git/hooks/pre-commit', '.github/workflows/phyllum.yml']);
   });
 });
 

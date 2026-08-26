@@ -42,15 +42,17 @@ import { PACKAGE_ROOT } from './helpers.js';
 /**
  * Every name that owns a reference folder.
  *
- * All but two are protocols — one command, one folder, one frame file named
- * after it. `build` (v0.10.0 phase 1) and `refine` (v0.11.0 phase 6) are the
- * exceptions and are listed anyway: both are *stage* folders rather than a
- * command's. Build homes five commands and so has no command folder to live
- * in; Refine's `refine` is one command with seven modes, and its folder carries
- * the stage protocol beside a file per mode. Each obeys every rule in this file
- * regardless — the frame file named after the folder, the line floor, unique
- * markers, live cross-references — which is the reason both are checked here
- * rather than exempted.
+ * All but three are protocols — one command, one folder, one frame file named
+ * after it. `build` (v0.10.0 phase 1), `refine` (v0.11.0 phase 6) and `govern`
+ * (v0.12.0 phase 1) are the exceptions and are listed anyway: all three are
+ * *stage* folders rather than a command's. Build homes five commands and so has
+ * no command folder to live in; Refine's `refine` is one command with seven
+ * modes, and its folder carries the stage protocol beside a file per mode;
+ * Governance's `govern` is driven from the skill rather than dispatched by the
+ * CLI, and its folder carries the compliance protocol beside its frame. Each
+ * obeys every rule in this file regardless — the frame file named after the
+ * folder, the line floor, unique markers, live cross-references — which is the
+ * reason all three are checked here rather than exempted.
  */
 const PROTOCOLS = [
   'apply',
@@ -58,6 +60,7 @@ const PROTOCOLS = [
   'build',
   'create',
   'delete',
+  'govern',
   'gui',
   'init',
   'refine',
