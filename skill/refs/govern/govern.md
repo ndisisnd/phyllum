@@ -71,25 +71,28 @@ This section is about honesty, and it is written the way `refs/build/build.md`
 that something works is made only when it works. **A stage that overstates its
 own output is worse than a stage that has none yet.**
 
-v0.12.0 ships in five phases. This file lands in the first of them.
+v0.12.0 ships in five phases. This file landed in the first of them, and phase 2
+is in.
 
 | What | Phase | State |
 |------|-------|-------|
 | the compliance protocol, and this frame | 1 | shipped |
-| `govern log` — append-only entries to `DESIGN-SYSTEM-CHANGELOG.md` | 2 | planned |
+| `govern log` — append-only entries to `DESIGN-SYSTEM-CHANGELOG.md` | 2 | shipped |
 | `DESIGN-SYSTEM-CHANGELOG.md` declared by name as a write target | 3 | planned |
 | `govern docs` — the five-part documentation template | 4 | planned |
 | `govern init` — the pre-commit hook, the CI workflow, or both | 5 | planned |
 
 Each mode gains its own file in this folder **when its phase lands**, not before,
 which is the pattern `refs/refine/` followed through v0.11.0: the protocol was
-written first, and a file per mode arrived with the mode. A placeholder file
+written first, and a file per mode arrived with the mode. `refs/govern/log.md`
+arrived with phase 2 and is the folder's first mode file. A placeholder file
 describing a mode nobody can run is a contract nobody can check, and this folder
 holds none.
 
 What each mode is for, stated once here so the stage can be reasoned about
-whole — and stated as intent rather than as behaviour, because none of it runs
-yet:
+whole. The first row is behaviour — it runs, and `refs/govern/log.md` is its
+contract. The other two are still intent, and stay written as intent until their
+phases land:
 
 | Mode | What it is for |
 |------|----------------|
@@ -132,15 +135,24 @@ directory around every command and fails on anything outside that list.
 | What Governance touches | Status |
 |-------------------------|--------|
 | `refs/govern/**` — this folder | Phyllum's own reference tree; reading it changes nothing in anybody's project |
-| `DESIGN-SYSTEM.md` | read only in this phase |
-| the user's codebase | not touched at all in this phase |
-| `DESIGN-SYSTEM-CHANGELOG.md` | phase 2 writes it, phase 3 declares it — neither exists yet |
+| `DESIGN-SYSTEM.md` | read only — no mode of this stage writes it |
+| the user's codebase | not touched at all |
+| `DESIGN-SYSTEM-CHANGELOG.md` | written by `govern log` since phase 2, through the one funnel, and only ever by being made longer |
 
-**This phase adds no write target.** The one that arrives later arrives the loud
-way: written in phase 2, then declared by name beside `DESIGN-SYSTEM.md.bak` and
-`.phyllum/` in the permission table of `README.md` and `SKILL.md` in phase 3. The
-one-write-target rule holds through that because the list stays closed, short and
-enumerated, and because the changelog's own history stays tracked in git.
+**The stage has exactly one write target, and it is the one phase 2 added.** It
+arrived the loud way rather than the quiet one: `lib/write.js` names it on the
+funnel's own list, `evals/harness/fs-harness.js` enumerates it beside
+`DESIGN-SYSTEM.md.bak`, and the assertion suite fails the run if anything else
+appears in a project diff. Phase 3 is what declares it by name in the permission
+table of `README.md` and `SKILL.md`, so **do not offer it as a write target in
+conversation until that phase lands.**
+
+The one-write-target rule holds through the addition because the list stays
+closed, short and enumerated, because the changelog's own history stays tracked
+in git, and because of one property no other target on the list has: **the file
+may only grow.** `lib/govern-log.js` checks every write against the bytes already
+on disk, and the only call that may shorten it needs a grant minted from a reason
+a person gave. `refs/govern/log.md` is where that contract is written down.
 
 ---
 

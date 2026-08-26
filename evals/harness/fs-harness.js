@@ -3,10 +3,10 @@
  *
  * The promise Phyllum makes is small enough to check mechanically: the only paths
  * it may ever create or modify in a user's project are `DESIGN-SYSTEM.md`, its
- * `.bak` copy, `.phyllum/**`, and — during `init` only — `.claude/skills/phyllum/**`
- * plus its lines in `.gitignore`. This file turns that promise into something the
- * whole assertion suite runs under, rather than something individual tests remember
- * to check.
+ * `.bak` copy, `DESIGN-SYSTEM-CHANGELOG.md`, `.phyllum/**`, and — during `init`
+ * only — `.claude/skills/phyllum/**` plus its lines in `.gitignore`. This file
+ * turns that promise into something the whole assertion suite runs under, rather
+ * than something individual tests remember to check.
  *
  * Two paths are named by the user rather than by the enumeration — the files an
  * `apply run` phase is entitled to write, and `assess --json`'s output path —
@@ -50,6 +50,15 @@ const ALLOWED = [
   // a new path Phyllum may write is a change to the promise, and the promise is
   // this list.
   { label: 'DESIGN-SYSTEM.md.bak', test: (rel) => rel === 'DESIGN-SYSTEM.md.bak' },
+  // v0.12.0 phase 2: `govern log`'s append-only record, beside the file it is a
+  // record of. Enumerated here for the same reason the `.bak` is — the promise
+  // is this list, so a file Phyllum may write that is not on it is a promise
+  // nobody can check. It is the only target on the list that may never get
+  // shorter, and `lib/govern-log.js` is where that half is enforced.
+  {
+    label: 'DESIGN-SYSTEM-CHANGELOG.md',
+    test: (rel) => rel === 'DESIGN-SYSTEM-CHANGELOG.md',
+  },
   { label: '.phyllum/**', test: (rel) => rel === '.phyllum' || rel.startsWith('.phyllum/') },
   {
     label: '.claude/skills/phyllum/** (init only)',

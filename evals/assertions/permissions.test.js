@@ -36,8 +36,13 @@ import {
 import { parse, validateStructure } from '../../lib/design-system.js';
 import { PACKAGE_ROOT, POPULATED_FIXTURE, readFixture, snapshotPaths, withTempDir } from './helpers.js';
 
-test('the permission model allows exactly the four enumerated targets', () => {
+test('the permission model allows exactly the enumerated targets', () => {
   assert.ok(isAllowedPath('DESIGN-SYSTEM.md'));
+  assert.ok(isAllowedPath('DESIGN-SYSTEM.md.bak'));
+  // v0.12.0 phase 2: the changelog is a second name on a closed list, not a
+  // widening. `lib/govern-log.js` is the only module that reaches it, and it may
+  // only ever make it longer — that half is asserted in govern-log.test.js.
+  assert.ok(isAllowedPath('DESIGN-SYSTEM-CHANGELOG.md'));
   assert.ok(isAllowedPath('.phyllum/session.json'));
   assert.ok(isAllowedPath('.claude/skills/phyllum/SKILL.md', { init: true }));
   assert.ok(isAllowedPath('.gitignore', { init: true }));
@@ -51,6 +56,10 @@ test('the permission model allows exactly the four enumerated targets', () => {
     'src/Button.jsx',
     'package.json',
     'README.md',
+    // The project's own changelog is not Phyllum's, and a name one word away
+    // from a target on the list is exactly the mistake the list exists to stop.
+    'CHANGELOG.md',
+    'docs/DESIGN-SYSTEM-CHANGELOG.md',
     '.claude/settings.json',
     '.claude/skills/other/SKILL.md',
     'tailwind.config.js',

@@ -138,11 +138,16 @@ no `phyllum govern` to type. v0.12.0 is its release and it lands across that
 release's phases; the compliance protocol — what compliant use of a token or a
 component actually means — is written first and lives at
 `refs/govern/protocol-compliance.md`, with the stage frame beside it at
-`refs/govern/govern.md`. Phase 1 ships those two and nothing else. Phase 2 brings
-`govern log`, which appends design-system changes to
-`DESIGN-SYSTEM-CHANGELOG.md` and never deletes a line unless it is given explicit
-permission; phase 3 declares that file by name as a write target here and in
-`README.md`, beside `DESIGN-SYSTEM.md.bak` and `.phyllum/`; phase 4 brings
+`refs/govern/govern.md`. Phase 2 adds the stage's first mode. `govern log`
+appends one entry at a time to `DESIGN-SYSTEM-CHANGELOG.md`, oldest first, and it
+never takes a line back: the file may only grow, every write is checked against
+the bytes already on disk, and the single call that may shorten it needs a
+deletion grant minted from a reason the user gave by name. Never open one on your
+own judgement — a long changelog is the design system telling the truth about how
+much has happened to it. `refs/govern/log.md` is the mode's contract and
+`lib/govern-log.js` is where it is enforced. Phase 3 declares that file by name as
+a write target here and in `README.md`, beside `DESIGN-SYSTEM.md.bak` and
+`.phyllum/`; phase 4 brings
 `govern docs` and its fixed five-part template — what it is, how to use it, where
 to use it, where it appears in the codebase with an example, and up to three "do
 not do" examples — which is what finally satisfies Refine's sixth ship criterion;
@@ -249,7 +254,7 @@ what it must never do. Everything else is a topic.
 | `init` | `refs/init/` | `init.md` the walkthrough, step by step |
 | Build stage | `refs/build/` | `build.md` what the Build stage is, the five commands it homes, its defined input (the latest drift report's recommendations, with explicit prose overriding) and its defined output (a numbered `build-report-[n].md` under `.phyllum/`, behind an approval gate), plus which phase of v0.10.0 brings which · `input.md` the resolution protocol: the order prose, image and the latest drift report are consulted in, what prose overriding does and does not mean, the five different ways there is no report to read, and how recommendations are surfaced above the picker · `report.md` the numbered build report itself: numbering, date injection, the Source and Work sections, and the machine-readable `phyllum-build-source` block that maps a report back to the drift report or the prose it answers · `gate.md` the approval gate: the order the report, the question and the `DESIGN-SYSTEM.md` write happen in, what a declined run leaves behind, and the mechanical rule that splits a large drift answer into ordered `## Phase n` sections |
 | Refine stage | `refs/refine/` | `refine.md` the stage frame: what Refine is for, why every check is a mode of one command rather than a sibling of it, why the gate order is fixed and no section is ever skipped, the three scopes and the refusal an unrecorded subject gets, what the numbered report leaves behind, the never-list, and the write posture · `protocol-refine.md` the Refine stage end to end: the gate order (contract → coverage → naming → a11y → lint → tests → ship verdict) and why deterministic checks run first, the three scopes, the seven modes of the one `refine` command, the numbered `refine-report-[n].md`, the six ship criteria and the docs criterion that ties forward to Governance, and the read-only permission posture · `coverage.md` `refine coverage`: what counts as built, what counts as a raw value, the bypassed-token/unnamed-value split and why an unbuilt component is neither passed nor failed · `naming.md` `refine naming`: which scale grades which token table, the two spellings Phyllum's own naming adds, how a component name is graded against its recorded archetype, and why an off-scale name is a warn · `a11y.md` `refine a11y`: where a contrast pair comes from and why an unpaired token is not checked against everything else, the WCAG thresholds and which one a component's own type size earns, why an interactive archetype with no recorded focus treatment is a finding, the ARIA row per archetype and why a native element carries its own semantics, and the error/warn split between a fact about the component and a limit of the reading · `lint.md` `refine lint`: the linters it detects and how, why the project's own `lint` script is not what runs, the check-mode rule and the four answers a linter can give · `protocol-usage-contract.md` what a usage contract is: type strictness, where data may live, how a human and an agent are each meant to call a component, the clause table with what each clause asserts and when the spec is too silent to state it, and why a generated test file is handed over rather than placed · `tests.md` `refine tests`: the runners it detects and the stated `node:test` fallback, what a generated file looks like, why a clause it cannot express is reported rather than stubbed, and the difference between a test Phyllum rendered and a test the project carries · `deprecate.md` `refine deprecate`: why a replacement is mandatory, where a component's record and a token's record each go and why they differ, how the usage list is derived from the one adoption walk, how `delete` blocks a removal while usages remain, and why the derivation writes nothing · `ship.md` `refine ship`: the six criteria and the section each reads, why there are three answers rather than two, why the verdict is a conjunction and never a score, why a deprecated component is never shippable, and why the verdict is reported and never recorded |
-| Governance stage | `refs/govern/` | `govern.md` the stage frame: what Governance is for, why it sits second in the pipeline and ships last in delivery, why its audience is an agent rather than a person, the three modes it homes and which phase of v0.12.0 brings each, why the stage is driven from this skill and carries no `lib/registry.js` row, the write posture and the never-list · `protocol-compliance.md` the compliance protocol: what compliant use of a token or a component means, the pre-flight an agent runs before it writes anything, the token rules and the component rules with the Refine section that already grades each, why visible `TODO: tokenise` debt is compliant and hidden styling is not, the four exemptions and why an exemption is never a pass, and why unreadable is never `false` |
+| Governance stage | `refs/govern/` | `govern.md` the stage frame: what Governance is for, why it sits second in the pipeline and ships last in delivery, why its audience is an agent rather than a person, the three modes it homes and which phase of v0.12.0 brings each, why the stage is driven from this skill and carries no `lib/registry.js` row, the write posture and the never-list · `protocol-compliance.md` the compliance protocol: what compliant use of a token or a component means, the pre-flight an agent runs before it writes anything, the token rules and the component rules with the Refine section that already grades each, why visible `TODO: tokenise` debt is compliant and hidden styling is not, the four exemptions and why an exemption is never a pass, and why unreadable is never `false` · `log.md` `govern log`: the append-only invariant and why it is checked on the bytes, why entries run oldest first, the deletion grant and the four locks on it, the closed action and kind word lists, the fixed lines the mode prints and reads back, and why a re-run of the same entry writes nothing |
 
 Three rows of that table are a **stage** rather than a command. Assess keeps its
 stage protocol inside its command folder — `refs/assess/protocol-assess.md` —
@@ -279,16 +284,18 @@ protocol disagree, the mode's file wins.
 
 `refs/govern/` is the third stage folder, and v0.12.0 fills it the way v0.11.0
 filled Refine's: the protocol first, then a file per mode as each mode lands.
-Phase 1 ships two files and no others — `protocol-compliance.md`, the rules an
-agent reads **before** it touches a token or a component, and `govern.md`, the
-frame that says what the stage is and which phase brings which mode. There are no
-placeholder mode files, deliberately: a contract nobody can check is worse than
-an absent one.
+Phase 1 shipped two files — `protocol-compliance.md`, the rules an agent reads
+**before** it touches a token or a component, and `govern.md`, the frame that says
+what the stage is and which phase brings which mode. Phase 2 added the third,
+`log.md`, with the mode it describes. There are no placeholder mode files,
+deliberately: a contract nobody can check is worse than an absent one.
 
 Load `protocol-compliance.md` before writing anything into a design system — it
 is the one file in the tree written to be followed rather than consulted, and its
 pre-flight is the order a session reads in. Load `govern.md` for a question about
-the stage itself. Where the two disagree, the protocol wins.
+the stage itself, and `log.md` before recording anything in the changelog. Where
+a mode's file and the protocol disagree, the mode's file wins; where the frame
+and the protocol disagree, the protocol wins.
 
 Two references belong to no command and are the two that are still flat files,
 because each is a shared library rather than a protocol. Both are loaded
