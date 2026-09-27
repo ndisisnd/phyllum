@@ -365,13 +365,21 @@ const WRITE_SURFACE = [
     writes: ['.phyllum/PRD.md', 'DESIGN-SYSTEM.md', 'DESIGN-SYSTEM.md.bak'],
     seed: 'apply-target.md',
   },
+  // `sample` alone is a read. `dispose` and `restore` both stop at a declined
+  // gate here, so neither writes; what they write once accepted is asserted in
+  // `sample.test.js`, byte for byte.
+  { line: 'sample', writes: null },
+  { line: 'sample dispose', writes: null },
+  { line: 'sample restore', writes: null },
 ];
 
 test('each command in the v0.2.0 surface writes exactly what it claims, and nothing else', async () => {
   for (const { line, writes, answers, seed } of WRITE_SURFACE) {
     await withTempDir(async (dir) => {
       copyDir(path.join(FIXTURES, 'codebases', 'react-css'), dir);
-      await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12' });
+      // `sample: false` — the surface below is measured on an empty system,
+      // and the sample's five components would give `apply` a plan to write.
+      await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12', sample: false });
       if (seed) {
         fs.writeFileSync(
           path.join(dir, 'DESIGN-SYSTEM.md'),

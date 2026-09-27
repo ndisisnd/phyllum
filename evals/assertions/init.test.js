@@ -34,7 +34,7 @@ const readDesignSystem = (dir) => fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.
 
 test('a fresh init produces DESIGN-SYSTEM.md from the canonical template', async () => {
   await withTempDir(async (dir) => {
-    const { code } = await run('init', dir);
+    const { code } = await run('init', dir, { sample: false });
     assert.equal(code, 0);
 
     const written = readDesignSystem(dir);

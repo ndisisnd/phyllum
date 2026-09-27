@@ -420,10 +420,13 @@ test('a rerun after acceptance proposes nothing, and one new colour proposes exa
 test('init offers a first pass over the codebase and reports what it found', async () => {
   await withTempDir(async (dir) => {
     copyDir(MIXED, dir);
+    // Without the sample: its tokens are names the seed would steer around, and
+    // this test is about the preview the codebase alone produces.
     const { out, actions } = await execute(tokenizeLine('init'), {
       cwd: dir,
       yes: true,
       today: '2026-08-12',
+      sample: false,
     });
 
     assert.ok(out.includes('Step 4 — seed the system'));
@@ -436,7 +439,8 @@ test('init offers a first pass over the codebase and reports what it found', asy
 test('the seeded pass names nothing on the user’s behalf', async () => {
   await withTempDir(async (dir) => {
     copyDir(MIXED, dir);
-    await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12' });
+    // Without the sample, so any token in the file could only be the seed's.
+    await execute(tokenizeLine('init'), { cwd: dir, yes: true, today: '2026-08-12', sample: false });
 
     const model = parse(fs.readFileSync(path.join(dir, 'DESIGN-SYSTEM.md'), 'utf8'));
     assert.deepEqual(model.tokens.colours, [], 'a walkthrough that assumed yes must not name tokens');

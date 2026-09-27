@@ -87,10 +87,11 @@ The commands:
 | `update` | Change what the design system already records — `update token` walks type → list → pick → a sentence, `update component` revises a recorded component |
 | `delete` | Remove one recorded component — a breaking-change warning, a refusal while the codebase is still using it, and the component's name typed back on top of the acceptance gate before anything is written |
 | `tokenise` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values are queued and asked about one at a time; with nothing at all it asks what kind of token you are recording |
+| `sample` | Show the sample design system Phyllum ships; `sample dispose` removes the sample entries nobody changed, `sample restore` adds back the missing ones |
 | `display` | Print the design system to the terminal (`system` is the same command, kept as an alias) |
 | `gui` | Start the local server and open the dashboard for browsing tokens and components |
 | `kill` | Stop the dashboard server `gui` started |
-| `init` | Guided setup — scaffold the file, install the skill |
+| `init` | Guided setup — scaffold the file (with the sample design system, unless you decline it), install the skill |
 | `version` | Print the installed version and check npm for a newer one |
 | `upgrade` | Upgrade this install to the latest published version |
 | `pipeline` | Print the four stages, the commands under each, and where this project currently sits — read-only, derived from the files on disk |
@@ -110,7 +111,7 @@ approve before anything is built.
 Phyllum needs **Node 20 or newer** and has no dependencies to install.
 
 Some commands are wholly mechanical and work on their own: `menu`, `help`, `display`,
-`gui`, `kill`, `version`, `upgrade`, `create primitives` — shipped constants and
+`gui`, `kill`, `version`, `upgrade`, `create primitives`, `sample` — shipped constants and
 arithmetic, no model in the path — and `apply`, which only ever writes a plan.
 
 Some want [Claude Code](https://www.claude.com/product/claude-code), and run natively
@@ -139,6 +140,18 @@ phyllum init
 To check it's wired up, `phyllum menu` lists every command, and `phyllum help` prints an
 overview. `init` scaffolds `DESIGN-SYSTEM.md` and installs the skill into
 `.claude/skills/phyllum/` so it's available inside Claude Code too.
+
+`init` also offers the **sample design system**, so a new project opens on a worked
+example rather than on empty tables. The sample holds a neutral and a blue primitive
+ramp, the semantic colours, spacing, radii, shadows and type built on them, and five
+components: `Button/Primary`, `Accordion`, `Tag/Small`, `Tag/Large` and `Card`. It is a
+reference file you can read on its own, at `templates/SAMPLE-DESIGN-SYSTEM.md`.
+
+- `phyllum sample` shows which sample entries your file still holds.
+- `phyllum sample dispose` removes every sample entry still exactly as shipped. Anything
+  you changed stays, and so does any token one of your own components still uses.
+- `phyllum sample restore` adds back every sample entry that is missing. It never
+  overwrites a name you already use.
 
 ## How it works
 
