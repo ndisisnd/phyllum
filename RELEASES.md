@@ -2,6 +2,27 @@
 
 What's new for you, release by release.
 
+## 0.13.0 — 2026-09-28
+
+> You no longer start from a blank page. When `init` creates your design system,
+> it can fill it with a small worked sample, so you can see how tokens and
+> components fit together before you write your own. When you are done with the
+> sample, one command clears it away, and nothing you changed goes with it.
+
+### ✨ New
+- Start a new project from a sample design system. `init` offers it when it
+  creates your file, and you can say no. The sample holds a primary button, an
+  accordion, two tag sizes, and a card with shadows, plus the colour, spacing,
+  and type tokens they use.
+- See which parts of the sample are still as shipped with `phyllum sample`, so
+  you know what is yours and what is still the example.
+- Remove the sample with `phyllum sample dispose` once you have your own system.
+  It keeps anything you edited, any token a remaining component still uses, and
+  any component your codebase already uses. Only a person can approve it, so an
+  agent cannot clear your file on its own.
+- Bring the sample back with `phyllum sample restore` if you want the reference
+  again. It never overwrites an entry you changed.
+
 ## 0.12.0 — 2026-08-26
 
 > Phyllum now writes down the rules. Governance is the stage that says what
