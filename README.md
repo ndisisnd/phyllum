@@ -28,15 +28,13 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.12.0 -->
+<!-- mkpub:release 0.13.0 -->
 > [!NOTE]
-> **🚀 New in 0.12.0 · Write down the rules your design system runs on**
+> **🚀 New in 0.13.0 · Start from a sample design system**
 >
-> Governance states what correct use of a token or a component means, in one compliance
-> protocol the other stages measure against. It also keeps an append-only record of every
-> change in `DESIGN-SYSTEM-CHANGELOG.md`, writes a component's documentation from one
-> fixed template, and installs the pre-commit hook or CI workflow that runs the check
-> for you.
+> When `init` creates `DESIGN-SYSTEM.md`, it can fill it with a small worked sample, so you
+> see how tokens and components fit together before you write your own. `phyllum sample
+> dispose` clears the sample away and keeps anything you edited; `sample restore` brings it back.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
