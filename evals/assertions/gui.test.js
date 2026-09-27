@@ -541,12 +541,11 @@ test('only a value the gate recognises is ever inlined into a swatch style attri
   assert.ok(odd.includes('background:transparent'), odd);
 });
 
-test('the page fetches nothing from the network — no webfont, no CDN, no external URL', () => {
+test('the page fetches nothing from the network — no CDN, no external URL, its own fonts only', () => {
   const text = readPage();
   assert.equal(text.match(/https?:\/\//g), null, 'no absolute URL appears anywhere in the page');
   assert.equal(text.match(/\/\/[a-z0-9-]+\.[a-z]{2,}/gi), null, 'nor a protocol-relative one');
   assert.ok(!/@import/.test(text), 'no CSS import');
-  assert.ok(!/@font-face/.test(text), 'no webfont is declared, let alone downloaded');
   assert.ok(!/<link\b/i.test(text), 'no <link> to a second asset');
   assert.ok(!/<script[^>]+\bsrc=/i.test(text), 'the script is inline — one file, no second request');
   assert.ok(
@@ -555,7 +554,27 @@ test('the page fetches nothing from the network — no webfont, no CDN, no exter
   );
   assert.ok(!/\bsrc\s*=/i.test(text), 'nothing on the page names a second asset to load at all');
 
-  // Everything it does request is its own server, by relative path.
+  // Geist and Geist Mono are the one webfont the page declares (v0.14.0 phase
+  // 2), and every @font-face on the page has to stay local: a relative
+  // gui/fonts/ URL, never http(s), never a second host.
+  const faces = [...text.matchAll(/@font-face\s*\{[^}]*\}/g)].map((m) => m[0]);
+  assert.equal(faces.length, 2, 'exactly two @font-face rules — Geist and Geist Mono');
+  for (const face of faces) {
+    const [, url] = face.match(/src:\s*url\('([^']+)'/) || [];
+    assert.ok(url, `each @font-face names a src url: ${face}`);
+    assert.ok(!/^https?:/i.test(url) && !url.startsWith('//'), `${url} is not a network URL`);
+    assert.match(url, /^fonts\/[\w.-]+\.woff2$/, `${url} is a relative path under gui/fonts/`);
+    assert.ok(
+      fs.existsSync(path.join(PACKAGE_ROOT, 'gui', url)),
+      `${url} names a file that actually ships under gui/fonts/`,
+    );
+    assert.match(face, /font-display:\s*swap/, `${face} sets font-display: swap`);
+  }
+  assert.ok(faces.some((face) => /font-family:\s*'Geist';/.test(face)), 'one @font-face names Geist');
+  assert.ok(faces.some((face) => /font-family:\s*'Geist Mono';/.test(face)), 'one @font-face names Geist Mono');
+
+  // Everything it does request over the network is its own server, by
+  // relative path.
   const requests = [...text.matchAll(/fetch\(\s*'([^']+)'/g)].map((match) => match[1]);
   assert.ok(requests.length > 0, 'the page does talk to its server');
   for (const route of requests) {

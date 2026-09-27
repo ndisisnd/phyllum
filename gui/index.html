@@ -47,15 +47,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Phyllum — dashboard</title>
     <style>
+      /* --- fonts ---------------------------------------------------------
+         Geist and Geist Mono, shipped inside gui/fonts/ (v0.14.0 phase 2) and
+         served by the local server — no network fetch, no CDN. Both files are
+         variable-weight woff2, so one @font-face per family covers the whole
+         100–900 range the page uses. font-display: swap shows the system
+         fallback immediately and swaps to Geist once the file is in. If a
+         browser cannot parse the variable font it simply never matches this
+         @font-face, and the system stack in --sans/--mono below is what
+         renders. */
+      @font-face {
+        font-family: 'Geist';
+        src: url('fonts/Geist-Variable.woff2') format('woff2-variations'), url('fonts/Geist-Variable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Geist Mono';
+        src: url('fonts/GeistMono-Variable.woff2') format('woff2-variations'), url('fonts/GeistMono-Variable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
       /* --- palette ------------------------------------------------------
          Two variable sets, one per theme, drawn to the same temperament
          (v0.7.0 §1). The page is light-first: the plain `:root` set is the one
          the design is drawn for — a neutral near-white canvas, white raised
          surfaces, near-black ink, a mid-grey secondary ink, and 1px light-grey
          hairlines. The dark set is the second reading of the same palette, a
-         neutral charcoal rather than pure black. No webfont: Geist is named
-         first so it is used where it is already installed, and a system sans
-         carries everyone else.
+         neutral charcoal rather than pure black. Geist is named first in
+         --sans/--mono and loaded from gui/fonts/ above; a system sans/mono
+         stack is the fallback if the file cannot load or render.
 
          The light set is the plain `:root` set. The dark set is written for the
          two ways a reader can be in dark: `system` (or no attribute at all)
@@ -2275,10 +2299,10 @@
        * honesty line the component preview draws (§ "Unrendered slots").
        *
        * `font-family` gets one line of its own whenever the reading is present,
-       * whether or not its value happened to pass the gate: the page cannot
-       * know whether a face is installed, so it says plainly that it never
-       * fetches one, and an uninstalled face falls back the way the browser
-       * always falls back.
+       * whether or not its value happened to pass the gate: the page names
+       * the two faces it loads from its own files (Geist, Geist Mono) so the
+       * reader knows any other face falls back the way the browser always
+       * falls back.
        */
       function typographySpecimenHtml(row) {
         const token = cell(row, 'token', 0);
@@ -2289,7 +2313,7 @@
           .map((part) => '<code>' + esc(part) + '</code>')
           .join(' · ');
         const note = hasFontFamily
-          ? '<p class="specimen__note">This page fetches no fonts — an uninstalled face falls back to the browser default.</p>'
+          ? '<p class="specimen__note">This page loads Geist and Geist Mono from its own files — any other face falls back to the browser default.</p>'
           : '';
         const unrenderedHtml = unrendered.length
           ? '<p class="specimen__unrendered">Unrendered readings: ' +
