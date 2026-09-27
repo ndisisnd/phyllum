@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-09-27
+
+### [54] — New projects can start from a sample design system, and `phyllum sample` removes or restores it (v0.13.0)
+
+- `templates/SAMPLE-DESIGN-SYSTEM.md`: Added — a worked example with Button/Primary, Accordion, Tag/Small, Tag/Large and a Card with shadows, plus the neutral and blue primitives, colour, number and type tokens they use
+- `lib/sample.js`: Added — reads the sample, reports which entries are still as shipped, and plans each removal or restore
+  - an edited entry belongs to the user: dispose keeps it, and restore never overwrites it
+  - dispose also keeps a token that a remaining component uses, and a component the codebase uses
+- `lib/sample-command.js`: Added — `phyllum sample`, `sample dispose` and `sample restore`; only a person can answer the dispose gate, and `--yes` answers the restore gate
+- `lib/init.js`: Changed — `init` offers the sample when it creates `DESIGN-SYSTEM.md`, and writes it in the same single write
+- `lib/registry.js`, `lib/execute.js`: Changed — register and dispatch the `sample` command
+- `skill/refs/sample/sample.md`: Added — what the sample holds, what counts as sample, what dispose keeps, and the two gates
+- `skill/refs/init/init.md`, `skill/SKILL.md`, `README.md`: Changed — document the sample offer and the new command
+- `evals/assertions/sample.test.js`: Added — 15 tests for status, dispose, restore and the init offer
+- `evals/assertions/init.test.js`, `assess-scan.test.js`, `fs-harness.test.js`, `refs-layout.test.js`: Changed — empty-template tests decline the sample, and `sample` is a known protocol folder
+- `package.json`, `evals/graders.js`, `evals/baseline.json`: Changed — bump to v0.13.0 and move the baseline stamps
+
 ## 2026-08-26
 
 ### [53] — `govern init` installs the pre-commit hook and CI workflow that run the compliance check for you

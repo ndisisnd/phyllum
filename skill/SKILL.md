@@ -127,6 +127,7 @@ and `lib/registry.js` can never say different things.
 | `update` | Build | — | Change a token or component the design system already records; `update token` walks type → list → pick → prose, `update component` lists the recorded components and revises the one you pick |
 | `delete` | Build | — | Remove one component the design system records: the list, a breaking-change warning, a hard block when the codebase is using it, then the acceptance gate **and** the component's name typed back before the one write |
 | `tokenise` | Build | `tokenize` | Name the values in a sentence, e.g. "our brand blue #2563EB", "our overlay rgba(0, 0, 0, 0.5)" or "hero backdrop linear-gradient(135deg, #2563EB, #10B981)" — several values become a queue, asked one at a time; with no sentence it asks what kind of token you are recording |
+| `sample` | Build | — | Show the sample design system Phyllum ships; `sample dispose` removes the sample entries nobody changed, `sample restore` adds back the missing ones |
 | `gui` | System | `dashboard` | Local server plus HTML dashboard |
 | `kill` | System | — | Stop the running GUI server |
 | `display` | System | `system` | Print the design system to the terminal |
@@ -254,6 +255,30 @@ derived `applied:` line per component (v0.5.0 §3.2) — nothing else. `delete`
 reads the design system, and reads the codebase only to answer one question:
 is this component in use right now?
 
+## The sample design system
+
+Phyllum ships one worked example, `templates/SAMPLE-DESIGN-SYSTEM.md`, so a new
+user opens on a system that shows what one looks like. It holds two primitive
+ramps (the shipped neutral ramp and a blue ramp derived from `#2563EB` by the
+same arithmetic `create primitives` uses), the semantic colours, numbers and type
+built on them, and five components: `Button/Primary`, `Accordion` (a custom),
+`Tag/Small`, `Tag/Large` and `Card`.
+
+- **It lives inside `DESIGN-SYSTEM.md`.** There is no second file, so the
+  one-write-target rule holds unchanged.
+- **Nothing marks an entry as sample.** An entry is sample while it still reads
+  exactly as shipped. The moment somebody edits it, it is theirs.
+- **`init` offers it** only into a file it is creating. A file that already
+  exists is never given the sample unasked.
+- **`sample dispose`** removes the untouched entries. It keeps edited entries,
+  tokens a remaining component names, and components recorded `applied: true`.
+  `--yes` does not answer its gate, because it removes content.
+- **`sample restore`** adds back missing entries and never overwrites a name.
+
+The sample is shipped constants, the way the neutral ramp is. It is not a value
+Phyllum invented for the user's system, and it is never merged into a system the
+user did not ask to receive it.
+
 ## Reference files — load only what the current command needs
 
 Every protocol's reference is a **folder**, split into per-topic files (v0.4.1).
@@ -276,6 +301,7 @@ what it must never do. Everything else is a topic.
 | `update` | `refs/update/` | `update.md` the frame, the menu copy with its 0.4.x `apply` breadcrumb, the never-list · `grammar.md` menu, chains and prose, and reading a target out of prose · `token.md` `update token`: the type rows, the argument hints, the rename ripple, the convergence re-check · `component.md` `update component`: the recorded archetype, the pick, the revision |
 | `delete` | `refs/delete/` | `delete.md` the frame, the grammar with its reserved-and-refused `token`, the never-list, and what `delete` leaves for `apply` to clean up · `flow.md` the six steps, the copy contract, the in-use rule with its flag-or-live-check split, the double confirmation and the one write |
 | `init` | `refs/init/` | `init.md` the walkthrough, step by step |
+| `sample` | `refs/sample/` | `sample.md` what the sample holds, what makes an entry sample, what `dispose` keeps and why, what `restore` never overwrites, and the two gates |
 | Build stage | `refs/build/` | `build.md` what the Build stage is, the five commands it homes, its defined input (the latest drift report's recommendations, with explicit prose overriding) and its defined output (a numbered `build-report-[n].md` under `.phyllum/`, behind an approval gate), plus which phase of v0.10.0 brings which · `input.md` the resolution protocol: the order prose, image and the latest drift report are consulted in, what prose overriding does and does not mean, the five different ways there is no report to read, and how recommendations are surfaced above the picker · `report.md` the numbered build report itself: numbering, date injection, the Source and Work sections, and the machine-readable `phyllum-build-source` block that maps a report back to the drift report or the prose it answers · `gate.md` the approval gate: the order the report, the question and the `DESIGN-SYSTEM.md` write happen in, what a declined run leaves behind, and the mechanical rule that splits a large drift answer into ordered `## Phase n` sections |
 | Refine stage | `refs/refine/` | `refine.md` the stage frame: what Refine is for, why every check is a mode of one command rather than a sibling of it, why the gate order is fixed and no section is ever skipped, the three scopes and the refusal an unrecorded subject gets, what the numbered report leaves behind, the never-list, and the write posture · `protocol-refine.md` the Refine stage end to end: the gate order (contract → coverage → naming → a11y → lint → tests → ship verdict) and why deterministic checks run first, the three scopes, the seven modes of the one `refine` command, the numbered `refine-report-[n].md`, the six ship criteria and the docs criterion that ties forward to Governance, and the read-only permission posture · `coverage.md` `refine coverage`: what counts as built, what counts as a raw value, the bypassed-token/unnamed-value split and why an unbuilt component is neither passed nor failed · `naming.md` `refine naming`: which scale grades which token table, the two spellings Phyllum's own naming adds, how a component name is graded against its recorded archetype, and why an off-scale name is a warn · `a11y.md` `refine a11y`: where a contrast pair comes from and why an unpaired token is not checked against everything else, the WCAG thresholds and which one a component's own type size earns, why an interactive archetype with no recorded focus treatment is a finding, the ARIA row per archetype and why a native element carries its own semantics, and the error/warn split between a fact about the component and a limit of the reading · `lint.md` `refine lint`: the linters it detects and how, why the project's own `lint` script is not what runs, the check-mode rule and the four answers a linter can give · `protocol-usage-contract.md` what a usage contract is: type strictness, where data may live, how a human and an agent are each meant to call a component, the clause table with what each clause asserts and when the spec is too silent to state it, and why a generated test file is handed over rather than placed · `tests.md` `refine tests`: the runners it detects and the stated `node:test` fallback, what a generated file looks like, why a clause it cannot express is reported rather than stubbed, and the difference between a test Phyllum rendered and a test the project carries · `deprecate.md` `refine deprecate`: why a replacement is mandatory, where a component's record and a token's record each go and why they differ, how the usage list is derived from the one adoption walk, how `delete` blocks a removal while usages remain, and why the derivation writes nothing · `ship.md` `refine ship`: the six criteria and the section each reads, why there are three answers rather than two, why the verdict is a conjunction and never a score, why a deprecated component is never shippable, and why the verdict is reported and never recorded |
 | Governance stage | `refs/govern/` | `govern.md` the stage frame: what Governance is for, why it sits second in the pipeline and ships last in delivery, why its audience is an agent rather than a person, the three modes it homes and which phase of v0.12.0 brought each, why the stage is driven from this skill and carries no `lib/registry.js` row, the write posture and the never-list · `protocol-compliance.md` the compliance protocol: what compliant use of a token or a component means, the pre-flight an agent runs before it writes anything, the token rules and the component rules with the Refine section that already grades each, why visible `TODO: tokenise` debt is compliant and hidden styling is not, the four exemptions and why an exemption is never a pass, and why unreadable is never `false` · `log.md` `govern log`: the append-only invariant and why it is checked on the bytes, why entries run oldest first, the deletion grant and the four locks on it, the closed action and kind word lists, the fixed lines the mode prints and reads back, and why a re-run of the same entry writes nothing · `docs.md` `govern docs`: the five parts and the order they are always written in, why "do not do" is capped at three, where each part's content comes from and what to record when that source is silent, why the entry is a fenced block under the component's own heading rather than a new file or a line in the spec block, the fixed lines the entry is written and read back with, and the three answers `refine ship` gives once it can read one · `init.md` `govern init`: the two pieces and the closed choice that names them, why nothing installs without a stated choice, what each generated file runs and why neither blocks a commit or fails a build, the table both files are rendered from line by line, the two new write targets and the four locks on them, and the three answers a re-run can give including the occupied path it refuses to overwrite |
@@ -1236,6 +1262,10 @@ rather than proceeding without the safety it claims to provide; `init`
 gitignores it alongside `.phyllum/`. And **`display`** is the primary read verb,
 with **`system` kept permanently as its alias** — same renderer, same dispatch
 branch, byte-for-byte identical output at every scope.
+
+v0.13.0 ships `sample`: a shipped worked example, offered by `init` into the file
+it creates, and removed or put back by `sample dispose` and `sample restore`. See
+"The sample design system" above.
 
 Commands that are not built yet are registered and documented, and say so when
 invoked.

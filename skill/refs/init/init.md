@@ -29,6 +29,12 @@ Create `DESIGN-SYSTEM.md` from the canonical template shipped in the package, so
 that every Phyllum install produces the same structure. Never write it from
 scratch.
 
+When this step creates the file, offer the sample design system first
+(`refs/sample/sample.md`). A yes puts the sample into the same write, so the new
+file is the template plus the sample and nothing is backed up. A no leaves the
+template empty and points at `phyllum sample restore`. An existing file is never
+offered the sample.
+
 If the file already exists, **do not overwrite it**. Validate its section
 structure against the template contract and offer to repair anything missing.
 User content is never dropped: a rerun's diff shows additions only.
