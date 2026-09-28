@@ -725,11 +725,37 @@
       .list button { border-radius: var(--radius-md); color: var(--ink); }
       .list button:hover { background: var(--layer-accent); }
       .list button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-      /* The Library's tab bar (v0.14.4 §1): one `button.tile-action` per
-         section, the segmented control the preview toggles already are, so
-         the live tab wears the same accent wash as every other live choice
-         on the page. It sits under the page title, not in the view rail. */
-      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      /* The Library's tab bar (v0.14.4 §1): a row of plain labels on one
+         `--line` hairline, where the live tab is marked by a 2px accent line
+         underneath, drawn over the hairline — a tab, not a pill, so it reads
+         as "which page of the Library" rather than one more toggle. It sits
+         under the page title, not in the view rail. */
+      .tabs {
+        display: flex;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--line);
+      }
+      button.tab {
+        font: inherit;
+        font-size: var(--type-02);
+        font-weight: 500;
+        line-height: 1.4;
+        padding: 0.5rem 0;
+        margin-bottom: -1px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        transition: border-color 120ms ease, color 120ms ease;
+      }
+      button.tab:hover { color: var(--ink); border-bottom-color: var(--line-strong); }
+      button.tab[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--accent); }
+      button.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+      @media (prefers-reduced-motion: reduce) {
+        button.tab { transition: none; }
+      }
 
       /* --- colour cards (v0.4.0 §5.5) ------------------------------------
          A semantic colour token is a card: a rounded, filled swatch, with the
@@ -1092,7 +1118,7 @@
          solid, high-contrast action a container is allowed. `.btn--ghost` is
          everything else: no fill and no edge until the pointer is on it, so a
          row of secondary actions stays quiet. `button.tile-action` — the
-         Library tabs and the preview toggles — is the same button with
+         the preview toggles — is the same button with
          an edge, and it shares this base rather than restating it.
 
          v0.14.0 phase 4 moves the primary from the ink to the accent: Mercury
@@ -1103,7 +1129,7 @@
          dark — so the press reads as the same colour, deepened.
          `--ink-hover` keeps its one job for any ink-filled control a later
          release adds. Controls take the medium corner, like the input beside
-         them; the tabs are pills, like the chips. */
+         them; the preview toggles are pills, like the chips. */
       .btn,
       button.tile-action {
         display: inline-flex;
@@ -1366,9 +1392,9 @@
           <div class="lede">
             <h2>Library</h2>
             <div class="tabs" id="library-tabs" role="tablist" aria-label="Library">
-              <button class="tile-action" role="tab" data-tab="foundations" aria-selected="true" aria-controls="tokens-panel">Foundations</button>
-              <button class="tile-action" role="tab" data-tab="components" aria-selected="false" aria-controls="components-panel">Components</button>
-              <button class="tile-action" role="tab" data-tab="backlog" aria-selected="false" aria-controls="backlog-panel">Backlog</button>
+              <button class="tab" role="tab" data-tab="foundations" aria-selected="true" aria-controls="tokens-panel">Foundations</button>
+              <button class="tab" role="tab" data-tab="components" aria-selected="false" aria-controls="components-panel">Components</button>
+              <button class="tab" role="tab" data-tab="backlog" aria-selected="false" aria-controls="backlog-panel">Backlog</button>
             </div>
           </div>
           <div class="panel panel--bare" id="tokens-panel"><h2>Foundations</h2><div id="tokens-body" class="muted">reading…</div></div>

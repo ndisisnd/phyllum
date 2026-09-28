@@ -122,7 +122,7 @@ no CDN, and no build step.
 | Type stack | `'Geist'` first, then system sans; mono is `'Geist Mono'` then system mono |
 | Webfont | Geist and Geist Mono, bundled as variable-weight `.woff2` files under `gui/fonts/` and loaded through `@font-face`, with the system stack as the fallback; nothing is fetched over the network |
 | Network | the page makes same-origin requests to its own server only (`/state`, `/system`, `/prompt`, `/upload`, and the files under `/fonts/`); no external URL appears anywhere in the file |
-| Radius | three steps, `--radius-sm`, `--radius-md` and `--radius-lg`, plus `--radius-pill` for chips and tabs; every rounded corner on the page reads one of them |
+| Radius | three steps, `--radius-sm`, `--radius-md` and `--radius-lg`, plus `--radius-pill` for chips and toggles; every rounded corner on the page reads one of them |
 | Glass | translucent panels on the header, the sidebars and the panels and top-level token sections, with a solid fallback where the browser cannot blur or the reader has asked for less transparency |
 | Themes | a cool near-white light theme (the design's default) and a blue-black dark one, one CSS variable set each, picked by the theme control below |
 

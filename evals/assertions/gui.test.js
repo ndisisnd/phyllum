@@ -889,7 +889,7 @@ test('the Library panel heading reads "Foundations", the Token view page keeps i
   );
   assert.ok(text.includes('<h2>Token view</h2>'), 'the Token view page keeps its own, unrelated name');
   assert.ok(
-    /<button class="tile-action" role="tab" data-tab="foundations" aria-selected="true" aria-controls="tokens-panel">Foundations<\/button>/.test(
+    /<button class="tab" role="tab" data-tab="foundations" aria-selected="true" aria-controls="tokens-panel">Foundations<\/button>/.test(
       text,
     ),
     'the Foundations tab names the panel it opens',
@@ -917,7 +917,7 @@ test('the Library heading is plain, with three tabs under it in order, and none 
   );
   assert.ok(ledeMatch, 'a plain heading sits directly above the tab bar, with no panel wrapper around either');
 
-  const tabs = [...ledeMatch[1].matchAll(/<button class="tile-action" role="tab" data-tab="(\w+)"[^>]*>(\w+)<\/button>/g)];
+  const tabs = [...ledeMatch[1].matchAll(/<button class="tab" role="tab" data-tab="(\w+)"[^>]*>(\w+)<\/button>/g)];
   assert.deepEqual(tabs.map((m) => m[1]), ['foundations', 'components', 'backlog'], 'the three tabs appear in bar order');
   assert.deepEqual(tabs.map((m) => m[2]), ['Foundations', 'Components', 'Backlog']);
 
@@ -925,6 +925,20 @@ test('the Library heading is plain, with three tabs under it in order, and none 
   const navEnd = text.indexOf('</nav>', navStart);
   assert.ok(navStart !== -1 && navEnd > navStart, 'the view rail is findable');
   assert.ok(!text.slice(navStart, navEnd).includes('data-tab='), 'the Library tabs sit under its own heading, not in the view rail');
+});
+
+test('the Library tabs are underlined tabs, not pills: the live tab carries an accent line under it', () => {
+  const text = readPage();
+  assert.match(text, /\.tabs \{[^}]*border-bottom: 1px solid var\(--line\);/, 'the bar sits on one hairline');
+  assert.match(
+    text,
+    /button\.tab\[aria-selected='true'\] \{[^}]*border-bottom-color: var\(--accent\);/,
+    'the live tab is marked by an accent line underneath',
+  );
+  const tabRule = text.match(/button\.tab \{([^}]*)\}/);
+  assert.ok(tabRule, 'the tab has its own rule');
+  assert.ok(!tabRule[1].includes('radius-pill'), 'a tab is not rounded into a pill');
+  assert.ok(!/class="tile-action" role="tab"/.test(text), 'no Library tab wears the pill control');
 });
 
 test('the Library opens on Foundations, with the Components and Backlog panels hidden, and Backlog keeps its Assess button', () => {

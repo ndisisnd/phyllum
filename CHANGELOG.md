@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
+### [71] — The Library tabs are underlined tabs, not pills (v0.14.4)
+
+- `gui/index.html`: Changed — the Library tab bar drops the `button.tile-action` pill for a new `button.tab`: plain labels on one `--line` hairline, the live tab marked by a 2px accent line underneath; the button-family comments no longer count the tabs among the pills
+- `evals/assertions/gui.test.js`: Changed — the tab markup assertions read `class="tab"`. Added — 1 test for the hairline, the accent underline and the missing pill radius
+- `README.md`, `skill/refs/gui/gui.md`: Changed — the pill radius step is for chips and toggles, not tabs
+
 ### [70] — Tests and docs for the Library tabs (v0.14.4 phase 3)
 
 - `evals/assertions/gui.test.js`: Changed — the removed `data-scope="tokens"` filter-pill assertion now checks the Foundations heading and the Foundations tab instead; the two test titles still saying "opening filter" now say "opening tab". Added — 6 tests covering the three tabs in bar order under the plain Library heading (and absent from the view rail), the page opening on Foundations with the other two panels hidden, the Backlog panel keeping `#backlog-assess`, `showLibraryTab` and `tabForScope` run against a fake DOM, a clicked tab never being overridden by the poll, and the status line dropping "filter: "; the scope-word test now also checks the terminal prints "opening tab: Foundations" or "opening tab: Components"
