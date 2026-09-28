@@ -2,9 +2,11 @@
 <!--
   The Phyllum dashboard (plan §5, restyled in v0.3.0 §6.5).
 
-  One page, no build step, no framework, no CDN, no webfont — vanilla HTML, CSS
-  and JS, served by ../server/serve.py. Everything the page needs is in this
-  file; the only requests it ever makes are same-origin calls to its own server.
+  One page, no build step, no framework, no CDN — vanilla HTML, CSS and JS,
+  served by ../server/serve.py. Everything the page needs is in this file, plus
+  the two variable fonts it bundles under gui/fonts/ (Geist and Geist Mono,
+  since v0.14.0); the only requests it ever makes are same-origin calls to its
+  own server, for its data and for those two font files.
 
   Three views:
 
@@ -16,6 +18,8 @@
   raised surfaces held by 1px light-grey hairlines, near-black ink with a mid-
   grey secondary, rounded corners by default and low diffuse shadows, one calm
   surface under a quieter left rail, and the same five-step type ramp.
+  v0.14.0 moves it towards Mercury: the header, the rails and the panels are
+  frosted glass over a faintly tinted canvas, each with a solid fallback.
   Hand-written — taking a dependency for any of it is out of scope by rule, not
   by omission.
 
@@ -47,15 +51,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Phyllum — dashboard</title>
     <style>
+      /* --- fonts ---------------------------------------------------------
+         Geist and Geist Mono, shipped inside gui/fonts/ (v0.14.0 phase 2) and
+         served by the local server — no network fetch, no CDN. Both files are
+         variable-weight woff2, so one @font-face per family covers the whole
+         100–900 range the page uses. font-display: swap shows the system
+         fallback immediately and swaps to Geist once the file is in. If a
+         browser cannot parse the variable font it simply never matches this
+         @font-face, and the system stack in --sans/--mono below is what
+         renders. */
+      @font-face {
+        font-family: 'Geist';
+        src: url('fonts/Geist-Variable.woff2') format('woff2-variations'), url('fonts/Geist-Variable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Geist Mono';
+        src: url('fonts/GeistMono-Variable.woff2') format('woff2-variations'), url('fonts/GeistMono-Variable.woff2') format('woff2');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
       /* --- palette ------------------------------------------------------
          Two variable sets, one per theme, drawn to the same temperament
          (v0.7.0 §1). The page is light-first: the plain `:root` set is the one
          the design is drawn for — a neutral near-white canvas, white raised
          surfaces, near-black ink, a mid-grey secondary ink, and 1px light-grey
          hairlines. The dark set is the second reading of the same palette, a
-         neutral charcoal rather than pure black. No webfont: Geist is named
-         first so it is used where it is already installed, and a system sans
-         carries everyone else.
+         neutral charcoal rather than pure black. Geist is named first in
+         --sans/--mono and loaded from gui/fonts/ above; a system sans/mono
+         stack is the fallback if the file cannot load or render.
 
          The light set is the plain `:root` set. The dark set is written for the
          two ways a reader can be in dark: `system` (or no attribute at all)
@@ -64,30 +92,62 @@
          `system` deferring to the media query — see the theme contract in the
          head script. */
       :root {
+        color-scheme: light;
         /* The canvas is the near-white step and the raised surface is plain
            white, never the other way round: a panel has to sit *above* the
            page for its border and its shadow to mean anything, and a shadow
            specimen drawn on a white card over a grey canvas is the one place
-           on the page where that difference is the content. */
-        --bg: #fafafa;
+           on the page where that difference is the content. v0.14.0 moves the
+           whole set to the Mercury-led tokens in DESIGN-SYSTEM.md — a cooler
+           grey canvas, a faintly blue-black ink — and this block now reads
+           those values one for one rather than drifting from them. */
+        --bg: #f6f7f9;
         --layer: #ffffff;
-        --layer-accent: #f4f4f5;
-        --ink: #171717;
+        --layer-accent: #eef0f3;
+        --ink: #16181d;
         /* The one step off the ink, and it exists for a single reason: the
            solid primary button is filled with `--ink`, so its hover state has
            nowhere else to go (v0.7.0 §2). It moves *towards* the muted ink in
            either theme, so the press reads as a softening rather than as a
            second colour. */
-        --ink-hover: #3f3f46;
-        --muted: #71717a;
-        --line: #e5e5e5;
-        --line-strong: #d4d4d8;
-        /* The same blue family as before, one step darker: the old #2383e2
-           reads 3.9:1 on white, under the 4.5:1 small-text floor it has to
-           clear now that white is the surface it is always drawn on. */
-        --accent: #1a6fd4;
-        --raw: #9a6a1a;
-        --shadow: 0 1px 2px rgba(9, 9, 11, 0.06), 0 2px 6px rgba(9, 9, 11, 0.05);
+        --ink-hover: #353a44;
+        --muted: #5c6370;
+        --line: #e4e7ec;
+        --line-strong: #c9ced6;
+        /* The one hairline that has to clear 3:1 (v0.14.0 phase 4): the edge
+           of a form control, which WCAG 1.4.11 asks a reader to be able to
+           find. It reads 3.21:1 on white, 3.10:1 on the glass fallback and
+           3.13-3.18:1 on the glass over the canvas, where `--line` and
+           `--line-strong` read 1.2:1 and 1.6:1 — right for dividers, too
+           quiet for the one box a reader has to type into. Everything else
+           keeps the lighter lines, so the page stays calm. */
+        --line-control: #8a909b;
+        /* The accent leaves the old blue for Mercury's indigo (v0.14.0). It
+           reads 6.1:1 on white, so it still clears the 4.5:1 small-text floor
+           on every surface it is drawn on, glass included. */
+        --accent: #4a53d1;
+        --raw: #87580f;
+        --overlay: rgba(14, 15, 18, 0.40);
+        --gradient-accent: linear-gradient(135deg, #4a53d1 0%, #3a41b0 100%);
+        --gradient-surface: linear-gradient(180deg, #ffffff 0%, #f6f7f9 100%);
+        /* `--shadow` is the token's `shadow-panel`, under the name the page
+           has always used for it; `--shadow-overlay` is the deeper one, for
+           anything that floats over the page rather than sitting on it. */
+        --shadow: 0 1px 2px rgba(16, 18, 24, 0.04), 0 4px 12px rgba(16, 18, 24, 0.05);
+        --shadow-overlay: 0 4px 8px rgba(16, 18, 24, 0.04), 0 16px 40px rgba(16, 18, 24, 0.12);
+
+        /* Glass (v0.14.0 §3). A glass surface is a translucent tint that blurs
+           whatever sits behind it. The tint is opaque enough — 88% white here,
+           86% charcoal in dark — that text on it clears 4.5:1 against the
+           worst backdrop the page can put behind it. `--glass-fallback` is the
+           solid surface a browser without backdrop blur draws instead; the
+           edge is the hairline, and the highlight is the one-pixel inner
+           light along a surface's top edge that sells the pane. */
+        --glass: rgba(255, 255, 255, 0.88);
+        --glass-fallback: #fbfbfc;
+        --glass-edge: rgba(22, 24, 29, 0.08);
+        --glass-highlight: rgba(255, 255, 255, 0.70);
+        --blur-glass: 20px;
 
         --sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
         --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -99,10 +159,18 @@
         --type-04: 1.25rem;
         --type-05: 1.75rem;
 
-        /* the radius scale — two steps, and the page rounds from here alone
-           (v0.5.1 §3.1). Sharp corners are the departure now, not the rule. */
+        /* the radius scale — three steps, and the page rounds from here alone
+           (v0.5.1 §3.1). v0.14.0 adds the large step, and it belongs to the
+           surfaces that sit on the page itself — a panel, a floating card —
+           so the outermost corner is always the roundest and the corners
+           nested inside it step down to the medium and the small one. */
         --radius-sm: 0.375rem;
         --radius-md: 0.625rem;
+        --radius-lg: 0.875rem;
+        /* The pill (v0.14.0 phase 4), `radius-pill` in DESIGN-SYSTEM.md: not
+           a fourth corner size but "round the ends", for the chips and the
+           segmented filters, so a label never reads as a container. */
+        --radius-pill: 999px;
 
         /* the spacing scale — 8-based, and the page spaces from here alone
            (v0.6.0 §3). Air is still the grouping tool: the step between
@@ -134,36 +202,59 @@
         --card-gap: 1rem;
         --card-swatch-height: 7rem;
       }
-      /* system, deferring to the OS — the behaviour the page has always had. */
+      /* system, deferring to the OS — the behaviour the page has always had.
+         The dark set is the `-dark` column of the same tokens (v0.14.0): a
+         blue-black canvas rather than the old zinc, and a lighter indigo
+         accent so it keeps its contrast on the charcoal glass. */
       @media (prefers-color-scheme: dark) {
         :root[data-theme='system'],
         :root:not([data-theme]) {
-          --bg: #18181b;
-          --layer: #212124;
-          --layer-accent: #2a2a2e;
-          --ink: #ededed;
-          --ink-hover: #d4d4d8;
-          --muted: #a1a1aa;
-          --line: #2e2e33;
-          --line-strong: #46464d;
-          --accent: #7cb1ec;
+          color-scheme: dark;
+          --bg: #0e0f12;
+          --layer: #16181c;
+          --layer-accent: #1f2227;
+          --ink: #eceef2;
+          --ink-hover: #c8ccd4;
+          --muted: #9aa1ad;
+          --line: #262a31;
+          --line-strong: #3a3f48;
+          --line-control: #646b77;
+          --accent: #9ba5ff;
           --raw: #d8b877;
-          --shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.26);
+          --overlay: rgba(0, 0, 0, 0.60);
+          --gradient-accent: linear-gradient(135deg, #9ba5ff 0%, #7a84f0 100%);
+          --gradient-surface: linear-gradient(180deg, #1a1c21 0%, #16181c 100%);
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30);
+          --shadow-overlay: 0 4px 8px rgba(0, 0, 0, 0.30), 0 16px 40px rgba(0, 0, 0, 0.50);
+          --glass: rgba(22, 24, 28, 0.86);
+          --glass-fallback: #16181c;
+          --glass-edge: rgba(255, 255, 255, 0.08);
+          --glass-highlight: rgba(255, 255, 255, 0.06);
         }
       }
       /* dark, chosen in the page — the same set, whatever the OS says. */
       :root[data-theme='dark'] {
-        --bg: #18181b;
-        --layer: #212124;
-        --layer-accent: #2a2a2e;
-        --ink: #ededed;
-        --ink-hover: #d4d4d8;
-        --muted: #a1a1aa;
-        --line: #2e2e33;
-        --line-strong: #46464d;
-        --accent: #7cb1ec;
+        color-scheme: dark;
+        --bg: #0e0f12;
+        --layer: #16181c;
+        --layer-accent: #1f2227;
+        --ink: #eceef2;
+        --ink-hover: #c8ccd4;
+        --muted: #9aa1ad;
+        --line: #262a31;
+        --line-strong: #3a3f48;
+        --line-control: #646b77;
+        --accent: #9ba5ff;
         --raw: #d8b877;
-        --shadow: 0 1px 2px rgba(0, 0, 0, 0.34), 0 2px 6px rgba(0, 0, 0, 0.26);
+        --overlay: rgba(0, 0, 0, 0.60);
+        --gradient-accent: linear-gradient(135deg, #9ba5ff 0%, #7a84f0 100%);
+        --gradient-surface: linear-gradient(180deg, #1a1c21 0%, #16181c 100%);
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30);
+        --shadow-overlay: 0 4px 8px rgba(0, 0, 0, 0.30), 0 16px 40px rgba(0, 0, 0, 0.50);
+        --glass: rgba(22, 24, 28, 0.86);
+        --glass-fallback: #16181c;
+        --glass-edge: rgba(255, 255, 255, 0.08);
+        --glass-highlight: rgba(255, 255, 255, 0.06);
       }
 
       * { box-sizing: border-box; }
@@ -175,9 +266,23 @@
       @media (prefers-reduced-motion: reduce) {
         html { scroll-behavior: auto; }
       }
+      /* The page backdrop (v0.14.0 §3). Glass only reads as glass when there
+         is something behind it to blur, so the canvas carries two faint pools
+         of the accent — top left under the rail, bottom right under the
+         content — over the plain `--bg`. Both are drawn from tokens, both
+         stay at a tenth of the accent or less, and the whole thing is fixed
+         to the viewport so it never scrolls into a seam. The plain `--bg`
+         line comes first: a browser that cannot mix colours drops the second
+         declaration and keeps a flat canvas. */
       body {
         margin: 0;
         background: var(--bg);
+        background:
+          radial-gradient(60rem 40rem at 0% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+          radial-gradient(50rem 36rem at 100% 100%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+          var(--bg);
+        background-attachment: fixed;
+        min-height: 100vh;
         color: var(--ink);
         font-family: var(--sans);
         font-size: var(--type-03);
@@ -186,16 +291,16 @@
       }
 
       /* --- shell ---------------------------------------------------------
-         One calm surface: the header sits on the page background rather than
-         over it in its own dark bar, and it needs no hairline to be read as a
-         header — the whitespace does that. */
+         One calm surface: the header is never its own dark bar. Since v0.14.0
+         it is a pane of glass (see the glass section below) — the content
+         scrolls up under it and blurs, and the one hairline along its foot
+         says where the pane ends. */
       header {
         display: flex;
         align-items: center;
         gap: 1rem;
         height: 3rem;
         padding: 0 1rem;
-        background: var(--bg);
         color: var(--ink);
         position: sticky;
         top: 0;
@@ -229,17 +334,28 @@
       }
       #theme button:hover { background: var(--layer-accent); color: var(--ink); }
       #theme button[aria-selected='true'] { background: var(--layer-accent); color: var(--ink); font-weight: 600; }
+      /* One focus ring for the whole shell (v0.14.0): the accent, two pixels,
+         held off the control by two more — the ring the buttons below already
+         wear, extended to the theme toggle and both rails so a keyboard
+         reader sees the same mark wherever focus lands. */
+      #theme button:focus-visible,
+      nav#views button:focus-visible,
+      nav.rail-toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      /* A rail scrolls inside itself, so a ring drawn outside its full-width
+         items would be clipped at the rail's edge; there it sits inside. */
+      nav#views button:focus-visible,
+      nav.rail-toc a:focus-visible { outline-offset: -2px; }
 
       .shell { display: flex; align-items: stretch; min-height: calc(100vh - 3rem); }
 
-      /* The rail is quieter now: the same surface as the page, no dividing
-         hairline, and the selected view reads as a rounded resting place
+      /* The rail is a glass sidebar (v0.14.0 §3) with one hairline on its
+         inner edge, and the selected view reads as a rounded resting place
          rather than as a stripe. */
       nav#views {
         width: var(--rail);
         flex: 0 0 var(--rail);
-        background: var(--bg);
         padding: 1rem 0.5rem;
+        overflow-y: auto;
         position: sticky;
         top: 3rem;
         align-self: flex-start;
@@ -360,7 +476,11 @@
         border-radius: var(--radius-md);
         padding: var(--space-3);
       }
-      .panel { box-shadow: var(--shadow); }
+      /* A panel sits on the page itself, so it takes the large corner
+         (v0.14.0): the outermost surface is the roundest, and a container
+         inside it steps down to the medium one. Its fill, edge and shadow
+         come from the glass section below. */
+      .panel { border-radius: var(--radius-lg); box-shadow: var(--shadow); }
       /* A panel that is only a stack of containers is not itself a surface —
          it would draw a second border around the borders it holds. The token
          panel is the one of these: a title, and then one container per
@@ -370,6 +490,70 @@
         border-color: transparent;
         box-shadow: none;
         padding: 0;
+      }
+
+      /* --- glass (v0.14.0 §3) ---------------------------------------------
+         The shell's surfaces are panes of glass: the header, the two rails,
+         every panel, and the containers that stand on the page by themselves
+         (the token panel is bare, so its sections sit straight on the
+         canvas). A container nested inside a panel stays the solid layer —
+         glass on glass blurs a blur, and reads as mud.
+
+         Three layers of rule, in order. The first, outside any condition, is
+         the solid surface: `--glass-fallback`, near-white or charcoal, the
+         hairline edge and the shadow. It is what a browser without backdrop
+         blur draws, and it is already a finished page. The second, inside
+         `@supports`, swaps the fill for the translucent tint and turns the
+         blur on. The third hands a reader who has asked the OS for less
+         transparency the solid surface back.
+
+         The pane's top-edge light is an inset shadow stacked on the token's
+         own shadow, so a panel carries one `box-shadow` and never two. The
+         bars and rails are full-height strips rather than floating panes, so
+         they take a single hairline on the edge that faces the content and no
+         shadow at all. */
+      header,
+      nav#views,
+      nav.rail-toc,
+      .panel:not(.panel--bare),
+      #tokens-body > .container,
+      #tokens-body > .number-group {
+        background: var(--glass-fallback);
+      }
+      header { border-bottom: 1px solid var(--glass-edge); }
+      nav#views { border-right: 1px solid var(--glass-edge); }
+      nav.rail-toc { border-left: 1px solid var(--glass-edge); }
+      .panel:not(.panel--bare),
+      #tokens-body > .container,
+      #tokens-body > .number-group {
+        border-color: var(--glass-edge);
+        box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow);
+      }
+      #tokens-body > .container,
+      #tokens-body > .number-group { border-radius: var(--radius-lg); }
+      @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        header,
+        nav#views,
+        nav.rail-toc,
+        .panel:not(.panel--bare),
+        #tokens-body > .container,
+        #tokens-body > .number-group {
+          background: var(--glass);
+          -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(160%);
+          backdrop-filter: blur(var(--blur-glass)) saturate(160%);
+        }
+      }
+      @media (prefers-reduced-transparency: reduce) {
+        header,
+        nav#views,
+        nav.rail-toc,
+        .panel:not(.panel--bare),
+        #tokens-body > .container,
+        #tokens-body > .number-group {
+          background: var(--glass-fallback);
+          -webkit-backdrop-filter: none;
+          backdrop-filter: none;
+        }
       }
       /* The container header row: the title on the left, and the count chip
          and the container's one action on the right. Where the title is an
@@ -397,10 +581,16 @@
       /* A chip in a header row is one of a row's items, not one of a wrapping
          list's, so the spacing it carries for the list is dropped here. */
       h2 > .chip, h3 > .chip, .panel__header > .chip { margin: 0; }
+      /* v0.14.0 phase 4: headings are always the full ink, and they carry
+         weight rather than size — Mercury's hierarchy is a semibold title
+         with a hair of negative tracking, not a large light one. The colour
+         is stated rather than inherited because several of the bodies they
+         sit in start life `.muted` (see the ink rule below). */
       h2 {
         font-size: var(--type-04);
-        font-weight: 400;
-        letter-spacing: 0;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--ink);
         margin: 0 0 1rem;
       }
       /* Tier two of three (v0.6.0 §3): the section heading, one size for
@@ -412,10 +602,25 @@
       h3 {
         font-size: var(--type-03);
         font-weight: 600;
-        letter-spacing: 0;
+        letter-spacing: -0.005em;
+        color: var(--ink);
         margin: var(--space-3) 0 var(--space-1);
       }
       h3:first-child { margin-top: 0; }
+      /* The ink rule (v0.14.0 phase 4). Every body the script fills starts as
+         `.muted`, because its placeholder — "reading…", "Pick a component" —
+         is a muted sentence. Once real content lands the body keeps the
+         class, so without this everything in it, section titles and card
+         names included, inherited the grey. Each element the script writes
+         into one of these bodies takes the ink back; anything the script
+         marks `.muted` itself (a date line, an empty-state sentence) keeps
+         its grey, since a class outranks this zero-specificity rule. The
+         bare placeholder text is not an element, so it stays muted. */
+      :where(#tokens-body, #component-detail, #reports-list, #report-detail,
+        #build-reports-list, #build-report-detail, #draft-input, #draft-output,
+        #queue, #token-view-detail) > :not(.muted) {
+        color: var(--ink);
+      }
       /* The token panel is a documentation page and every section in it is a
          container of its own (v0.7.0 §2). A section is now told apart from
          its neighbour by its own edge as well as by the air above it, so the
@@ -434,7 +639,8 @@
         font-size: var(--type-02);
         color: var(--muted);
       }
-      .lede h2 { font-size: var(--type-05); }
+      .lede h2 { font-size: var(--type-05); letter-spacing: -0.02em; margin-bottom: var(--space-1); }
+      .lede > p { max-width: 48rem; }
       .grid { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
       .muted { color: var(--muted); }
       p { margin: 0 0 1rem; }
@@ -443,13 +649,42 @@
       /* A code block is a recessed surface, so it takes the grey fill rather
          than the canvas colour: on a light page the canvas and the panel are
          two percent of luminance apart, and a block that quiet is not a block. */
+      /* v0.14.0 phase 4: the well takes a hairline and the medium corner, so
+         on the glass — where the grey fill alone is 1.1:1 — it still reads as
+         a block, and its lines get the air a code listing wants. */
       pre {
         margin: 0 0 1rem;
-        padding: 1rem;
+        padding: 0.875rem 1rem;
         background: var(--layer-accent);
-        border-radius: var(--radius-sm);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        font-size: var(--type-01);
+        line-height: 1.65;
         white-space: pre-wrap;
         word-break: break-word;
+      }
+      /* The language line over a code block — "yaml", "jsx", "css" — is a
+         tier-three label, drawn like the rail's own (v0.14.0 phase 4), so it
+         names the block under it rather than reading as a stray sentence. */
+      p.muted:has(+ pre) {
+        margin: var(--space-3) 0 var(--space-1);
+        font-size: var(--type-01);
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      /* Inline code in a sentence (v0.14.0 phase 4): a small recessed pill,
+         so a command or a path reads as a thing rather than as a change of
+         font. Only a bare `code` directly in running text — the token
+         values, the swatch labels and the specimen lines are `code` with a
+         class of their own and keep their own look. */
+      :where(p, li) > code:not([class]) {
+        padding: 0.05em 0.35em;
+        background: var(--layer-accent);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        font-size: 0.85em;
+        color: var(--ink);
       }
       ul { margin: 0; padding-left: 1.1rem; }
       li { margin: 0.25rem 0; }
@@ -463,10 +698,16 @@
         color: inherit;
         font: inherit;
         font-size: var(--type-02);
+        font-weight: 500;
         padding: 0.5rem 0.75rem;
         cursor: pointer;
       }
+      /* v0.14.0 phase 4: the pick list is the rail's idiom inside a panel —
+         quiet rows, the medium corner on hover, the accent ring on focus. */
+      .list { display: grid; gap: 0.125rem; align-content: start; }
+      .list button { border-radius: var(--radius-md); color: var(--ink); }
       .list button:hover { background: var(--layer-accent); }
+      .list button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
       .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
       /* --- colour cards (v0.4.0 §5.5) ------------------------------------
@@ -481,25 +722,41 @@
         justify-content: start;
       }
       .card { display: block; max-width: var(--card-max); }
+      /* Every swatch wears an edge (v0.14.0 phase 4). The contract's
+         `card--bordered` rule decides by one reading — is the fill near-white
+         against a white layer — and that was the whole story while the page
+         was only ever drawn light. In dark, the cards sit on charcoal glass,
+         and a swatch filled with `color-layer-dark` or `color-ink` is the
+         surface it sits on: it simply vanished. So the edge no longer depends
+         on the fill. Every swatch takes a hairline of the page's own ink at
+         16%, drawn as an inset shadow — over the fill, inside the corner, and
+         taking no layout, so a card with an edge and a card without one are
+         the same size. On a fill that matches its surface that hairline is
+         about 1.4:1 in either theme: enough to outline the card, quiet enough
+         not to frame the colour. `card--bordered` — near-white, or a value the
+         page cannot paint — keeps its meaning as the stronger line. */
       .card__swatch {
         height: var(--card-swatch-height);
         border-radius: var(--card-radius);
-        border: 1px solid transparent;
+        border: 0;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent);
       }
-      .card--bordered > .card__swatch { border-color: var(--line-strong); }
+      .card--bordered > .card__swatch { box-shadow: inset 0 0 0 1px var(--line-strong); }
       .card__name {
         display: block;
         margin-top: 0.75rem;
         font-size: var(--type-02);
         font-weight: 600;
-        letter-spacing: 0.02em;
+        letter-spacing: 0;
+        color: var(--ink);
         word-break: break-word;
       }
       .card__value {
         display: block;
-        margin-top: 0.25rem;
+        margin-top: 0.125rem;
         font-family: var(--mono);
         font-size: var(--type-01);
+        font-variant-numeric: tabular-nums;
         color: var(--muted);
         word-break: break-word;
       }
@@ -522,14 +779,29 @@
         text-transform: uppercase;
         color: var(--muted);
       }
+      /* The stage keeps the plain `--bg` fill on purpose (v0.14.0 phase 4):
+         it is the one surface on the page that is not a surface of the page's
+         own, but a window onto the canvas a component is drawn for, so a
+         recorded `color-layer` card still shows as a card lifted off the
+         page. What changes is how the window reads. On the glass the canvas
+         is 1.06:1 to the panel around it and the old `--line` edge 1.2:1, so
+         the stage all but disappeared. It now takes `--line-strong` (1.6:1
+         light, 1.7:1 dark) and a faint dot grid in the page's ink at 12% —
+         the drafting-table cue that says "this is a stage". The stage is a
+         frame, not a control, so it stops short of the 3:1 `--line-control`
+         a form field wears; its fill, its grid and its edge together carry
+         it. The grid is two gradients, no image. */
       .preview__stage {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 7rem;
-        padding: 1.5rem;
-        background: var(--bg);
-        border: 1px solid var(--line);
+        min-height: 9rem;
+        padding: var(--space-4) 1.5rem;
+        background-color: var(--bg);
+        background-image: radial-gradient(color-mix(in srgb, var(--ink) 12%, transparent) 1px, transparent 1.25px);
+        background-size: 1rem 1rem;
+        background-position: 0.5rem 0.5rem;
+        border: 1px solid var(--line-strong);
         border-radius: var(--radius-md);
       }
       .preview__element {
@@ -566,9 +838,12 @@
         justify-content: flex-end;
         min-height: 7rem;
         padding: 0.75rem;
-        border: 1px solid transparent;
+        border: 0;
       }
-      .swatch--bordered > .swatch__fill { border-color: var(--line-strong); }
+      /* The ramp step's edge follows the card's (v0.14.0 phase 4): an inset
+         hairline, no layout, and the stronger line for a near-white or
+         unpaintable step. The strip as a whole takes its outline below. */
+      .swatch--bordered > .swatch__fill { box-shadow: inset 0 0 0 1px var(--line-strong); }
       .swatch__name {
         font-size: var(--type-02);
         font-weight: 600;
@@ -596,6 +871,12 @@
         grid-auto-columns: 1fr;
         overflow-x: auto;
         border-radius: var(--radius-md);
+        /* One hairline round the whole strip (v0.14.0 phase 4), for the same
+           reason every card has one: a dark step on a dark surface otherwise
+           has no end. An outline is painted over the steps, so it stays
+           visible where a border would sit underneath them. */
+        outline: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+        outline-offset: -1px;
       }
       .ramp__strip .swatch__fill { min-height: 5.5rem; padding: 0.5rem 0.4rem; }
       .ramp__strip .swatch__name { font-size: var(--type-01); }
@@ -612,8 +893,10 @@
       .number-group:first-child { margin-top: 0; }
       .number-list { display: grid; gap: 0.375rem; margin-top: var(--space-1); list-style: none; }
       .number { display: flex; gap: 0.75rem; align-items: baseline; font-size: var(--type-02); }
-      .number__name { font-weight: 600; }
-      .number__value { font-family: var(--mono); color: var(--muted); }
+      /* v0.14.0 phase 4: the name is the ink at medium weight, the value the
+         muted mono with tabular figures, so a column of values lines up. */
+      .number__name { font-weight: 500; color: var(--ink); }
+      .number__value { font-family: var(--mono); font-size: var(--type-01); font-variant-numeric: tabular-nums; color: var(--muted); }
 
       /* The Backlog as one container per component (v0.7.0 §3). A group is the
          page's own container — the base rule above already gives it its edge,
@@ -634,32 +917,50 @@
          the reading column (v0.6.0 §3), which is the same rule the ramp strip
          and the code blocks follow. */
       .table-scroll { overflow-x: auto; margin-top: var(--space-1); }
+      /* v0.14.0 phase 4, after Mercury's transaction list: roomier rows, the
+         cells in the full ink with tabular figures so a column of counts
+         lines up digit under digit, a quieter head row that is only a label,
+         and one hairline between rows. A clickable row's hover and the open
+         row round their outer corners, so the highlight reads as a resting
+         place rather than as a stripe torn out of the table. */
       table.data {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         font-size: var(--type-02);
+        font-variant-numeric: tabular-nums;
       }
       table.data th,
       table.data td {
-        padding: 0.5rem 0.75rem;
+        padding: 0.625rem 0.75rem;
         text-align: left;
         vertical-align: top;
         border-bottom: 1px solid var(--line);
       }
+      table.data td { color: var(--ink); }
       table.data th {
+        padding-top: 0.25rem;
+        padding-bottom: 0.5rem;
         font-size: var(--type-01);
-        font-weight: 600;
-        letter-spacing: 0.06em;
+        font-weight: 500;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
         color: var(--muted);
+        white-space: nowrap;
       }
       table.data tbody tr:last-child td { border-bottom: 0; }
       /* A row that opens something is a row you can click, and the one that is
          open reads as a resting place — the same quiet fill the selected view
          takes in the rail, never a second selection colour. */
       table.data tbody tr[data-report] { cursor: pointer; }
-      table.data tbody tr[data-report]:hover { background: var(--layer-accent); }
-      table.data tbody tr[aria-selected='true'] { background: var(--layer-accent); }
+      table.data tbody tr[data-report] td { transition: background-color 120ms ease; }
+      table.data tbody tr[data-report]:hover td { background: var(--layer-accent); }
+      table.data tbody tr[aria-selected='true'] td { background: var(--layer-accent); }
+      table.data tbody tr[data-report] td:first-child { border-top-left-radius: var(--radius-sm); border-bottom-left-radius: var(--radius-sm); }
+      table.data tbody tr[data-report] td:last-child { border-top-right-radius: var(--radius-sm); border-bottom-right-radius: var(--radius-sm); }
+      @media (prefers-reduced-motion: reduce) {
+        table.data tbody tr[data-report] td { transition: none; }
+      }
 
       /* A recognised reading draws its value beside the caption (v0.6.0 §2):
          the specimen leads, then the same name-and-value line as ever. The
@@ -675,13 +976,16 @@
          it for free: the fills are `--layer-accent` over `--layer`, and the
          edges are the same hairlines every other surface wears. Only the one
          property the token is about — the corner, the gap, the shadow — comes
-         from the value itself. */
+         from the value itself. v0.14.0 phase 4 tints the corner tile and the
+         gap bars with the accent, mixed from the page's own variables: in
+         grey-on-glass a 6px corner and a 14px one were the same smudge, and
+         the drawing is the whole point of the row. */
       .specimen-tile {
         display: block;
         width: 3rem;
         height: 3rem;
-        background: var(--layer-accent);
-        border: 1px solid var(--line-strong);
+        background: color-mix(in srgb, var(--accent) 12%, var(--layer));
+        border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
       }
       /* A card is a card wherever it appears (v0.6.0 §3): the shadow specimen
          wears the same medium corner the colour card's swatch, the preview
@@ -703,12 +1007,12 @@
         display: block;
         width: 0.75rem;
         height: 2rem;
-        background: var(--line-strong);
+        background: color-mix(in srgb, var(--accent) 45%, var(--layer));
         border-radius: var(--radius-sm);
       }
 
       .specimens { display: grid; gap: var(--space-3); }
-      .specimen__meta { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.06em; }
+      .specimen__meta { font-size: var(--type-01); color: var(--muted); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
       .specimen__meta code { font-size: var(--type-01); }
       .specimen__line { margin-top: 0.25rem; word-break: break-word; }
       /* The font-family fetch note and the unrendered-readings list (v0.7.3
@@ -720,42 +1024,65 @@
          One chip idiom for everything small the page says about something
          else (v0.7.0 §2): a section's count, a token's slot, a component's
          `applied` badge, and any status that comes later. Small type, the
-         recessed grey fill, the muted ink and the small corner — a chip is a
-         label, never a control, so it never takes the ink of one. */
+         recessed grey fill and the muted ink — a chip is a label, never a
+         control, so it never takes the ink of one. Since v0.14.0 phase 4 the
+         chip is a pill with no edge of its own: the fill alone says "label",
+         and the rounded ends keep it from reading as a small container. */
       .chip,
       .count {
         display: inline-flex;
         align-items: center;
-        padding: 0.1rem 0.5rem;
+        padding: 0.0625rem 0.5rem;
         font-size: var(--type-01);
         font-weight: 500;
         line-height: 1.6;
         color: var(--muted);
         background: var(--layer-accent);
-        border: 1px solid var(--line);
-        border-radius: var(--radius-sm);
+        border: 1px solid transparent;
+        border-radius: var(--radius-pill);
+        white-space: nowrap;
       }
       /* Chips come in wrapping rows, so they carry their own spacing; a count
          is one chip at the end of a header row, so it carries none and is
          pushed to the far edge instead. */
       .chip { margin: 0 0.35rem 0.35rem 0; }
-      .count { margin-left: auto; font-variant-numeric: tabular-nums; }
+      .count { margin-left: auto; font-family: var(--mono); font-variant-numeric: tabular-nums; }
       /* The `applied` badge (v0.5.0 §3.4): the chip the page already has, in a
          colour the page already uses. A reading of the codebase is not a
          warning and not a highlight, so it takes the quiet one — which since
          v0.7.0 §2 is simply the chip's own. */
       .chip.applied { color: var(--muted); }
-      .chip.token { color: var(--accent); border-color: var(--accent); }
-      .chip.raw { color: var(--raw); border-color: var(--raw); }
+      /* The token and raw chips keep their two inks and trade the outline for
+         a tint of the same colour (v0.14.0 phase 4), the way Mercury marks a
+         status: a soft wash, the ink on top, and an edge at a third of it.
+         The accent on its 10% wash reads 5.3:1 light and 6.6:1 dark. */
+      .chip.token {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 10%, transparent);
+        border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+      }
+      .chip.raw {
+        color: var(--raw);
+        background: color-mix(in srgb, var(--raw) 10%, transparent);
+        border-color: color-mix(in srgb, var(--raw) 30%, transparent);
+      }
 
       /* Two buttons and a hierarchy (v0.7.0 §2). `.btn--primary` is the one
-         solid, high-contrast action a container is allowed: the page's own ink
-         as the fill, the layer colour as the text, and no second hue invented
-         for it. `.btn--ghost` is everything else: no fill and no edge until
-         the pointer is on it, so a row of secondary actions stays quiet.
-         `button.tile-action` — the segmented filters and the preview toggles —
-         is the same button with an edge, and it shares this base rather than
-         restating it. */
+         solid, high-contrast action a container is allowed. `.btn--ghost` is
+         everything else: no fill and no edge until the pointer is on it, so a
+         row of secondary actions stays quiet. `button.tile-action` — the
+         segmented filters and the preview toggles — is the same button with
+         an edge, and it shares this base rather than restating it.
+
+         v0.14.0 phase 4 moves the primary from the ink to the accent: Mercury
+         and Linear both spend their one colour on the one action, and an
+         ink-filled button in dark mode was a white slab. The label is the
+         layer colour, 6.1:1 on the light indigo and 7.8:1 on the dark one.
+         The hover mixes a sixth of the ink in — darker in light, lighter in
+         dark — so the press reads as the same colour, deepened.
+         `--ink-hover` keeps its one job for any ink-filled control a later
+         release adds. Controls take the medium corner, like the input beside
+         them; the filters are pills, like the chips. */
       .btn,
       button.tile-action {
         display: inline-flex;
@@ -765,52 +1092,105 @@
         font: inherit;
         font-size: var(--type-02);
         font-weight: 500;
-        padding: 0.4rem 1rem;
+        line-height: 1.4;
+        padding: 0.5rem 1rem;
         border: 1px solid transparent;
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-md);
         background: transparent;
         color: inherit;
         cursor: pointer;
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
       }
       .btn--primary {
-        background: var(--ink);
-        border-color: var(--ink);
+        background: var(--accent);
+        border-color: var(--accent);
         color: var(--layer);
+        box-shadow: inset 0 1px 0 color-mix(in srgb, var(--layer) 18%, transparent), 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent);
       }
-      .btn--primary:hover { background: var(--ink-hover); border-color: var(--ink-hover); }
+      .btn--primary:hover {
+        background: color-mix(in srgb, var(--accent) 84%, var(--ink));
+        border-color: color-mix(in srgb, var(--accent) 84%, var(--ink));
+      }
       .btn--ghost { color: var(--muted); }
       .btn--ghost:hover { background: var(--layer-accent); color: var(--ink); }
       /* The outlined member of the family: the base above, plus the hairline
          that makes a segmented control read as one, and the accent it wears
-         while it is the live choice. */
-      button.tile-action { border-color: var(--line); }
-      button.tile-action:hover { background: var(--layer-accent); }
+         while it is the live choice — since v0.14.0 phase 4 as a wash with an
+         accent edge, the chip's own treatment, rather than an outline alone. */
+      button.tile-action {
+        padding: 0.3rem 0.85rem;
+        font-size: var(--type-01);
+        color: var(--muted);
+        background: var(--layer);
+        border-color: var(--line-strong);
+        border-radius: var(--radius-pill);
+      }
+      button.tile-action:hover { background: var(--layer-accent); color: var(--ink); }
       button.tile-action[aria-selected='true'],
-      button.tile-action[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
+      button.tile-action[aria-pressed='true'] {
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 10%, var(--layer));
+        border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+      }
       .btn:focus-visible,
       button.tile-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      @media (prefers-reduced-motion: reduce) {
+        .btn,
+        button.tile-action { transition: none; }
+      }
+      /* The prompt field (v0.14.0 phase 4). It is the one box on the page a
+         reader types into, so its edge is `--line-control`, the hairline that
+         clears 3:1 (3.10-3.21:1 light, 3.28-3.31:1 dark), where every divider
+         stays lighter. It sits on the layer colour, a step brighter than the glass
+         around it, and focus is the accent edge plus a soft accent halo — the
+         ring the rest of the page wears, softened for a field that is in use
+         rather than merely reached. */
       form.prompt { display: flex; gap: 0.5rem; margin-top: 1rem; }
       form.prompt input {
         flex: 1;
+        min-width: 0;
         font: inherit;
         font-size: var(--type-02);
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--line);
-        border-radius: var(--radius-sm);
-        background: var(--bg);
-        color: inherit;
+        line-height: 1.4;
+        padding: 0.5rem 0.8rem;
+        border: 1px solid var(--line-control);
+        border-radius: var(--radius-md);
+        background: var(--layer);
+        color: var(--ink);
+        transition: border-color 120ms ease, box-shadow 120ms ease;
       }
-      form.prompt input:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+      form.prompt input::placeholder { color: var(--muted); }
+      form.prompt input:hover { border-color: var(--muted); }
+      form.prompt input:focus {
+        outline: 2px solid transparent;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        form.prompt input { transition: none; }
+      }
+      /* The drop zone: a dashed well rather than a box, in the stronger
+         hairline over a faint recessed wash, and the accent — edge, ink and
+         a tint of the fill — while an image is over it (v0.14.0 phase 4). */
       .drop {
         border: 1px dashed var(--line-strong);
         border-radius: var(--radius-md);
-        padding: 1.25rem;
+        padding: var(--space-3) 1.25rem;
         text-align: center;
         color: var(--muted);
+        background: color-mix(in srgb, var(--layer-accent) 50%, transparent);
         font-size: var(--type-02);
         margin-top: 1rem;
+        transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
       }
-      .drop.over { border-color: var(--accent); color: var(--accent); }
+      .drop.over {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .drop { transition: none; }
+      }
 
       @media (max-width: 40rem) {
         .shell { display: block; }
@@ -2275,10 +2655,10 @@
        * honesty line the component preview draws (§ "Unrendered slots").
        *
        * `font-family` gets one line of its own whenever the reading is present,
-       * whether or not its value happened to pass the gate: the page cannot
-       * know whether a face is installed, so it says plainly that it never
-       * fetches one, and an uninstalled face falls back the way the browser
-       * always falls back.
+       * whether or not its value happened to pass the gate: the page names
+       * the two faces it loads from its own files (Geist, Geist Mono) so the
+       * reader knows any other face falls back the way the browser always
+       * falls back.
        */
       function typographySpecimenHtml(row) {
         const token = cell(row, 'token', 0);
@@ -2289,7 +2669,7 @@
           .map((part) => '<code>' + esc(part) + '</code>')
           .join(' · ');
         const note = hasFontFamily
-          ? '<p class="specimen__note">This page fetches no fonts — an uninstalled face falls back to the browser default.</p>'
+          ? '<p class="specimen__note">This page loads Geist and Geist Mono from its own files — any other face falls back to the browser default.</p>'
           : '';
         const unrenderedHtml = unrendered.length
           ? '<p class="specimen__unrendered">Unrendered readings: ' +

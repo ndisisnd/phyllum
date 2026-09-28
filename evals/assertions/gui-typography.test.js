@@ -169,7 +169,7 @@ test('the font-family note appears whenever the reading is present, pass or refu
   // whether an uninstalled face is the reason a value looks that way.
   const refused = contract.typographySpecimenHtml(rowFor(rows, 'body-primary'));
   assert.ok(refused.includes('specimen__note'), refused);
-  assert.match(refused, /fetches no fonts/, refused);
+  assert.match(refused, /loads Geist and Geist Mono from its own files/, refused);
 
   // `highlight-small` records no font-family reading at all — no note.
   const none = contract.typographySpecimenHtml(rowFor(rows, 'highlight-small'));

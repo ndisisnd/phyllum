@@ -85,6 +85,8 @@ CONTENT_TYPES = {
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
     ".ico": "image/x-icon",
+    ".woff2": "font/woff2",
+    ".txt": "text/plain; charset=utf-8",
 }
 
 _state_lock = threading.Lock()
