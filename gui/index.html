@@ -406,6 +406,13 @@
       }
       nav#views .rail-icon { width: 1rem; height: 1rem; flex: 0 0 auto; }
       nav#views .rail-group[hidden] { display: none; }
+      /* A page under an open tab is indented to sit under the tab's label,
+         past the icon slot (v0.14.1 §2): icon width 1rem plus the tab's
+         0.5rem gap. The empty-pipeline chip lines up the same way. */
+      nav#views .rail-group button,
+      nav#views .rail-group .rail-empty {
+        padding-left: calc(0.75rem + 1rem + 0.5rem);
+      }
 
       main {
         flex: 1 1 auto;
@@ -2259,6 +2266,20 @@
       }
 
       el('views').addEventListener('click', (event) => {
+        // A stage tab toggles only itself (v0.14.1 §2). The click can land on
+        // the svg, a path inside it, or the label span, so it is the nearest
+        // `.rail-tab` that answers, not `event.target` itself. Other open
+        // tabs are untouched — several can stay open together — and no tab
+        // opens on its own, including the one holding the selected page.
+        const tab = event.target.closest && event.target.closest('.rail-tab');
+        if (tab) {
+          const open = tab.getAttribute('aria-expanded') === 'true';
+          tab.setAttribute('aria-expanded', String(!open));
+          const group = el(tab.getAttribute('aria-controls'));
+          if (group) group.hidden = open;
+          return;
+        }
+
         const view = event.target.dataset && event.target.dataset.view;
         if (!view) return;
         state.view = view;
