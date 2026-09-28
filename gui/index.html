@@ -396,6 +396,16 @@
          never a control" (v0.7.0 §2), so it is the quiet marker here too —
          padded to sit under the rail-label the same way a view button would. */
       nav#views .rail-empty { padding: 0.15rem 0.75rem 0.5rem; }
+      /* A stage tab (v0.14.1 §1) is a view-rail button with its Lucide icon
+         set before the label, sized to the label's line. The group it owns
+         is collapsed by the `hidden` attribute until the tab is opened. */
+      nav#views .rail-tab {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      nav#views .rail-icon { width: 1rem; height: 1rem; flex: 0 0 auto; }
+      nav#views .rail-group[hidden] { display: none; }
 
       main {
         flex: 1 1 auto;
@@ -1278,20 +1288,64 @@
 
     <div class="shell">
       <nav id="views">
-        <span class="rail-label">Assess</span>
-        <button data-view="library" aria-selected="true">Library</button>
-        <button data-view="reports" aria-selected="false">Reports</button>
+        <!-- Four stage tabs (v0.14.1 §1). Each tab is a button that owns the
+             page group after it; every group starts collapsed. The icons are
+             Lucide (ISC licence): scan-search, shield-check, hammer and
+             sparkles, from lucide 1.18.0. They are inlined because the page
+             makes no network fetch and the package keeps no dependencies. -->
+        <button class="rail-tab" data-stage="assess" aria-expanded="false" aria-controls="rail-group-assess">
+          <svg class="rail-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+            <circle cx="12" cy="12" r="3" />
+            <path d="m16 16-1.9-1.9" />
+          </svg>
+          <span>Assess</span>
+        </button>
+        <div class="rail-group" id="rail-group-assess" hidden>
+          <button data-view="library" aria-selected="true">Library</button>
+          <button data-view="reports" aria-selected="false">Reports</button>
+        </div>
 
-        <span class="rail-label">Governance</span>
-        <div class="rail-empty"><span class="chip">nothing yet</span></div>
+        <button class="rail-tab" data-stage="governance" aria-expanded="false" aria-controls="rail-group-governance">
+          <svg class="rail-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          <span>Governance</span>
+        </button>
+        <div class="rail-group" id="rail-group-governance" hidden>
+          <div class="rail-empty"><span class="chip">nothing yet</span></div>
+        </div>
 
-        <span class="rail-label">Build</span>
-        <button data-view="workbench" aria-selected="false">Workbench</button>
-        <button data-view="build-reports" aria-selected="false">Build reports</button>
-        <button data-view="tokens" aria-selected="false">Token view</button>
+        <button class="rail-tab" data-stage="build" aria-expanded="false" aria-controls="rail-group-build">
+          <svg class="rail-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m15 12-9.373 9.373a1 1 0 0 1-3.001-3L12 9" />
+            <path d="m18 15 4-4" />
+            <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172v-.344a2 2 0 0 0-.586-1.414l-1.657-1.657A6 6 0 0 0 12.516 3H9l1.243 1.243A6 6 0 0 1 12 8.485V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5" />
+          </svg>
+          <span>Build</span>
+        </button>
+        <div class="rail-group" id="rail-group-build" hidden>
+          <button data-view="workbench" aria-selected="false">Workbench</button>
+          <button data-view="build-reports" aria-selected="false">Build reports</button>
+          <button data-view="tokens" aria-selected="false">Token view</button>
+        </div>
 
-        <span class="rail-label">Refine</span>
-        <div class="rail-empty"><span class="chip">nothing yet</span></div>
+        <button class="rail-tab" data-stage="refine" aria-expanded="false" aria-controls="rail-group-refine">
+          <svg class="rail-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" />
+            <path d="M20 2v4" />
+            <path d="M22 4h-4" />
+            <circle cx="4" cy="20" r="2" />
+          </svg>
+          <span>Refine</span>
+        </button>
+        <div class="rail-group" id="rail-group-refine" hidden>
+          <div class="rail-empty"><span class="chip">nothing yet</span></div>
+        </div>
       </nav>
 
       <main>
