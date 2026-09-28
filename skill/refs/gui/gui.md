@@ -48,10 +48,14 @@ wiring rather than a second kind.
 
 1. **Library** — every component and token, read live from `DESIGN-SYSTEM.md`,
    each token *shown* rather than merely printed (see "Showing the values" in
-   `refs/gui/cards.md`). Clicking a component shows the component itself — an
-   HTML rendering projected from its recorded spec, with a variant toggle and a
-   states toggle (`refs/gui/component-preview.md`) — and then its spec and its
-   code. A plain "Library" heading sits over three tabs (v0.14.4 §1) —
+   `refs/gui/cards.md`). The Components tab shows every component in full at
+   once, each in its own container, with no tap to reveal one (v0.14.5 §1) — a
+   container holds an HTML rendering projected from the component's recorded
+   spec, with a variant toggle and a states toggle
+   (`refs/gui/component-preview.md`), then its spec and its code. Each
+   container keeps its own toggle reading, so a toggle in one container never
+   changes another (v0.14.5 §2). A plain "Library" heading sits over three tabs
+   (v0.14.4 §1) —
    Foundations, Components, Backlog — each showing its own section and hiding
    the other two; the scope argument picks the opening tab (`components` opens
    Components, `tokens`/`all`/anything else opens Foundations, the default),

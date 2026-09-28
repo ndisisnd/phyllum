@@ -4,6 +4,20 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
+### [75] — Tests and docs for the Components tab's containers (v0.14.5 phase 3)
+
+- `evals/assertions/gui.test.js`: Added — 5 tests covering the Components tab's markup (`#components-body`, no `#component-list` or `#component-detail`, the placeholder gone, the Tokens view's own list and panel untouched), `renderComponents` against a small fixture (one container per component, the `applied` badge, the preview and the code blocks, the empty-file message), a state toggle and an attribute toggle each persisting in their own container while a third stays at default, a variant toggle swapping only its own container, readings surviving a second `renderComponents()` call and dropping on a re-read with fewer components, and `showTokenView` still drawing a picked component's token usage
+- `skill/refs/gui/gui.md`: Changed — the Library entry in "Five views" now describes the Components tab showing every component in full, each in its own container with no tap, and each container keeping its own toggle reading
+- `skill/refs/gui/component-preview.md`: Changed — describes the preview living inside each component's own container rather than a single shared panel, a toggle changing only its own container, and readings surviving a live re-read; the `applied` badge table's "Component list" column is now "Tokens view list", the one list left that shows the badge
+
+### [74] — Each container keeps its own toggles (v0.14.5 phase 2)
+
+- `gui/index.html`: Changed — the Components tab's preview toggle reading moves from one page-wide `state.selected`/`state.previewState`/`state.previewIcons` to `state.previews`, one reading per container keyed by its `data-index`; the click handler on `#components-body` now updates only the clicked container's reading; `renderComponents()` keeps every reading across a live re-read and drops one when its container or component is gone, or when the shown component is no longer the container's own or a sibling of it
+
+### [73] — Components shown in their own containers (v0.14.5 phase 1)
+
+- `gui/index.html`: Changed — the Components tab's tap-to-pick `#component-list` and shared `#component-detail` panel are replaced by `#components-body`, filled by `renderComponents()` with one `<section class="container component-container">` per component, each drawn in full by `componentBodyHtml()` (name, `applied` badge, preview, code blocks) with no tap; an empty file still shows "No components yet. Run `phyllum create`." The Tokens view keeps its own tap-to-pick list and panel, now drawn by `showTokenView()`
+
 ### [72] — The Library leaves the Assess tab for its own rail entry (v0.14.4)
 
 - `gui/index.html`: Changed — the Library moves out of the Assess group to a `.rail-page` entry above the four stages, with Lucide's `library` icon; it opens its page directly and never expands or collapses. Assess now holds Reports alone. The page-button click answers to the nearest `data-view`, so a click on the entry's icon or label still opens the Library

@@ -1094,6 +1094,213 @@ test('a typography specimen only ever inlines a shape it recognises', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The Components tab: one container per component, no tap to reveal
+// (v0.14.5 §1, §2)
+// ---------------------------------------------------------------------------
+
+test('the Components tab has no pick list and no shared detail panel; the Tokens view keeps its own', () => {
+  const text = readPage();
+  const panelStart = text.indexOf('<div class="panel" id="components-panel" hidden>');
+  const panelEnd = text.indexOf('</div>\n          <div class="panel" id="backlog-panel"');
+  const panel = text.slice(panelStart, panelEnd);
+  assert.match(panel, /<div id="components-body"><\/div>/, 'the Components panel is one empty body div, filled live');
+  assert.ok(!panel.includes('id="component-list"'), 'the tap-to-pick list is gone');
+  assert.ok(!panel.includes('id="component-detail"'), 'the shared detail panel is gone');
+  assert.ok(!text.includes('Pick a component to see its spec and code.'), 'its placeholder is gone with it');
+
+  // The Tokens view still picks one component at a time.
+  assert.ok(text.includes('id="token-view-list"'), 'the Tokens view keeps its own list');
+  assert.ok(text.includes('id="token-view-detail"'), 'and its own detail panel');
+  assert.ok(text.includes('Pick a component.'), 'and its own placeholder, unchanged');
+});
+
+/**
+ * The Components tab functions, lifted and run against a tiny fake DOM — the
+ * same trick `libraryTabContract` uses above, extended to the preview
+ * contract's own pure region so `renderComponents` can call the real
+ * `previewPanelHtml` rather than a restatement of it.
+ */
+function componentsTabContract() {
+  const text = readPage();
+
+  const swatchStart = text.indexOf('// --- phyllum:swatch-contract');
+  const swatchEnd = text.indexOf('// --- end phyllum:swatch-contract');
+  const swatch = text.slice(swatchStart, swatchEnd);
+
+  const previewStart = text.indexOf('// --- phyllum:preview-contract');
+  const previewEnd = text.indexOf('// --- end phyllum:preview-contract');
+  const preview = text.slice(previewStart, previewEnd);
+
+  const elStart = text.indexOf('const el = (id) =>');
+  const elEnd = text.indexOf('\n', elStart) + 1;
+  const elSrc = text.slice(elStart, elEnd);
+
+  const bodyStart = text.indexOf('function appliedBadge(component) {');
+  const bodyEnd = text.indexOf('// The three toggle rows');
+  const bodySrc = text.slice(bodyStart, bodyEnd);
+  assert.ok(
+    bodySrc.includes('function componentBodyHtml') &&
+      bodySrc.includes('function renderComponents') &&
+      bodySrc.includes('function showTokenView'),
+    'appliedBadge, componentBodyHtml, renderComponents and showTokenView are defined together, in that order',
+  );
+
+  const clickStart = bodyEnd;
+  const clickEnd = text.indexOf('function renderSession() {');
+  const clickSrc = text.slice(clickStart, clickEnd);
+  assert.ok(clickSrc.includes("el('components-body').addEventListener"), 'the container click handler is in range');
+  assert.ok(clickSrc.includes("el('token-view-list').addEventListener"), 'and the Tokens view one rides along');
+
+  /** A fake element: an innerHTML slot and one captured click listener. */
+  function fakeEl() {
+    let click = null;
+    return {
+      innerHTML: '',
+      addEventListener(type, handler) {
+        if (type === 'click') click = handler;
+      },
+      get click() {
+        return click;
+      },
+    };
+  }
+
+  const elements = {
+    'components-body': fakeEl(),
+    'token-view-list': fakeEl(),
+    'token-view-detail': fakeEl(),
+  };
+  const document = { getElementById: (id) => elements[id] ?? null };
+  const state = { system: null, previews: {}, tokenViewSelected: null };
+
+  const factory = new Function(
+    'document',
+    'state',
+    `${swatch}\n${preview}\n${elSrc}\n${bodySrc}\n${clickSrc}\nreturn { renderComponents, showTokenView };`,
+  );
+  return { ...factory(document, state), elements, state };
+}
+
+/** A fake click on a container's toggle button, the shape the handler reads. */
+function toggleClick(container, dataset, pressed) {
+  return {
+    target: {
+      dataset,
+      closest: (selector) => (selector === '.component-container' ? { dataset: { index: String(container) } } : null),
+      getAttribute: (name) => (name === 'aria-pressed' ? String(Boolean(pressed)) : null),
+    },
+  };
+}
+
+/** Three components: two variant siblings and one unrelated third. */
+const COMPONENTS_FIXTURE = [
+  {
+    name: 'Button/Primary',
+    archetype: 'button',
+    custom: false,
+    properties: { background: '#2563EB' },
+    states: { hover: { background: '#1D4ED8' } },
+    applied: true,
+    blocks: [{ lang: 'yaml', content: 'name: Button/Primary' }, { lang: 'jsx', content: '<Button />' }],
+  },
+  {
+    name: 'Button/Ghost',
+    archetype: 'button',
+    custom: false,
+    properties: { background: '#FFFFFF', 'leading-icon': 'yes' },
+    states: {},
+    applied: false,
+    blocks: [{ lang: 'yaml', content: 'name: Button/Ghost' }],
+  },
+  {
+    name: 'Card/Basic',
+    archetype: 'card',
+    custom: false,
+    properties: {},
+    states: {},
+    applied: false,
+    blocks: [{ lang: 'yaml', content: 'name: Card/Basic' }],
+  },
+];
+
+test('renderComponents draws one container per component, in full, with no tap', () => {
+  const { renderComponents, elements, state } = componentsTabContract();
+  state.system = { components: COMPONENTS_FIXTURE };
+
+  renderComponents();
+  const body = elements['components-body'].innerHTML;
+  const sections = [...body.matchAll(/<section class="container component-container" data-index="(\d+)">/g)];
+  assert.deepEqual(sections.map((m) => m[1]), ['0', '1', '2'], 'one container per component, in file order');
+
+  assert.match(body, /<h3>Button\/Primary <span class="chip applied">applied<\/span><\/h3>/, 'the applied badge shows for applied: true');
+  assert.ok(!/Button\/Ghost <span class="chip applied">/.test(body), 'and only for applied: true');
+  assert.ok(body.includes('preview__stage'), 'each container carries the preview');
+  assert.ok(body.includes('name: Button/Primary') && body.includes('name: Button/Ghost') && body.includes('name: Card/Basic'), 'each container carries its own code blocks');
+});
+
+test('an empty system still shows the "No components yet" message on the Components tab', () => {
+  const { renderComponents, elements, state } = componentsTabContract();
+  state.system = { components: [] };
+  renderComponents();
+  assert.equal(
+    elements['components-body'].innerHTML,
+    '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>',
+  );
+});
+
+test('a toggle changes only the container it was clicked in, and readings survive a live re-read', () => {
+  const { renderComponents, elements, state } = componentsTabContract();
+  state.system = { components: COMPONENTS_FIXTURE };
+  renderComponents();
+
+  // A state toggle in container 0.
+  elements['components-body'].click(toggleClick(0, { previewState: 'hover' }));
+  // An attribute toggle in container 1.
+  elements['components-body'].click(toggleClick(1, { previewAttribute: 'leading-icon' }, false));
+
+  let body = elements['components-body'].innerHTML;
+  assert.deepEqual(Object.keys(state.previews).sort(), ['0', '1'], 'container 2 never toggled, so it holds no reading');
+  assert.equal(state.previews[0].state, 'hover');
+  assert.equal(state.previews[1].icons['leading-icon'], true);
+  assert.match(body, /background:#1D4ED8/, 'container 0 shows its hover reading');
+
+  // A variant toggle in container 0 swaps only that container to its sibling.
+  elements['components-body'].click(toggleClick(0, { previewVariant: '1' }));
+  body = elements['components-body'].innerHTML;
+  assert.equal(state.previews[0].index, 1, 'container 0 now shows the sibling it was told to');
+  assert.equal(state.previews[1].index, 1, 'container 1 still shows its own component');
+  const container0 = body.slice(body.indexOf('data-index="0"'), body.indexOf('data-index="1"'));
+  const container1 = body.slice(body.indexOf('data-index="1"'), body.indexOf('data-index="2"'));
+  assert.match(container0, /<h3>Button\/Ghost/, 'container 0 drew the sibling it was switched to');
+  assert.match(container1, /<h3>Button\/Ghost/, 'container 1 keeps its own component');
+
+  // A live re-read redraws the containers, and the readings survive it.
+  renderComponents();
+  assert.deepEqual(Object.keys(state.previews).sort(), ['0', '1'], 'both readings survive the re-read');
+
+  // A re-read with fewer components drops a reading that no longer fits.
+  state.system = { components: [COMPONENTS_FIXTURE[0]] };
+  renderComponents();
+  assert.deepEqual(Object.keys(state.previews), [], 'container 1 is gone, so its reading — and container 0\'s, which pointed at it — both drop');
+});
+
+test('showTokenView still draws a picked component\'s token usage', () => {
+  const { showTokenView, elements, state } = componentsTabContract();
+  state.system = {
+    components: [
+      { name: 'Button/Primary', spec: 'name: Button/Primary\nbackground: color-primary\npadding: 12px', applied: true },
+    ],
+    tokens: { colours: [{ token: 'color-primary' }] },
+  };
+  showTokenView(0);
+  assert.equal(state.tokenViewSelected, 0);
+  const detail = elements['token-view-detail'].innerHTML;
+  assert.match(detail, /<h3>Button\/Primary<\/h3>/);
+  assert.match(detail, /background: color-primary/, 'a value that names a real token is listed as consumed');
+  assert.match(detail, /padding: 12px/, 'a raw value is listed apart from it');
+});
+
+// ---------------------------------------------------------------------------
 // The Backlog, cut by component (v0.7.0 §3)
 // ---------------------------------------------------------------------------
 
