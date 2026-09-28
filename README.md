@@ -355,17 +355,20 @@ are derived from the file: a slot the spec does not record gets no control, a `T
 stays in the unrendered list, and flipping one changes the projection only — never the
 spec, never the served payload.
 
-The page is drawn light-first, Notion-shaped: rounded corners throughout on one
-two-step radius scale, 1px hairlines and low diffuse shadows on every raised
-surface, a neutral near-white canvas over white panels in the light theme and a
-neutral charcoal in the dark one, one calm surface with no dark product header.
-You pick the theme yourself — **light, dark or system** — from a control in the
-shell; `system` is the default and follows your OS, and your choice is
-remembered in the browser and applied before the first paint, so the page
-never flashes the wrong theme. It takes no dependency on Notion or anything else: the
-stylesheet is hand-written in the one file, the type stack asks for Geist and falls back
-to the system faces without fetching a webfont, and the page fetches nothing from the
-network. It stays read-only, on localhost only. Writing is the CLI's job.
+The page is drawn Mercury-led: rounded corners throughout on a three-step
+radius scale plus a pill step for chips and filters, glass surfaces — a
+translucent, blurred tint, with a solid fallback where the browser cannot
+blur — on the header, the sidebars, the panels and the cards, a cool near-white canvas in
+the light theme and a blue-black one in the dark, and an indigo accent that
+clears 4.5:1 on every surface it is drawn on, glass included. You pick the
+theme yourself — **light, dark or system** — from a control in the shell;
+`system` is the default and follows your OS, and your choice is remembered in
+the browser and applied before the first paint, so the page never flashes the
+wrong theme. It takes no external dependency: the stylesheet is hand-written
+in the one file, the type stack asks for Geist and Geist Mono, bundled as
+files under `gui/fonts/` and served by the same local server, with the system
+faces as the fallback, and the page fetches nothing from the network. It stays
+read-only, on localhost only. Writing is the CLI's job.
 
 `delete` is the one destructive verb, and it is built as the inverse of `create`'s ease.
 Deleting a component can break things — code generated from it stays in your codebase and

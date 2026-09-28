@@ -28,6 +28,8 @@
 | color-line-dark | #262a31 |
 | color-line-strong | #c9ced6 |
 | color-line-strong-dark | #3a3f48 |
+| color-line-control | #8a909b |
+| color-line-control-dark | #646b77 |
 | color-accent | #4a53d1 |
 | color-accent-dark | #9ba5ff |
 | color-raw | #87580f |

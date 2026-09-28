@@ -10,7 +10,8 @@
  *
  * What this file covers is a promise rather than a look (v0.7.2): the server
  * lifecycle, the JSON API and the one parse contract, the delivery contract
- * (no webfont, no CDN, no `src=`, no network call anywhere in the page), the
+ * (fonts bundled locally under gui/fonts, no CDN, no external `src=`, no
+ * network call anywhere in the page), the
  * escape contracts — only a value the page's own gate recognises is ever
  * inlined into a `style` attribute — the backlog's parse and its refs, and the
  * theme choice as behaviour: the `localStorage` round-trip, the fallback to

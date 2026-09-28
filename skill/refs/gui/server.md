@@ -18,6 +18,7 @@ Arguments: `--root <project> --host 127.0.0.1 --port <n> --scope <scope>
 | Route | Body | Returns |
 |-------|------|---------|
 | `GET /` | — | the dashboard page (`gui/index.html`) |
+| `GET /fonts/*` | — | the bundled Geist and Geist Mono `.woff2` files and their `OFL.txt` licence, under `gui/fonts/` — no new route: the server already serves any file under `gui/`, with `font/woff2` and `text/plain; charset=utf-8` added to `CONTENT_TYPES` so the fonts and the licence come back with the right type (v0.14.0 phase 2) |
 | `GET /state` | — | `.phyllum/session.json` verbatim, plus `scope` (the opening filter), `draft`, `queue`, `designSystem`, `root`, `readAt` |
 | `GET /system` | — | `{ header, columns, tokens: { colours, numbers, typography }, components, backlog, counts }`; each component carries `name`, `spec`, `blocks`, and its parsed slots `archetype`, `custom`, `properties`, `states` (see `refs/gui/component-preview.md`) |
 | `GET /reports` | — | `{ reports, count, root }` — every `.phyllum/assess-[n].md`, newest first, each read back into `{ number, path, date, summary, drift: { columns, rows, note }, health: { score, scaleTop, means, verdict, detail }, schemaVersion, recommendations }`; a report that could not be read comes back as `{ number, path, error }` rather than blanking the list |

@@ -116,7 +116,8 @@
         --line-strong: #c9ced6;
         /* The one hairline that has to clear 3:1 (v0.14.0 phase 4): the edge
            of a form control, which WCAG 1.4.11 asks a reader to be able to
-           find. It reads 3.2:1 on white and on the glass, where `--line` and
+           find. It reads 3.21:1 on white, 3.10:1 on the glass fallback and
+           3.13-3.18:1 on the glass over the canvas, where `--line` and
            `--line-strong` read 1.2:1 and 1.6:1 — right for dividers, too
            quiet for the one box a reader has to type into. Everything else
            keeps the lighter lines, so the page stays calm. */
@@ -1076,7 +1077,7 @@
          v0.14.0 phase 4 moves the primary from the ink to the accent: Mercury
          and Linear both spend their one colour on the one action, and an
          ink-filled button in dark mode was a white slab. The label is the
-         layer colour, 6.1:1 on the light indigo and 7.9:1 on the dark one.
+         layer colour, 6.1:1 on the light indigo and 7.8:1 on the dark one.
          The hover mixes a sixth of the ink in — darker in light, lighter in
          dark — so the press reads as the same colour, deepened.
          `--ink-hover` keeps its one job for any ink-filled control a later
@@ -1139,8 +1140,8 @@
       }
       /* The prompt field (v0.14.0 phase 4). It is the one box on the page a
          reader types into, so its edge is `--line-control`, the hairline that
-         clears 3:1 (3.2:1 light, 3.3:1 dark), where every divider stays
-         lighter. It sits on the layer colour, a step brighter than the glass
+         clears 3:1 (3.10-3.21:1 light, 3.28-3.31:1 dark), where every divider
+         stays lighter. It sits on the layer colour, a step brighter than the glass
          around it, and focus is the accent edge plus a soft accent halo — the
          ring the rest of the page wears, softened for a field that is in use
          rather than merely reached. */

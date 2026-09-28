@@ -55,44 +55,61 @@ second kind.
    which values are still raw and therefore candidates for the next `tokenise`
    run.
 
-## Look and feel — light-first, Notion-shaped
+## Look and feel — Mercury-led, glass surfaces
 
 The page is drawn light-first (v0.7.0 §1): the plain `:root` variable set is
 the one the design is drawn for, and dark is the second reading of the same
-palette rather than the default. The shape underneath is still the one Notion
-lines suggested in v0.5.1 — **rounder, simpler** — followed as a direction,
-never as a dependency: there is no `@notion/*` package to take, no CDN, and no
-build step.
+palette rather than the default. The shape moved again in v0.14.0, from the
+Notion-shaped direction of v0.5.1 to a **Mercury-led** one — cooler neutrals, an
+indigo accent, and glass surfaces on the panels that float over the page —
+followed as a direction, never as a dependency: there is no package to take,
+no CDN, and no build step.
 
 - **Rounder** — rounded corners are the default: tiles, chips, buttons, inputs,
-  the preview stage, the colour-card swatch. Two CSS variables carry the whole
-  scale (`--radius-sm`, `--radius-md`), so the page rounds from one place. Sharp
-  corners are the departure that needs recording now, not the rule.
+  the preview stage, the colour-card swatch. Three CSS variables carry the
+  scale (`--radius-sm`, `--radius-md`, `--radius-lg`), plus a fourth,
+  `--radius-pill`, that rounds a chip or a segmented filter's ends rather than
+  its corners, so the page rounds from one place. Sharp corners are the
+  departure that needs recording now, not the rule.
 - **Bordered** — every raised surface carries a 1px `--line` hairline as well
   as the low, diffuse `--shadow` (v0.7.0 §1): on a dark page a background shift
   alone said "this is a surface", but on a light one that shift is a couple of
   percent of luminance, so the edge does the work the shift used to do alone
-  and the shadow only lifts it. The light palette is a neutral near-white
-  canvas under white raised surfaces, near-black ink with a mid-grey
-  secondary, and light-grey hairlines; the dark palette is a neutral charcoal,
-  not pure black. `--accent` sits one step darker than it did before v0.7.0,
-  so it clears the small-text contrast floor on the white surfaces it is
-  always drawn on now, and `--ink-hover` gives the primary button a hover
-  reading without inventing a second hue.
+  and the shadow only lifts it. The light palette is a cool near-white canvas
+  under white raised surfaces, blue-black ink with a mid-grey secondary, and
+  light-grey hairlines; the dark palette is a blue-black canvas, not pure
+  black. `--accent` is Mercury's indigo (v0.14.0), reading 6.1:1 on white so it
+  clears the small-text contrast floor on every surface it is drawn on,
+  glass included, and `--ink-hover` gives the primary button a hover reading
+  without inventing a second hue. One hairline reads darker than the rest:
+  `--line-control`, the edge of a form field, which clears the 3:1 a reader
+  needs to find where to type (v0.14.0 phase 4).
+- **Glass** — the header, the sidebars (`nav#views`, `nav.rail-toc`) and the
+  panels and top-level token sections are glass surfaces: a
+  translucent tint (`--glass`) that blurs whatever sits behind it
+  (`--blur-glass`), with a one-pixel edge (`--glass-edge`) and inner highlight
+  (`--glass-highlight`) that sell the pane. The tint is opaque enough that text
+  on it clears 4.5:1 against the worst backdrop the page can put behind it, in
+  both themes. A browser without backdrop blur (no `@supports
+  (backdrop-filter: blur(1px))`) draws the solid `--glass-fallback` instead,
+  and a reader who has asked the OS for less transparency
+  (`prefers-reduced-transparency: reduce`) gets the same solid fallback rather
+  than a tint the setting asked to avoid.
 - **Simpler** — one calm surface: no dark product header over a light body, and
   a quieter left rail on the page's own background with the selected view
   reading as a rounded resting place rather than a stripe. The five-step type
   ramp survives untouched — simplicity is fewer surfaces, not fewer sizes — and
-  so do the three views and their navigation.
+  so do the five views and their navigation.
 
 | Property | Value |
 |----------|-------|
 | Stylesheet | hand-written, inline in `gui/index.html` — one file, no second asset |
 | Type stack | `'Geist'` first, then system sans; mono is `'Geist Mono'` then system mono |
-| Webfont | **none** — Geist is used where it is already installed locally and nothing is fetched |
-| Network | the page makes same-origin requests to its own server only (`/state`, `/system`, `/prompt`, `/upload`); no external URL appears anywhere in the file |
-| Radius | two steps, `--radius-sm` and `--radius-md`; every rounded corner on the page reads one of them |
-| Themes | a neutral near-white light theme (the design's default) and a neutral charcoal dark one, one CSS variable set each, picked by the theme control below |
+| Webfont | Geist and Geist Mono, bundled as variable-weight `.woff2` files under `gui/fonts/` and loaded through `@font-face`, with the system stack as the fallback; nothing is fetched over the network |
+| Network | the page makes same-origin requests to its own server only (`/state`, `/system`, `/prompt`, `/upload`, and the files under `/fonts/`); no external URL appears anywhere in the file |
+| Radius | three steps, `--radius-sm`, `--radius-md` and `--radius-lg`, plus `--radius-pill` for chips and filters; every rounded corner on the page reads one of them |
+| Glass | translucent panels on the header, the sidebars and the panels and top-level token sections, with a solid fallback where the browser cannot blur or the reader has asked for less transparency |
+| Themes | a cool near-white light theme (the design's default) and a blue-black dark one, one CSS variable set each, picked by the theme control below |
 
 ## Page anatomy (v0.6.0 §3)
 
