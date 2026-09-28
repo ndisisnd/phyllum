@@ -3841,23 +3841,34 @@
       // line is what tells the reader the server is gone. The label swap is
       // the one thing this button adds: a click has no input box to clear, so
       // the button itself says "queued" for a moment and then reverts.
+      //
+      // The server installs the relay hooks that carry the prompt into Claude
+      // Code if they are missing (`lib/relay.js`), and says so in `hook`. The
+      // first click in a project therefore says "hook installed" as well, and
+      // holds the label a little longer so it can be read.
       el('backlog-assess').addEventListener('click', async () => {
         const button = el('backlog-assess');
         const label = button.textContent;
+        let hold = 1200;
         button.disabled = true;
         button.textContent = 'Queued…';
         try {
-          await fetch('/prompt', {
+          const response = await fetch('/prompt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: 'assess', view: state.view }),
           });
+          const reply = await response.json();
+          if (reply.hook && reply.hook.status === 'installed') {
+            button.textContent = 'Queued · hook installed';
+            hold = 3000;
+          }
         } finally {
           poll();
           setTimeout(() => {
             button.disabled = false;
             button.textContent = label;
-          }, 1200);
+          }, hold);
         }
       });
 

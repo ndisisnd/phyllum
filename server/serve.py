@@ -24,7 +24,8 @@ Contract:
                      read back into fields the page renders as tables — the
                      Build stage's own reports, distinct from /reports above
       POST /prompt   enqueue a prompt into the same session state the terminal
-                     reads
+                     reads, and install the relay hooks that carry it into the
+                     Claude Code session if they are not there yet
       POST /upload   save an image into .phyllum/uploads/ and enqueue it as an
                      image-mode `create` input
   * One parse contract. This server parses nothing itself: it shells out to
@@ -35,7 +36,9 @@ Contract:
     about one file.
   * Writes only inside .phyllum/ — enforced by _write_under_state_dir below, not
     by convention. The Node write funnel (lib/write.js) stays the only path to
-    DESIGN-SYSTEM.md; this process cannot reach it.
+    DESIGN-SYSTEM.md; this process cannot reach it. The relay hooks in
+    .claude/settings.local.json are installed by `node ../lib/relay.js install`,
+    through that funnel, never by this process.
 
 Usage:
 
@@ -61,6 +64,7 @@ GUI_DIR = os.path.join(PACKAGE_ROOT, "gui")
 SYSTEM_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "system-json.js")
 REPORTS_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "reports-json.js")
 BUILD_REPORTS_JSON_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "build-reports-json.js")
+RELAY_SCRIPT = os.path.join(PACKAGE_ROOT, "lib", "relay.js")
 
 STATE_DIR = ".phyllum"
 STATE_FILE = os.path.join(STATE_DIR, "session.json")
@@ -242,6 +246,27 @@ def build_reports_json(root, node_bin):
     return node_json(BUILD_REPORTS_JSON_SCRIPT, root, node_bin)
 
 
+def install_relay_hook(root, node_bin):
+    """Make sure the hooks that carry queued prompts into Claude Code exist.
+
+    A queued prompt nobody drains is a click that does nothing, so the first
+    prompt a project sends installs them. The write goes through the Node
+    funnel (lib/relay.js), which merges into .claude/settings.local.json and
+    reports `installed`, `already`, `unreadable` or `refused`. A failure here
+    never fails the prompt: the entry is queued either way.
+    """
+    try:
+        result = subprocess.run(
+            [node_bin, RELAY_SCRIPT, "install", root],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+        )
+        return json.loads(result.stdout.decode("utf-8", "replace").strip())
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        return {"status": "failed", "message": str(error)}
+
+
 # ---------------------------------------------------------------------------
 # HTTP
 # ---------------------------------------------------------------------------
@@ -381,7 +406,8 @@ class PhyllumHandler(BaseHTTPRequestHandler):
             "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         }
         enqueue(self.root, entry)
-        self._json({"ok": True, "queued": entry}, 201)
+        hook = install_relay_hook(self.root, self.node_bin)
+        self._json({"ok": True, "queued": entry, "hook": hook}, 201)
 
     def post_upload(self):
         body = self._read_body()

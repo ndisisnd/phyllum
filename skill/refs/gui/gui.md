@@ -213,8 +213,9 @@ The Backlog panel's header carries one action, right of the count chip: a
 solid-primary **Assess** button, `#backlog-assess`. A click posts the literal
 prompt `assess` to `POST /prompt` — the same relay `#prompt-form` already
 uses, with the same payload shape (`{ text, view }`) and the same endpoint —
-so the terminal Claude Code session picks it up exactly as it would a typed
-prompt. The button enqueues and nothing more:
+and the prompt relay (below) carries it into the terminal Claude Code session,
+which runs it exactly as it would a typed prompt. The button enqueues and
+nothing more:
 
 - **It never runs anything itself.** The page is a viewer and a prompt relay
   (see "Three views" above); clicking Assess queues a prompt the way typing
@@ -230,6 +231,11 @@ prompt. The button enqueues and nothing more:
   the server surfaces through the status line's existing "server gone" message
   once the next `poll()` runs, and the Assess button's label still reverts on
   its own timer either way — no second error idiom is invented for it.
+- **The first click installs the relay, if it is missing.** `POST /prompt`
+  runs `node lib/relay.js install`, which adds the relay hooks to
+  `.claude/settings.local.json` when they are not there yet, and answers
+  `{ hook: { status } }`. On `installed` the label reads "Queued · hook
+  installed" for three seconds instead of "Queued…" for about one.
 
 ## The Reports view (v0.9.0 §5)
 
@@ -423,9 +429,34 @@ region, so the two cannot drift.
 - No `python3` on PATH: `gui` says so and points at `phyllum system`, which shows
   the same design system with no server at all.
 
+## The prompt relay — how a queued prompt reaches this session
+
+The page queues prompts in `.phyllum/session.json`; `lib/relay.js` carries
+them into the Claude Code session. Claude Code has no event for "a file
+changed", so two ends cover each other's gap:
+
+- **The watcher — start it whenever you run `phyllum gui`.** `gui` prints a
+  `node ".../lib/relay.js" wait "<root>"` line. Run that command in the
+  background (the Bash tool's background mode). It exits the moment a prompt
+  is queued, which wakes the session; run the prompts it prints as if the user
+  had typed them, then start the watcher again. It exits by itself once the
+  dashboard stops, so `phyllum kill` needs no second step.
+- **The hooks — the backup.** A `UserPromptSubmit` hook hands pending prompts
+  over as context the next time the user types, and a `Stop` hook hands them
+  over when a reply finishes. They live in `.claude/settings.local.json`,
+  because the command names this package's absolute path. `init`, `upgrade`
+  and the first dashboard prompt install them; the install merges, never
+  replaces, and leaves a file that is not valid JSON alone.
+
+Whichever end reads a prompt first removes it, so nothing runs twice, and
+identical prompts collapse into one — three Assess clicks are one assessment.
+Image uploads are not relayed: a bare `phyllum create` still drains those.
+
 ## Permission model
 
 The Node write funnel (`lib/write.js`) remains the only path to
 `DESIGN-SYSTEM.md`. The server is outside that funnel and is therefore confined
 to `.phyllum/` in code, not by convention — an attempt to write anywhere else
-raises `PermissionError` before touching the disk.
+raises `PermissionError` before touching the disk. The relay hooks it asks for
+are written by `node lib/relay.js install`, inside the funnel, never by the
+server process.

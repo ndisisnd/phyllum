@@ -101,7 +101,8 @@ test('init never touches a path outside the permission model', async () => {
         rel === 'DESIGN-SYSTEM.md' ||
         rel === '.gitignore' ||
         rel.startsWith('.phyllum/') ||
-        rel.startsWith('.claude/skills/phyllum/');
+        rel.startsWith('.claude/skills/phyllum/') ||
+        rel === '.claude/settings.local.json';
       assert.ok(allowed, `init wrote a path outside the permission model: ${rel}`);
     }
     assert.ok(diff.added.includes('DESIGN-SYSTEM.md'));

@@ -250,7 +250,8 @@ const ENUMERATED = (rel) =>
   rel === '.gitignore' ||
   rel === '.phyllum' ||
   rel.startsWith('.phyllum/') ||
-  rel.startsWith('.claude/skills/phyllum/');
+  rel.startsWith('.claude/skills/phyllum/') ||
+  rel === '.claude/settings.local.json';
 
 test('a full session over a real codebase touches only the enumerated paths', async () => {
   await withTempDir(async (dir) => {

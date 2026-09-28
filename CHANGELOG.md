@@ -4,6 +4,17 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
+### [67] — Dashboard prompts reach the Claude Code session (the Assess button works)
+
+- `lib/relay.js`: Added — drains `kind: "prompt"` queue entries (repeats collapsed, image uploads left for `create`), a `UserPromptSubmit` / `Stop` hook pair, a background watcher that exits when a prompt arrives or the dashboard stops, and a merge-only installer for `.claude/settings.local.json`
+- `lib/write.js`: Changed — `.claude/settings.local.json` joins the permission model as one init-only filename
+- `lib/init.js`, `lib/upgrade-command.js`: Changed — install or refresh the relay hooks beside the skill copy
+- `lib/gui-command.js`: Changed — `gui` prints the watcher command for the session to run in the background
+- `server/serve.py`: Changed — `POST /prompt` installs the relay hooks through the Node funnel if they are missing, and reports `hook.status`
+- `gui/index.html`: Changed — the Assess button reads "Queued · hook installed" when its click installed the hooks
+- `evals/assertions/relay.test.js`: Added — 8 tests for the drain, both hooks, the settings merge, the permission entry and the watcher; `gui.test.js` gains the install-on-first-prompt test, and the path allow-lists in the harness and four tests admit the settings file
+- `skill/refs/gui/gui.md`, `skill/refs/gui/server.md`, `skill/SKILL.md`, `llms.txt`: Changed — describe the relay instead of claiming the session already picked prompts up
+
 ### [66] — Tests and docs for capitalised, alphabetical token sections (v0.14.2 phase 3)
 
 - `evals/assertions/gui.test.js`: Added — 6 tests covering `capitalFirst` (first word only, rest untouched), a number section heading showing the capitalised label while `data-applies` keeps the raw reading, `sortSections` ordering A–Z case-insensitively and staying stable for equal labels, the ungrouped section reading "Other" and sorting by that label rather than trailing every other section, `renderLibrary` keeping Primitives glued directly under Colours as one unit, and the Library panel's "Foundations" heading with "Token view" and the `tokens` filter button unchanged
