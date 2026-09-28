@@ -280,7 +280,7 @@ test('the parse contract reports a missing design system rather than inventing o
   });
 });
 
-test('GET /state carries the session state, the draft and the opening filter', { skip }, async () => {
+test('GET /state carries the session state, the draft and the opening tab word', { skip }, async () => {
   await withTempDir(async (dir) => {
     project(dir);
     // A draft written by the terminal is what the workbench view reads.
@@ -881,7 +881,7 @@ test('renderLibrary keeps Primitives glued directly under Colours as one sortabl
   );
 });
 
-test('the Library panel heading reads "Foundations", and the Token view page and the tokens filter keep their names', () => {
+test('the Library panel heading reads "Foundations", the Token view page keeps its name, and the Foundations tab shares the panel\'s own name', () => {
   const text = readPage();
   assert.ok(
     /<div class="panel panel--bare" id="tokens-panel"><h2>Foundations<\/h2>/.test(text),
@@ -889,9 +889,186 @@ test('the Library panel heading reads "Foundations", and the Token view page and
   );
   assert.ok(text.includes('<h2>Token view</h2>'), 'the Token view page keeps its own, unrelated name');
   assert.ok(
-    /<button class="tile-action" data-scope="tokens" aria-selected="false">tokens<\/button>/.test(text),
-    'the lowercase "tokens" filter button keeps its name',
+    /<button class="tile-action" role="tab" data-tab="foundations" aria-selected="true" aria-controls="tokens-panel">Foundations<\/button>/.test(
+      text,
+    ),
+    'the Foundations tab names the panel it opens',
   );
+});
+
+// ---------------------------------------------------------------------------
+// The Library's tab bar, replacing the filter pills (v0.14.4 §1)
+// ---------------------------------------------------------------------------
+
+test('the Library heading is plain, with three tabs under it in order, and none of them sit in the view rail', () => {
+  const text = readPage();
+  assert.ok(
+    !/<div class="panel lede">\s*<h2>Library<\/h2>/.test(text),
+    'the boxed header card is gone — the Library heading is no longer its own panel',
+  );
+  assert.ok(
+    !text.includes('Every token and component in <code>DESIGN-SYSTEM.md</code>, read live.'),
+    'the subtitle sentence under the old header card is gone',
+  );
+  assert.ok(!text.includes('id="filters"'), 'the filter-pill bar is gone');
+
+  const ledeMatch = text.match(
+    /<div class="lede">\s*<h2>Library<\/h2>\s*<div class="tabs" id="library-tabs" role="tablist" aria-label="Library">([\s\S]*?)<\/div>\s*<\/div>/,
+  );
+  assert.ok(ledeMatch, 'a plain heading sits directly above the tab bar, with no panel wrapper around either');
+
+  const tabs = [...ledeMatch[1].matchAll(/<button class="tile-action" role="tab" data-tab="(\w+)"[^>]*>(\w+)<\/button>/g)];
+  assert.deepEqual(tabs.map((m) => m[1]), ['foundations', 'components', 'backlog'], 'the three tabs appear in bar order');
+  assert.deepEqual(tabs.map((m) => m[2]), ['Foundations', 'Components', 'Backlog']);
+
+  const navStart = text.indexOf('<nav id="views">');
+  const navEnd = text.indexOf('</nav>', navStart);
+  assert.ok(navStart !== -1 && navEnd > navStart, 'the view rail is findable');
+  assert.ok(!text.slice(navStart, navEnd).includes('data-tab='), 'the Library tabs sit under its own heading, not in the view rail');
+});
+
+test('the Library opens on Foundations, with the Components and Backlog panels hidden, and Backlog keeps its Assess button', () => {
+  const text = readPage();
+  assert.match(
+    text,
+    /<div class="panel panel--bare" id="tokens-panel"><h2>Foundations<\/h2>/,
+    'the Foundations panel carries no `hidden` attribute',
+  );
+  assert.match(text, /<div class="panel" id="components-panel" hidden>/, 'the Components panel starts hidden');
+
+  const backlogStart = text.indexOf('<div class="panel" id="backlog-panel" hidden>');
+  assert.ok(backlogStart !== -1, 'the Backlog panel starts hidden');
+  const backlogEnd = text.indexOf('</section>', backlogStart);
+  assert.ok(
+    text.slice(backlogStart, backlogEnd).includes('id="backlog-assess"'),
+    'the Assess button is still inside the Backlog panel',
+  );
+});
+
+/**
+ * The Library tab functions, lifted and run against a tiny fake DOM — the
+ * same trick the swatch, backlog and theme contracts use, extended here to
+ * code that does touch the DOM (`el`, `select`), since `showLibraryTab` and
+ * `updateRailVisibility` read and write real elements' `hidden` and
+ * `aria-selected`. `tabForScope` needs no DOM at all and rides along.
+ */
+function libraryTabContract() {
+  const text = readPage();
+
+  const constsStart = text.indexOf('const LIBRARY_TABS = ');
+  const constsEnd = text.indexOf('\n', text.indexOf('LIBRARY_PANELS = ', constsStart)) + 1;
+  const consts = text.slice(constsStart, constsEnd);
+  assert.ok(consts.includes('LIBRARY_TABS') && consts.includes('LIBRARY_PANELS'), 'the tab/panel maps are where the contract expects them');
+
+  const elStart = text.indexOf('const el = (id) =>');
+  const elEnd = text.indexOf('\n', elStart) + 1;
+  const elSrc = text.slice(elStart, elEnd);
+
+  const selectStart = text.indexOf('function select(nav, attr, value) {');
+  const selectEnd = text.indexOf('\n      }\n', selectStart) + '\n      }\n'.length;
+  const selectSrc = text.slice(selectStart, selectEnd);
+
+  const restStart = text.indexOf('function updateRailVisibility() {');
+  const restEnd = text.indexOf('function buildRail() {');
+  const restSrc = text.slice(restStart, restEnd);
+  assert.ok(
+    restSrc.includes('function tabForScope') && restSrc.includes('function showLibraryTab'),
+    'updateRailVisibility, tabForScope and showLibraryTab are defined together, in that order',
+  );
+
+  function makeButton(dataset) {
+    return { dataset, attrs: {}, setAttribute(name, value) { this.attrs[name] = value; } };
+  }
+  const buttons = {
+    foundations: makeButton({ tab: 'foundations' }),
+    components: makeButton({ tab: 'components' }),
+    backlog: makeButton({ tab: 'backlog' }),
+  };
+  const panels = {
+    'tokens-panel': { hidden: false },
+    'components-panel': { hidden: true },
+    'backlog-panel': { hidden: true },
+  };
+  const railToc = { hidden: false };
+  const elements = { 'library-tabs': { querySelectorAll: () => Object.values(buttons) }, 'rail-toc': railToc, ...panels };
+  const document = { getElementById: (id) => elements[id] ?? null };
+  const state = { view: 'library', libraryTab: 'foundations' };
+
+  const factory = new Function(
+    'document',
+    'state',
+    `${consts}\n${elSrc}\n${selectSrc}\n${restSrc}\nreturn { showLibraryTab, tabForScope, updateRailVisibility };`,
+  );
+  return { ...factory(document, state), buttons, panels, railToc, state };
+}
+
+test('showLibraryTab shows exactly one panel, marks only that tab selected, and the rail follows', () => {
+  const { showLibraryTab, buttons, panels, railToc, state } = libraryTabContract();
+
+  showLibraryTab('components');
+  assert.equal(state.libraryTab, 'components');
+  assert.deepEqual(
+    Object.entries(panels).map(([id, panel]) => [id, panel.hidden]),
+    [['tokens-panel', true], ['components-panel', false], ['backlog-panel', true]],
+  );
+  assert.equal(buttons.foundations.attrs['aria-selected'], 'false');
+  assert.equal(buttons.components.attrs['aria-selected'], 'true');
+  assert.equal(buttons.backlog.attrs['aria-selected'], 'false');
+  assert.equal(railToc.hidden, true, 'the rail hides off the Foundations tab');
+
+  showLibraryTab('backlog');
+  assert.deepEqual(
+    Object.entries(panels).map(([id, panel]) => [id, panel.hidden]),
+    [['tokens-panel', true], ['components-panel', true], ['backlog-panel', false]],
+  );
+  assert.equal(railToc.hidden, true);
+
+  showLibraryTab('foundations');
+  assert.deepEqual(
+    Object.entries(panels).map(([id, panel]) => [id, panel.hidden]),
+    [['tokens-panel', false], ['components-panel', true], ['backlog-panel', true]],
+  );
+  assert.equal(railToc.hidden, false, 'the rail returns once Foundations is back on screen');
+
+  // An unrecognised tab name is refused rather than blanking every panel.
+  showLibraryTab('sideways');
+  assert.equal(state.libraryTab, 'foundations', 'the unrecognised tab never became the current one');
+});
+
+test('tabForScope opens Components for that one scope word, and Foundations for every other one', () => {
+  const { tabForScope } = libraryTabContract();
+  assert.equal(tabForScope('components'), 'components');
+  for (const scope of ['tokens', 'all', 'sideways', '', undefined]) {
+    assert.equal(tabForScope(scope), 'foundations', `${String(scope)} opens Foundations`);
+  }
+});
+
+test('a clicked Library tab is marked touched before it is shown, and the poll only moves an untouched tab', () => {
+  const text = readPage();
+
+  const clickStart = text.indexOf("el('library-tabs').addEventListener('click',");
+  const clickEnd = text.indexOf("el('theme').addEventListener('click',");
+  assert.ok(clickStart !== -1 && clickEnd > clickStart, 'the page wires a click handler to the Library tab bar');
+  const click = text.slice(clickStart, clickEnd);
+  const touchedAt = click.indexOf('state.libraryTabTouched = true;');
+  const showAt = click.indexOf('showLibraryTab(tab);');
+  assert.ok(touchedAt !== -1 && showAt > touchedAt, 'the tab is marked touched before it is shown');
+
+  const pollStart = text.indexOf('async function poll()');
+  const pollEnd = text.indexOf('async function loadSystem()');
+  assert.ok(pollStart !== -1 && pollEnd > pollStart, 'poll() is defined before loadSystem()');
+  const poll = text.slice(pollStart, pollEnd);
+  assert.match(
+    poll,
+    /if \(!state\.libraryTabTouched && session\.scope\) \{\s*const tab = tabForScope\(session\.scope\);\s*if \(tab !== state\.libraryTab\) showLibraryTab\(tab\);\s*\}/,
+    'the poll only moves the tab while the reader has not touched one',
+  );
+});
+
+test('the status line no longer appends the filter word', () => {
+  const text = readPage();
+  assert.ok(!text.includes("'connected · filter: '"), 'the old "connected · filter: " status text is gone');
+  assert.ok(text.includes("el('status').textContent = 'connected';"), 'the status line reads plain "connected"');
 });
 
 test('a typography specimen only ever inlines a shape it recognises', () => {
@@ -1218,7 +1395,7 @@ test('the restyle left the server surface alone', () => {
 // Scope words and the alias (plan §6, §8.5)
 // ---------------------------------------------------------------------------
 
-test('the dashboard scope word is the opening filter, visible in GET /state', { skip }, async () => {
+test('the dashboard scope word is the opening tab, visible in GET /state and in the terminal line', { skip }, async () => {
   await withTempDir(async (dir) => {
     project(dir);
     const started = await run('gui tokens', dir);
@@ -1227,22 +1404,26 @@ test('the dashboard scope word is the opening filter, visible in GET /state', { 
       const record = guiRecord(dir);
       assert.equal(record.scope, 'tokens');
       assert.equal((await getJson(record, '/state')).scope, 'tokens');
+      assert.ok(started.out.includes('opening tab: Foundations'), started.out);
 
       // The alias is the same subskill: it reuses the running server and only
-      // changes the filter the page opens on.
+      // changes the tab the page opens on.
       const asAlias = await run('dashboard components', dir);
       assert.equal(asAlias.code, 0);
       assert.ok(asAlias.out.includes('already running'), asAlias.out);
+      assert.ok(asAlias.out.includes('opening tab: Components'), asAlias.out);
       assert.equal(guiRecord(dir).pid, record.pid, 'still one server');
       assert.equal((await getJson(record, '/state')).scope, 'components');
 
       const bare = await run('dashboard', dir);
       assert.equal(bare.code, 0);
       assert.equal((await getJson(record, '/state')).scope, 'all', 'bare dashboard means all');
+      assert.ok(bare.out.includes('opening tab: Foundations'), bare.out);
 
       const explicit = await run('gui all', dir);
       assert.equal(explicit.code, 0);
       assert.equal((await getJson(record, '/state')).scope, 'all');
+      assert.ok(explicit.out.includes('opening tab: Foundations'), explicit.out);
     } finally {
       await runKill({ cwd: dir });
     }

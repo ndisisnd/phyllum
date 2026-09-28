@@ -355,7 +355,7 @@ stays in the unrendered list, and flipping one changes the projection only — n
 spec, never the served payload.
 
 The page is drawn Mercury-led: rounded corners throughout on a three-step
-radius scale plus a pill step for chips and filters, glass surfaces — a
+radius scale plus a pill step for chips and tabs, glass surfaces — a
 translucent, blurred tint, with a solid fallback where the browser cannot
 blur — on the header, the sidebars, the panels and the cards, a cool near-white canvas in
 the light theme and a blue-black one in the dark, and an indigo accent that
