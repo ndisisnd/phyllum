@@ -409,10 +409,14 @@ test('a successful upgrade re-syncs the skill copy init installed', async () => 
       'the nested reference folders are part of what is re-synced',
     );
 
-    // Only the skill copy changed: no design system was invented, nothing else touched.
+    // Only the skill copy and the relay hooks changed: no design system was
+    // invented, nothing else touched.
     const diff = diffSnapshots(before, snapshotContents(dir));
     for (const rel of [...diff.added, ...diff.changed]) {
-      assert.ok(rel.startsWith(SKILL_INSTALL_DIR), `upgrade touched ${rel}`);
+      assert.ok(
+        rel.startsWith(SKILL_INSTALL_DIR) || rel === '.claude/settings.local.json',
+        `upgrade touched ${rel}`,
+      );
     }
     assert.deepEqual(diff.removed, []);
   });

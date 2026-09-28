@@ -4,8 +4,9 @@
  * The promise Phyllum makes is small enough to check mechanically: the only paths
  * it may ever create or modify in a user's project are `DESIGN-SYSTEM.md`, its
  * `.bak` copy, `DESIGN-SYSTEM-CHANGELOG.md`, `.phyllum/**`, and — during `init`
- * only — `.claude/skills/phyllum/**`, its lines in `.gitignore`, and the two
- * files `govern init` installs by name. This file
+ * only — `.claude/skills/phyllum/**`, its lines in `.gitignore`, the two
+ * files `govern init` installs by name, and the prompt relay's hooks in
+ * `.claude/settings.local.json`. This file
  * turns that promise into something the whole assertion suite runs under, rather
  * than something individual tests remember to check.
  *
@@ -74,6 +75,13 @@ const ALLOWED = [
   {
     label: '.github/workflows/phyllum.yml (init only)',
     test: (rel) => rel === '.github/workflows/phyllum.yml',
+  },
+  // The prompt relay's two hooks (lib/relay.js), in Claude Code's personal
+  // settings. One filename, by equality: `.claude/settings.json` is still a
+  // violation.
+  {
+    label: '.claude/settings.local.json (init only)',
+    test: (rel) => rel === '.claude/settings.local.json',
   },
 ];
 

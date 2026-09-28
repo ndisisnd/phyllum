@@ -402,6 +402,26 @@ test('an upload filename cannot escape .phyllum/uploads/', { skip }, async () =>
   });
 });
 
+test('the first prompt a project sends installs the relay hooks, and later ones find them', { skip }, async () => {
+  await withTempDir(async (dir) => {
+    project(dir);
+    await withServer(dir, 'all', async (record) => {
+      const send = async () =>
+        (
+          await fetch(url(record, '/prompt'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: 'assess' }),
+          })
+        ).json();
+      assert.equal((await send()).hook.status, 'installed');
+      assert.equal((await send()).hook.status, 'already');
+    });
+    const settings = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.local.json'), 'utf8'));
+    assert.ok(settings.hooks.UserPromptSubmit && settings.hooks.Stop);
+  });
+});
+
 test('the server writes only inside .phyllum/', { skip }, async () => {
   await withTempDir(async (dir) => {
     project(dir);
@@ -419,8 +439,14 @@ test('the server writes only inside .phyllum/', { skip }, async () => {
       });
     });
     const diff = diffSnapshots(before, snapshotContents(dir));
+    // The one path outside `.phyllum/`: the relay hooks a prompt installs,
+    // written by `node lib/relay.js install` through the Node funnel rather than
+    // by the server process itself.
     for (const rel of [...diff.added, ...diff.changed]) {
-      assert.ok(rel.startsWith('.phyllum/'), `the server wrote outside .phyllum/: ${rel}`);
+      assert.ok(
+        rel.startsWith('.phyllum/') || rel === '.claude/settings.local.json',
+        `the server wrote outside .phyllum/: ${rel}`,
+      );
     }
     assert.deepEqual(diff.removed, []);
     assert.ok(snapshotPaths(dir).includes('DESIGN-SYSTEM.md'));
@@ -1036,6 +1062,10 @@ test('the Assess button posts the literal prompt `assess` to /prompt, same shape
   // a failed request is left to the existing status line, updated by the next
   // scheduled `poll()`.
   assert.equal(/catch\s*\(/.test(handler), false, 'no bespoke error handling is invented for this button');
+  // The one thing the reply adds: the first click in a project says the
+  // relay hooks were installed, so the reader knows why it now works.
+  assert.ok(handler.includes("reply.hook.status === 'installed'"));
+  assert.ok(handler.includes("button.textContent = 'Queued · hook installed'"));
 });
 
 test('the backlog settings are the ones skill/refs/gui/gui.md records', () => {

@@ -946,8 +946,11 @@ v0.7.0 M4 puts an **Assess button** in the Backlog header, right of the count
 chip: a `.btn--primary` reading "Assess", `#backlog-assess`. A click posts the
 literal prompt `assess` to `POST /prompt` — the same relay `#prompt-form`
 already uses, the same payload shape (`{ text, view }`), the same endpoint — so
-the terminal Claude Code session picks it up exactly as it would a typed
-prompt. The button enqueues and nothing more: the page stays a viewer and a
+the prompt relay (`lib/relay.js`, "The prompt relay" in `refs/gui/gui.md`)
+carries it into the terminal Claude Code session, which runs it exactly as it
+would a typed prompt. When you run `phyllum gui`, start the watcher line it
+prints in the background. The button enqueues and nothing more: the page stays
+a viewer and a
 prompt relay, never an executor, and the queued item renders in the Workbench's
 own Queue panel through the existing `GET /state` poll rather than growing the
 Backlog a second queue of its own. The button gives its own feedback rather

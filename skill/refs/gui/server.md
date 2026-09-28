@@ -23,7 +23,7 @@ Arguments: `--root <project> --host 127.0.0.1 --port <n> --scope <scope>
 | `GET /system` | — | `{ header, columns, tokens: { colours, numbers, typography }, components, backlog, counts }`; each component carries `name`, `spec`, `blocks`, and its parsed slots `archetype`, `custom`, `properties`, `states` (see `refs/gui/component-preview.md`) |
 | `GET /reports` | — | `{ reports, count, root }` — every `.phyllum/assess-[n].md`, newest first, each read back into `{ number, path, date, summary, drift: { columns, rows, note }, health: { score, scaleTop, means, verdict, detail }, schemaVersion, recommendations }`; a report that could not be read comes back as `{ number, path, error }` rather than blanking the list |
 | `GET /build-reports` | — | `{ reports, count, root }` — every `.phyllum/build-report-[n].md`, newest first, each read back into `{ number, path, date, source, assessReport, prose, schemaVersion, sourceLines, phases, work, sections }`; a report that could not be read comes back as `{ number, path, error }` rather than blanking the list — see "The Build view" in `refs/gui/gui.md` |
-| `POST /prompt` | `{ text, view? }` | `201 { ok, queued }`; empty text is `400` |
+| `POST /prompt` | `{ text, view? }` | `201 { ok, queued, hook }`; `hook.status` is `installed`, `already`, `unreadable`, `refused` or `failed` — the relay hooks are installed on the way (see "The prompt relay" in `refs/gui/gui.md`); empty text is `400` |
 | `POST /upload` | raw file bytes, `X-Phyllum-Filename` header (optional `X-Phyllum-Prompt`) | `201 { ok, queued }` |
 
 Queue entries are appended to `state.queue` and look like:
@@ -39,6 +39,8 @@ the directory — and enqueues `{ "kind": "create-image", "file": "…" }`. M4
 shipped the plumbing; since M5 the queue is drained: a bare `phyllum create` takes
 the oldest pending `create-image` entry, removes it from the queue, and runs
 image mode on that file exactly as if the path had been typed in the terminal.
+`kind: "prompt"` entries are drained by the prompt relay (`lib/relay.js`) into
+the Claude Code session — see "The prompt relay" in `refs/gui/gui.md`.
 
 ## The parse contract — one parser, decided
 
