@@ -2281,13 +2281,17 @@
         system: null,
         session: null,
         view: 'library',
-        // Which component the preview toggles below point at, and the
-        // container that holds it (v0.14.5 §1). The toggles are still one
-        // page-wide reading, so they belong to one container at a time: the
-        // one last toggled. Every other container draws its own component at
-        // its recorded reading.
-        selected: null,
-        previewContainer: null,
+        // The preview toggle reading of each Components tab container, keyed
+        // by the container's `data-index` (v0.14.5 §2). A reading holds
+        // `index`, the component the container shows (a variant toggle swaps
+        // it to a sibling); `state`, which reading of it the preview draws —
+        // `default` or a state the spec records (v0.4.1 §4.2); and `icons`,
+        // the attribute controls flipped away from the spec's recorded reading
+        // (v0.5.1 §5.2). A container with no entry shows its own component at
+        // its recorded reading. The readings are a projection preference and
+        // nothing else: no request carries them, and the file never hears
+        // about them.
+        previews: {},
         // Which component the Tokens view is showing — its own pick, apart
         // from the Components tab's containers (v0.14.5 §1).
         tokenViewSelected: null,
@@ -2307,15 +2311,6 @@
         // shape as `reports` above.
         buildReports: null,
         selectedBuildReport: null,
-        // Which reading of the selected component the preview is showing —
-        // `default`, or one of the states the spec records (v0.4.1 §4.2).
-        previewState: PREVIEW.baseState,
-        // Which attribute controls the viewer has flipped away from the spec's
-        // recorded reading (v0.5.1 §5.2). Empty is the recorded reading itself,
-        // which is what a variant or state switch returns it to. The map is a
-        // projection preference and nothing else: no request carries it, and
-        // the file never hears about it.
-        previewIcons: {},
       };
 
       // The Library's three tabs, in bar order, and the panel each one shows
@@ -3641,23 +3636,36 @@
 
       /**
        * The Components tab: one container per component the file records,
-       * each drawn in full (v0.14.5 §1). The container that holds the toggles
-       * draws the component and reading they point at; every other container
-       * draws its own component at its recorded reading.
+       * each drawn in full (v0.14.5 §1). Each container draws at its own
+       * toggle reading, or at its recorded reading when it has none
+       * (v0.14.5 §2).
+       *
+       * The poll calls this again on every live re-read, so the readings
+       * outlive the redraw. A reading is dropped once its container or the
+       * component it shows is gone, or once that component is no longer the
+       * container's own or a sibling of it. A state name the component no
+       * longer records falls back to the base state in `componentBodyHtml`.
        */
       function renderComponents() {
         const system = state.system;
         const components = system && Array.isArray(system.components) ? system.components : [];
-        if (state.previewContainer !== null && !components[state.previewContainer]) {
-          state.previewContainer = null;
-          state.selected = null;
+        for (const key of Object.keys(state.previews)) {
+          const container = Number(key);
+          const reading = state.previews[key];
+          const group = previewGroupOf(components, container);
+          const kept =
+            components[container] &&
+            components[reading.index] &&
+            (reading.index === container ||
+              (group !== null && group.members.some((member) => member.index === reading.index)));
+          if (!kept) delete state.previews[key];
         }
         el('components-body').innerHTML =
           components
             .map((component, index) => {
-              const toggled = index === state.previewContainer && components[state.selected];
-              const body = toggled
-                ? componentBodyHtml(components, state.selected, state.previewState, state.previewIcons)
+              const reading = state.previews[index];
+              const body = reading
+                ? componentBodyHtml(components, reading.index, reading.state, reading.icons)
                 : componentBodyHtml(components, index, PREVIEW.baseState, {});
               return body ? '<section class="container component-container" data-index="' + index + '">' + body + '</section>' : '';
             })
@@ -3707,8 +3715,9 @@
       // leaves the page, and the `yaml` block keeps showing the spec as
       // recorded. A variant or a state switch returns the attribute controls
       // to the spec's recorded reading, since the sibling records its own.
-      // The toggle reading is still page-wide, so toggling a second container
-      // hands the reading to it and returns the first to its own (v0.14.5 §1).
+      // Each container keeps its own reading (v0.14.5 §2): a toggle changes
+      // the reading of the container it was clicked in, and every other
+      // container keeps its own.
       el('components-body').addEventListener('click', (event) => {
         const data = event.target.dataset;
         if (!data) return;
@@ -3716,23 +3725,19 @@
         if (!holder) return;
         if (data.previewVariant === undefined && data.previewState === undefined && data.previewAttribute === undefined) return;
         const container = Number(holder.dataset.index);
-        if (state.previewContainer !== container) {
-          state.previewContainer = container;
-          state.selected = container;
-          state.previewState = PREVIEW.baseState;
-          state.previewIcons = {};
-        }
+        const reading = state.previews[container] || { index: container, state: PREVIEW.baseState, icons: {} };
         if (data.previewVariant !== undefined) {
-          state.selected = Number(data.previewVariant);
-          state.previewState = PREVIEW.baseState;
-          state.previewIcons = {};
+          state.previews[container] = { index: Number(data.previewVariant), state: PREVIEW.baseState, icons: {} };
         } else if (data.previewState !== undefined) {
-          state.previewState = data.previewState;
-          state.previewIcons = {};
+          state.previews[container] = { index: reading.index, state: data.previewState, icons: {} };
         } else {
-          state.previewIcons = Object.assign({}, state.previewIcons, {
-            [data.previewAttribute]: event.target.getAttribute('aria-pressed') !== 'true',
-          });
+          state.previews[container] = {
+            index: reading.index,
+            state: reading.state,
+            icons: Object.assign({}, reading.icons, {
+              [data.previewAttribute]: event.target.getAttribute('aria-pressed') !== 'true',
+            }),
+          };
         }
         renderComponents();
       });
