@@ -2,6 +2,22 @@
 
 What's new for you, release by release.
 
+## 0.14.4 — 2026-09-28
+
+> The Library is easier to move around. It now has its own place in the side
+> panel, and its sections sit under three tabs instead of one long page.
+
+### 📈 Improved
+- Open the Library in one click. It is the first item in the side panel, with
+  its own icon, and it never expands or collapses. Assess now holds Reports.
+- Switch between Foundations, Components and Backlog with the tabs under the
+  Library heading. The open tab has a line under it.
+- Read less clutter. The boxed header, the subtitle and the "all / tokens /
+  components" filter buttons are gone.
+- Start on the tab you asked for. `phyllum gui components` opens the
+  Components tab; `tokens` or no word opens Foundations. A tab you pick stays
+  picked.
+
 ## 0.14.3 — 2026-09-28
 
 > The dashboard's Assess button now works. A click used to queue the request

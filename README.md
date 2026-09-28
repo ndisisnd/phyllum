@@ -28,12 +28,12 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.14.3 -->
+<!-- mkpub:release 0.14.4 -->
 > [!NOTE]
-> **🚀 New in 0.14.3 · The Assess button works**
+> **🚀 New in 0.14.4 · Library tabs**
 >
-> A click on the dashboard's Assess button now reaches your Claude Code session and runs
-> the assessment there. The first click installs the hooks it needs.
+> The Library now has its own item in the side panel, and its Foundations, Components
+> and Backlog sections sit under three tabs. The filter buttons and the boxed header are gone.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
