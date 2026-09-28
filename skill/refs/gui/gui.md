@@ -54,7 +54,10 @@ wiring rather than a second kind.
    spec, with a variant toggle and a states toggle
    (`refs/gui/component-preview.md`), then its spec and its code. Each
    container keeps its own toggle reading, so a toggle in one container never
-   changes another (v0.14.5 §2). A plain "Library" heading sits over three tabs
+   changes another (v0.14.5 §2). A container's heading is a disclosure button:
+   a click collapses the container to its name and a second click reopens it.
+   Every container opens by default, and a collapsed one stays collapsed
+   across a live re-read (v0.14.5 §4). A plain "Library" heading sits over three tabs
    (v0.14.4 §1) —
    Foundations, Components, Backlog — each showing its own section and hiding
    the other two; the scope argument picks the opening tab (`components` opens

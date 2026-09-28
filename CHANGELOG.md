@@ -4,6 +4,13 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
+### [76] — A component container collapses and reopens (v0.14.5)
+
+- `gui/index.html`: Added — each Components tab container's heading is a disclosure button with Lucide's `chevron-down`; a click collapses the container to its name and a second click reopens it. Every container opens by default. `state.collapsed` holds the collapsed containers by `data-index`, survives a live re-read, and drops a container that is gone
+- `evals/assertions/gui.test.js`: Changed — the container heading assertions read the name inside the button. Added — 1 test for the default open state, one container collapsing alone, the collapse surviving a redraw, reopening, and the mark dropping with its container
+- `evals/assertions/applied.test.js`: Changed — the badge assertion reads the badge inside the heading button
+- `skill/refs/gui/gui.md`: Changed — the Library entry describes the collapsible containers
+
 ### [75] — Tests and docs for the Components tab's containers (v0.14.5 phase 3)
 
 - `evals/assertions/gui.test.js`: Added — 5 tests covering the Components tab's markup (`#components-body`, no `#component-list` or `#component-detail`, the placeholder gone, the Tokens view's own list and panel untouched), `renderComponents` against a small fixture (one container per component, the `applied` badge, the preview and the code blocks, the empty-file message), a state toggle and an attribute toggle each persisting in their own container while a third stays at default, a variant toggle swapping only its own container, readings surviving a second `renderComponents()` call and dropping on a re-read with fewer components, and `showTokenView` still drawing a picked component's token usage

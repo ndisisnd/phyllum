@@ -1171,7 +1171,7 @@ function componentsTabContract() {
     'token-view-detail': fakeEl(),
   };
   const document = { getElementById: (id) => elements[id] ?? null };
-  const state = { system: null, previews: {}, tokenViewSelected: null };
+  const state = { system: null, previews: {}, collapsed: {}, tokenViewSelected: null };
 
   const factory = new Function(
     'document',
@@ -1232,7 +1232,7 @@ test('renderComponents draws one container per component, in full, with no tap',
   const sections = [...body.matchAll(/<section class="container component-container" data-index="(\d+)">/g)];
   assert.deepEqual(sections.map((m) => m[1]), ['0', '1', '2'], 'one container per component, in file order');
 
-  assert.match(body, /<h3>Button\/Primary <span class="chip applied">applied<\/span><\/h3>/, 'the applied badge shows for applied: true');
+  assert.match(body, /<span>Button\/Primary <span class="chip applied">applied<\/span><\/span><\/button><\/h3>/, 'the applied badge shows for applied: true');
   assert.ok(!/Button\/Ghost <span class="chip applied">/.test(body), 'and only for applied: true');
   assert.ok(body.includes('preview__stage'), 'each container carries the preview');
   assert.ok(body.includes('name: Button/Primary') && body.includes('name: Button/Ghost') && body.includes('name: Card/Basic'), 'each container carries its own code blocks');
@@ -1271,8 +1271,8 @@ test('a toggle changes only the container it was clicked in, and readings surviv
   assert.equal(state.previews[1].index, 1, 'container 1 still shows its own component');
   const container0 = body.slice(body.indexOf('data-index="0"'), body.indexOf('data-index="1"'));
   const container1 = body.slice(body.indexOf('data-index="1"'), body.indexOf('data-index="2"'));
-  assert.match(container0, /<h3>Button\/Ghost/, 'container 0 drew the sibling it was switched to');
-  assert.match(container1, /<h3>Button\/Ghost/, 'container 1 keeps its own component');
+  assert.match(container0, /<span>Button\/Ghost/, 'container 0 drew the sibling it was switched to');
+  assert.match(container1, /<span>Button\/Ghost/, 'container 1 keeps its own component');
 
   // A live re-read redraws the containers, and the readings survive it.
   renderComponents();
@@ -1282,6 +1282,55 @@ test('a toggle changes only the container it was clicked in, and readings surviv
   state.system = { components: [COMPONENTS_FIXTURE[0]] };
   renderComponents();
   assert.deepEqual(Object.keys(state.previews), [], 'container 1 is gone, so its reading — and container 0\'s, which pointed at it — both drop');
+});
+
+/** A fake click on a container's heading button — or on the chevron inside it. */
+function collapseClick(container) {
+  const toggle = { dataset: { collapse: String(container) } };
+  return { target: { dataset: {}, closest: (selector) => (selector === '.component-toggle' ? toggle : null) } };
+}
+
+/** The markup of one container, cut out of the Components tab body. */
+function containerHtml(body, index) {
+  const start = body.indexOf('data-index="' + index + '"');
+  const end = body.indexOf('<section', start);
+  return body.slice(start, end === -1 ? undefined : end);
+}
+
+test('every container opens by default, and its heading button collapses and reopens it alone (v0.14.5 §4)', () => {
+  const { renderComponents, elements, state } = componentsTabContract();
+  state.system = { components: COMPONENTS_FIXTURE };
+  renderComponents();
+
+  let body = elements['components-body'].innerHTML;
+  for (const index of [0, 1, 2]) {
+    const html = containerHtml(body, index);
+    assert.match(html, new RegExp('<button class="component-toggle" type="button" data-collapse="' + index + '" aria-expanded="true" aria-controls="component-' + index + '-body">'), `container ${index} opens with a disclosure button`);
+    assert.match(html, new RegExp('<div class="component-body" id="component-' + index + '-body">'), `container ${index} body is shown`);
+  }
+
+  elements['components-body'].click(collapseClick(1));
+  body = elements['components-body'].innerHTML;
+  assert.deepEqual(state.collapsed, { 1: true });
+  assert.match(containerHtml(body, 1), /aria-expanded="false"/, 'the clicked container reads collapsed');
+  assert.match(containerHtml(body, 1), /<div class="component-body" id="component-1-body" hidden>/, 'and its body is hidden');
+  assert.match(containerHtml(body, 1), /<span>Button\/Ghost<\/span>/, 'its name stays on screen');
+  assert.match(containerHtml(body, 0), /aria-expanded="true"/, 'the other containers stay open');
+  assert.match(containerHtml(body, 2), /aria-expanded="true"/);
+
+  // A preview toggle elsewhere, and a live re-read, both keep it collapsed.
+  elements['components-body'].click(toggleClick(0, { previewState: 'hover' }));
+  renderComponents();
+  assert.match(containerHtml(elements['components-body'].innerHTML, 1), /hidden>/, 'the collapse survives a redraw');
+
+  elements['components-body'].click(collapseClick(1));
+  assert.deepEqual(state.collapsed, {}, 'a second click reopens it');
+
+  // A container that is gone takes its collapsed mark with it.
+  elements['components-body'].click(collapseClick(2));
+  state.system = { components: COMPONENTS_FIXTURE.slice(0, 2) };
+  renderComponents();
+  assert.deepEqual(state.collapsed, {}, 'container 2 is gone, so its mark drops');
 });
 
 test('showTokenView still draws a picked component\'s token usage', () => {

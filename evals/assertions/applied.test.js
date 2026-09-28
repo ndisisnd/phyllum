@@ -386,9 +386,10 @@ test('the GUI badge is drawn for `applied: true` and for nothing else', () => {
   assert.match(badge, /<span class="chip applied">applied<\/span>/, 'the page\'s own chip');
   assert.ok(!/not applied/.test(badge), 'a badge has room to be right, not to be nuanced');
 
-  // Both surfaces the plan names carry it: the list and the preview panel.
+  // Both surfaces the plan names carry it: the list and each component's
+  // container heading (v0.14.5 §4).
   assert.match(page, /esc\(component && component\.name\) \+\s*appliedBadge\(component\)/);
-  assert.match(page, /esc\(component\.name\) \+ appliedBadge\(component\) \+ '<\/h3>'/);
+  assert.match(page, /esc\(component\.name\) \+ appliedBadge\(component\) \+ '<\/span><\/button><\/h3>'/);
 
   // The page's own tag styling, and no new colour: the one rule the badge adds
   // reads a variable the page already defines.

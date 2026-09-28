@@ -961,6 +961,32 @@
       /* The Components tab is one container per component too (v0.14.5 §1),
          and steps one container to the next the way the Backlog does. */
       .component-container + .component-container { margin-top: var(--space-3); }
+      /* A container's heading is its disclosure button (v0.14.5 §4): the
+         heading's own type, no button chrome, and the chevron before the name
+         sized to its line like a rail icon. A closed container is its heading
+         alone, so the heading drops its bottom margin and the body carries
+         the gap instead. */
+      .component-container > h3 { margin-bottom: 0; }
+      .component-body { margin-top: var(--space-1); }
+      .component-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .component-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+      .component-toggle__icon { width: 1rem; height: 1rem; flex: 0 0 auto; color: var(--muted); transition: transform 120ms ease; }
+      .component-toggle[aria-expanded='false'] .component-toggle__icon { transform: rotate(-90deg); }
+      @media (prefers-reduced-motion: reduce) {
+        .component-toggle__icon { transition: none; }
+      }
 
       /* The report tables (v0.9.0 §5). A report is read as a table on this
          page, so the page grows one table idiom and only one: the hairline
@@ -2292,6 +2318,11 @@
         // nothing else: no request carries them, and the file never hears
         // about them.
         previews: {},
+        // Which Components tab containers the reader has collapsed, keyed by
+        // `data-index` like the readings above (v0.14.5 §4). A container with
+        // no entry is open: the tab exists to show every component in full,
+        // so collapsing is the reader's choice and never the page's default.
+        collapsed: {},
         // Which component the Tokens view is showing — its own pick, apart
         // from the Components tab's containers (v0.14.5 §1).
         tokenViewSelected: null,
@@ -3619,8 +3650,13 @@
        * One component's body: its name and `applied` badge, the preview, then
        * the labelled code blocks — what the single detail panel used to show
        * after a tap, now drawn into every container (v0.14.5 §1).
+       *
+       * The heading is a disclosure button (v0.14.5 §4): it collapses the
+       * preview and the code blocks under it, and leaves the name on screen.
+       * The chevron is Lucide's `chevron-down` (ISC licence), inlined like
+       * the rail icons, and turns to point right while the body is closed.
        */
-      function componentBodyHtml(components, index, stateName, shown) {
+      function componentBodyHtml(components, index, stateName, shown, container, open) {
         const component = components[index];
         if (!component || typeof component !== 'object') return '';
         const blocks = (Array.isArray(component.blocks) ? component.blocks : [])
@@ -3631,7 +3667,16 @@
         // panel has always printed, unchanged beneath it.
         const active = previewStates(component).includes(stateName) ? stateName : PREVIEW.baseState;
         const preview = previewPanelHtml(components, index, previewTokens(state.system), active, shown);
-        return '<h3>' + esc(component.name) + appliedBadge(component) + '</h3>' + preview + blocks;
+        const chevron =
+          '<svg class="component-toggle__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<path d="m6 9 6 6 6-6" /></svg>';
+        const body = 'component-' + container + '-body';
+        return (
+          '<h3><button class="component-toggle" type="button" data-collapse="' + container + '"' +
+          ' aria-expanded="' + String(open) + '" aria-controls="' + body + '">' +
+          chevron + '<span>' + esc(component.name) + appliedBadge(component) + '</span></button></h3>' +
+          '<div class="component-body" id="' + body + '"' + (open ? '' : ' hidden') + '>' + preview + blocks + '</div>'
+        );
       }
 
       /**
@@ -3660,13 +3705,17 @@
               (group !== null && group.members.some((member) => member.index === reading.index)));
           if (!kept) delete state.previews[key];
         }
+        for (const key of Object.keys(state.collapsed)) {
+          if (!components[Number(key)]) delete state.collapsed[key];
+        }
         el('components-body').innerHTML =
           components
             .map((component, index) => {
               const reading = state.previews[index];
+              const open = !state.collapsed[index];
               const body = reading
-                ? componentBodyHtml(components, reading.index, reading.state, reading.icons)
-                : componentBodyHtml(components, index, PREVIEW.baseState, {});
+                ? componentBodyHtml(components, reading.index, reading.state, reading.icons, index, open)
+                : componentBodyHtml(components, index, PREVIEW.baseState, {}, index, open);
               return body ? '<section class="container component-container" data-index="' + index + '">' + body + '</section>' : '';
             })
             .join('') || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
@@ -3718,7 +3767,19 @@
       // Each container keeps its own reading (v0.14.5 §2): a toggle changes
       // the reading of the container it was clicked in, and every other
       // container keeps its own.
+      //
+      // The heading button collapses or opens its own container (v0.14.5 §4).
+      // The click can land on the chevron's svg or path, so it is the nearest
+      // `.component-toggle` that answers, the way a rail tab answers.
       el('components-body').addEventListener('click', (event) => {
+        const toggle = event.target.closest && event.target.closest('.component-toggle');
+        if (toggle) {
+          const container = Number(toggle.dataset.collapse);
+          if (state.collapsed[container]) delete state.collapsed[container];
+          else state.collapsed[container] = true;
+          renderComponents();
+          return;
+        }
         const data = event.target.dataset;
         if (!data) return;
         const holder = event.target.closest('.component-container');
