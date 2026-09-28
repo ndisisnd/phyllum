@@ -28,13 +28,13 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.14.1 -->
+<!-- mkpub:release 0.14.2 -->
 > [!NOTE]
-> **🚀 New in 0.14.1 · A sidebar with four stage tabs**
+> **🚀 New in 0.14.2 · A tidier Foundations page**
 >
-> The dashboard sidebar now shows four tabs, Assess, Governance, Build, and Refine, each
-> with a Lucide icon. Tap a tab to show its pages, indented underneath. Several tabs can
-> stay open at once, and all start closed.
+> The Library token panel is now called Foundations. Every section name starts with a
+> capital letter, and the sections run A–Z on the page and in the "On this page" panel.
+> Primitives stays directly under Colours.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 

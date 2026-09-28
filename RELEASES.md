@@ -2,6 +2,22 @@
 
 What's new for you, release by release.
 
+## 0.14.2 — 2026-09-28
+
+> The Library page reads more cleanly. Its token panel is now called
+> Foundations. Every section name starts with a capital letter, and the
+> sections run in alphabetical order.
+
+### 📈 Improved
+- Scan section names more easily. Each one starts with a capital letter, so
+  "radius" now reads "Radius". Only the first word changes.
+- Find a section faster. Sections run A–Z on the page, and the "On this page"
+  panel lists them in the same order.
+- Keep your colour ramps with your colours. Primitives stays directly under
+  Colours.
+- Read the panel title as "Foundations" instead of "Tokens". The "Token view"
+  page and the `tokens` filter keep their names.
+
 ## 0.14.1 — 2026-09-28
 
 > The dashboard sidebar is tidier. It now shows four tabs, one for each stage:
