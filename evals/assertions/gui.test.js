@@ -624,8 +624,8 @@ function numbersContract() {
 
   const factory = new Function(
     `${esc[0]}${cell[0]}${heading[0]}${isLength[0]}${isLengths[0]}${isShadow[0]}${isShadowList[0]}${splitTopLevel[0]}${region}` +
-      '\nreturn { NUMBERS, numberGroups, numberGroupHtml, numbersSections, heading, readingNote,' +
-      ' specimenKind, specimenHtml };',
+      '\nreturn { NUMBERS, numberGroups, numberGroupHtml, numbersSections, numberSectionUnits, heading, readingNote,' +
+      ' specimenKind, specimenHtml, capitalFirst, sortSections };',
   );
   return factory();
 }
@@ -769,6 +769,103 @@ test('the fixture\'s own Numbers row groups under the reading the file gives it'
   const groups = contract.numberGroups(system.tokens.numbers, system.columns.numbers[2]);
   assert.deepEqual(groups.map((group) => group.label), ['corner radius']);
   assert.deepEqual(groups[0].rows.map((row) => row.token), ['rounded-md']);
+});
+
+// ---------------------------------------------------------------------------
+// Section labels are capitalised and sorted (v0.14.2)
+// ---------------------------------------------------------------------------
+
+test('capitalFirst capitalises only the first character, leaving the rest of the label untouched', () => {
+  const contract = numbersContract();
+  assert.equal(contract.capitalFirst('radius'), 'Radius');
+  assert.equal(contract.capitalFirst('line height'), 'Line height');
+  assert.equal(contract.capitalFirst('Border Width'), 'Border Width', 'an already-capitalised label is unchanged');
+  assert.equal(contract.capitalFirst(''), '', 'an empty label stays empty rather than throwing');
+});
+
+test('a number section heading shows the capitalised label while data-applies keeps the raw reading', () => {
+  const contract = numbersContract();
+  const groups = contract.numberGroups([{ token: 'space-md', value: '16px', 'applies to': 'spacing' }], 'applies to');
+  const html = contract.numberGroupHtml(groups[0]);
+  assert.ok(html.includes('data-applies="spacing"'), 'the raw, lower-case reading is kept on the attribute');
+  assert.match(html, /<h3[^>]*>Spacing/, 'the heading itself shows the capitalised label');
+  assert.equal(html.includes('>spacing<'), false, 'the heading text is never the raw, lower-case word');
+});
+
+test('sortSections orders units A-Z by label, ignoring case, and is stable for equal labels', () => {
+  const contract = numbersContract();
+  const units = [
+    { label: 'spacing', html: '<a/>' },
+    { label: 'Colours', html: '<b/>' },
+    { label: 'typography', html: '<c/>' },
+    { label: 'Radius', html: '<d/>' },
+  ];
+  assert.deepEqual(
+    contract.sortSections(units).map((unit) => unit.label),
+    ['Colours', 'Radius', 'spacing', 'typography'],
+    'the order ignores case entirely — a lower-case label sorts by its letters, not after every capital one',
+  );
+
+  // Two units sharing a label keep the order they arrived in.
+  const tied = [
+    { label: 'Radius', html: 'first' },
+    { label: 'radius', html: 'second' },
+    { label: 'Radius', html: 'third' },
+  ];
+  assert.deepEqual(
+    contract.sortSections(tied).map((unit) => unit.html),
+    ['first', 'second', 'third'],
+    'a stable sort never reorders units whose labels compare equal',
+  );
+});
+
+test('the ungrouped number section is labelled "Other" and sorts by that label, not forced last', () => {
+  const contract = numbersContract();
+  const units = contract.numberSectionUnits([], '');
+  assert.deepEqual(units.map((unit) => unit.label), ['Other'], 'an empty table still renders its one section');
+  assert.match(units[0].html, /<h3[^>]*>Other/);
+
+  const rows = [
+    { token: 'stage', value: '2rem', 'applies to': '' },
+    { token: 'rounded-sm', value: '4px', 'applies to': 'radius' },
+  ];
+  const sorted = contract.sortSections([
+    { label: 'Zebra', html: '<z/>' },
+    ...contract.numberSectionUnits(rows, 'applies to'),
+    { label: 'Ant', html: '<a/>' },
+  ]);
+  assert.deepEqual(
+    sorted.map((unit) => unit.label),
+    ['Ant', 'Other', 'Radius', 'Zebra'],
+    '"Other" sorts alphabetically among its neighbours instead of trailing every other section',
+  );
+});
+
+test('renderLibrary keeps Primitives glued directly under Colours as one sortable unit', () => {
+  const text = readPage();
+  assert.match(
+    text,
+    /\{\s*label:\s*'Colours',\s*html:\s*coloursSection\(rowsOf\('colours'\)\)\s*\+\s*primitivesSection\(rowsOf\('primitives'\)\)\s*\}/,
+    'Colours and Primitives are built as one { label, html } unit, so Primitives can never land somewhere else once the units are sorted',
+  );
+  assert.match(
+    text,
+    /el\('tokens-body'\)\.innerHTML\s*=\s*sortSections\(\[/,
+    'the Library body is rendered through sortSections, not appended in file order',
+  );
+});
+
+test('the Library panel heading reads "Foundations", and the Token view page and the tokens filter keep their names', () => {
+  const text = readPage();
+  assert.ok(
+    /<div class="panel panel--bare" id="tokens-panel"><h2>Foundations<\/h2>/.test(text),
+    'the token panel\'s own h2 is "Foundations", not "Tokens"',
+  );
+  assert.ok(text.includes('<h2>Token view</h2>'), 'the Token view page keeps its own, unrelated name');
+  assert.ok(
+    /<button class="tile-action" data-scope="tokens" aria-selected="false">tokens<\/button>/.test(text),
+    'the lowercase "tokens" filter button keeps its name',
+  );
 });
 
 test('a typography specimen only ever inlines a shape it recognises', () => {
