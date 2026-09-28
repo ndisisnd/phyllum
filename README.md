@@ -28,13 +28,13 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.13.0 -->
+<!-- mkpub:release 0.14.0 -->
 > [!NOTE]
-> **🚀 New in 0.13.0 · Start from a sample design system**
+> **🚀 New in 0.14.0 · A refreshed dashboard**
 >
-> When `init` creates `DESIGN-SYSTEM.md`, it can fill it with a small worked sample, so you
-> see how tokens and components fit together before you write your own. `phyllum sample
-> dispose` clears the sample away and keeps anything you edited; `sample restore` brings it back.
+> The dashboard takes its lead from Mercury: calm neutrals, one indigo accent, the Geist
+> fonts, and glass surfaces, on every page in light and dark mode. The fonts ship inside
+> phyllum, and a test keeps text on glass at 4.5:1 contrast in both themes.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 

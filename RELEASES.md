@@ -2,6 +2,26 @@
 
 What's new for you, release by release.
 
+## 0.14.0 — 2026-09-28
+
+> The dashboard has a new look. It takes its lead from Mercury: calm neutral
+> colours, one indigo accent, the Geist fonts, and glass surfaces that blur what
+> sits behind them. Every page gets the refresh, in light and dark mode, and
+> every piece of text stays easy to read.
+
+### 📈 Improved
+- See every dashboard page in a refreshed, Mercury-led style. Library, Reports,
+  Build reports, Workbench, and Tokens all use the new colours, chips, and
+  buttons, in light and dark mode.
+- Read the dashboard in Geist and Geist Mono. The fonts ship inside phyllum, so
+  the page still fetches nothing from the internet, and your system fonts take
+  over if they fail to load.
+- Look through glass on the header, the sidebars, and the panels. Where your
+  browser cannot blur, or you have asked your system for less transparency,
+  each glass surface turns solid.
+- Rely on readable text on every glass surface. A test checks that it meets
+  the 4.5:1 contrast standard in both themes.
+
 ## 0.13.0 — 2026-09-28
 
 > You no longer start from a blank page. When `init` creates your design system,
