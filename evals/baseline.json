@@ -1,9 +1,9 @@
 {
   "recordedAt": "2026-09-28",
-  "phyllumVersion": "0.14.1",
-  "milestone": "v0.14.1 release",
-  "release": "v0.14.1",
-  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v0.14.1 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why. Every score the previous release recorded is still met or beaten, and no threshold has ever been lowered.",
+  "phyllumVersion": "0.14.2",
+  "milestone": "v0.14.2 release",
+  "release": "v0.14.2",
+  "note": "Scores recorded by `node evals/run-evals.js --record`. This is the v0.14.2 regression baseline (plan §8.5): every future change must clear it — assertions at 100%, every eval at or above both its threshold and the score recorded here. Thresholds may be raised, never silently lowered: a lowered threshold needs a note in the change explaining why. Every score the previous release recorded is still met or beaten, and no threshold has ever been lowered.",
   "assertions": {
     "command": "npm test",
     "harness": "evals/harness/fs-harness.js",
