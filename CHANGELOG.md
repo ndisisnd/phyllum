@@ -4,6 +4,19 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
+### [63] — Tests and docs for the four collapsible stage tabs (v0.14.1 phase 3)
+
+- `evals/assertions/gui-rail.test.js`: Added — 11 tests covering the four tabs and their order, each tab's inline Lucide icon, no CDN/network/dependency for the icons, every tab and group starting collapsed, the group contents per stage, the five `data-view` values staying intact, and the open/close toggle run against a fake DOM
+- `skill/refs/gui/gui.md`: Changed — the view rail section now describes four collapsible stage tabs with icons, independent toggling and the collapsed starting state, alongside the unchanged stage table
+
+### [62] — Tapping a stage tab expands or collapses it (v0.14.1 phase 2)
+
+- `gui/index.html`: Changed — the `#views` click handler toggles a tapped tab's own `aria-expanded` and its group's `hidden`, several tabs can stay open together, and the rail CSS indents the page buttons and the `nothing yet` chip under their tab
+
+### [61] — The view rail becomes four stage tabs with icons (v0.14.1 phase 1)
+
+- `gui/index.html`: Changed — `nav#views` wraps each stage in a `.rail-tab` button carrying an inline Lucide icon (`scan-search`, `shield-check`, `hammer`, `sparkles`, from lucide 1.18.0) and a `.rail-group` holding that stage's pages, all groups starting collapsed
+
 ### [60] — The dashboard docs describe the new look (v0.14.0 phase 6)
 
 - `README.md`, `llms.txt`: Changed — the dashboard is described as Mercury-led, with Geist fonts, an indigo accent and glass surfaces

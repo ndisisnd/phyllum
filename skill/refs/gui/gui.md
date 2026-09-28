@@ -9,26 +9,34 @@ the design system the terminal already reads, and hands prompts typed in the
 page back to the Claude Code session. The server never calls a model, and never
 decides anything.
 
-## The view rail, grouped by pipeline stage (v0.8.0 §4)
+## The view rail, as four collapsible stage tabs (v0.8.0 §4, recut v0.14.1 §1/§2)
 
 `nav#views` groups its view buttons under the same four-stage pipeline
-`lib/registry.js` defines for the command set (v0.8.0 §1), in pipeline order,
-each stage still its own `rail-label`:
+`lib/registry.js` defines for the command set (v0.8.0 §1), in pipeline order.
+Each stage is a tab button (`.rail-tab`, `data-stage`), carrying a Lucide
+icon inlined as SVG (v0.14.1 §1: `scan-search` for Assess, `shield-check`
+for Governance, `hammer` for Build, `sparkles` for Refine — the page still
+makes no network fetch, and the package still keeps no dependencies) and the
+stage label. Tapping a closed tab expands its own `.rail-group`, revealing
+that stage's pages indented underneath; tapping the same tab again collapses
+it (v0.14.1 §2, wired through `aria-expanded` on the tab and `aria-controls`
+naming its group). On first load every tab is collapsed, and opening one
+tab never closes another — several can stay open at once.
 
 | Stage | What sits under it |
 |-------|---------------------|
 | Assess | Library and Reports — the Backlog panel's own `#backlog-assess` button posts the literal `assess` prompt, and Reports (v0.9.0 §5) shows what that command left behind under `.phyllum/` |
-| Governance | nothing yet — the heading still appears, with a quiet `nothing yet` chip in place of a button, because an empty stage is still a real stage (v0.8.0 §1) |
+| Governance | nothing yet — the tab still appears, with a quiet `nothing yet` chip in its group in place of a button, because an empty stage is still a real stage (v0.8.0 §1) |
 | Build | Workbench, Build reports and Token view — the active `create` session, the numbered build reports `create`/`build` has written (v0.10.0 §5), and the raw-value reading that feeds the next `tokenise` run |
 | Refine | nothing yet — same quiet chip as Governance |
 
-No view was added, removed or renamed *by the grouping*: the buttons kept
-their `data-view` values, their click handling and their `aria-selected`
-wiring exactly as before, and the empty-stage chip is the page's own chip
-idiom (v0.7.0 §2) — a label, never a control — so no new visual language is
-invented for it. Reports (v0.9.0 §5) and Build reports (v0.10.0 §5) each
-arrived later than the first three and took the same wiring rather than a
-second kind.
+No view was added, removed or renamed *by the grouping or the tabs*: the
+page buttons kept their `data-view` values, their click handling and their
+`aria-selected` wiring exactly as before, and the empty-stage chip is the
+page's own chip idiom (v0.7.0 §2) — a label, never a control — so no new
+visual language is invented for it. Reports (v0.9.0 §5) and Build reports
+(v0.10.0 §5) each arrived later than the first three and took the same
+wiring rather than a second kind.
 
 ## Five views
 
