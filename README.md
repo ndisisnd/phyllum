@@ -28,13 +28,12 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.14.2 -->
+<!-- mkpub:release 0.14.3 -->
 > [!NOTE]
-> **🚀 New in 0.14.2 · A tidier Foundations page**
+> **🚀 New in 0.14.3 · The Assess button works**
 >
-> The Library token panel is now called Foundations. Every section name starts with a
-> capital letter, and the sections run A–Z on the page and in the "On this page" panel.
-> Primitives stays directly under Colours.
+> A click on the dashboard's Assess button now reaches your Claude Code session and runs
+> the assessment there. The first click installs the hooks it needs.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 

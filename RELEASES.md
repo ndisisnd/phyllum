@@ -2,6 +2,25 @@
 
 What's new for you, release by release.
 
+## 0.14.3 — 2026-09-28
+
+> The dashboard's Assess button now works. A click used to queue the request
+> and nothing ran it. Now the request reaches your Claude Code session and runs
+> there, as if you had typed it.
+
+### 🐛 Fixed
+- Click Assess and get an assessment. The request reaches your Claude Code
+  session within a few seconds, even when the terminal is idle.
+- Click as often as you like. Repeated clicks run one assessment, not one per
+  click.
+
+### 📈 Improved
+- Set nothing up by hand. The first click installs the hooks it needs, and the
+  button reads "Queued · hook installed" when it does. `phyllum init` and
+  `phyllum upgrade` install them too.
+- Keep your own settings. The hooks go into `.claude/settings.local.json`, next
+  to what is already there, and nothing else in the file changes.
+
 ## 0.14.2 — 2026-09-28
 
 > The Library page reads more cleanly. Its token panel is now called
