@@ -169,7 +169,7 @@
         --radius-lg: 0.875rem;
         /* The pill (v0.14.0 phase 4), `radius-pill` in DESIGN-SYSTEM.md: not
            a fourth corner size but "round the ends", for the chips and the
-           segmented filters, so a label never reads as a container. */
+           segmented controls, so a label never reads as a container. */
         --radius-pill: 999px;
 
         /* the spacing scale — 8-based, and the page spaces from here alone
@@ -725,7 +725,11 @@
       .list button { border-radius: var(--radius-md); color: var(--ink); }
       .list button:hover { background: var(--layer-accent); }
       .list button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-      .filters { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      /* The Library's tab bar (v0.14.4 §1): one `button.tile-action` per
+         section, the segmented control the preview toggles already are, so
+         the live tab wears the same accent wash as every other live choice
+         on the page. It sits under the page title, not in the view rail. */
+      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
       /* --- colour cards (v0.4.0 §5.5) ------------------------------------
          A semantic colour token is a card: a rounded, filled swatch, with the
@@ -1088,7 +1092,7 @@
          solid, high-contrast action a container is allowed. `.btn--ghost` is
          everything else: no fill and no edge until the pointer is on it, so a
          row of secondary actions stays quiet. `button.tile-action` — the
-         segmented filters and the preview toggles — is the same button with
+         Library tabs and the preview toggles — is the same button with
          an edge, and it shares this base rather than restating it.
 
          v0.14.0 phase 4 moves the primary from the ink to the accent: Mercury
@@ -1099,7 +1103,7 @@
          dark — so the press reads as the same colour, deepened.
          `--ink-hover` keeps its one job for any ink-filled control a later
          release adds. Controls take the medium corner, like the input beside
-         them; the filters are pills, like the chips. */
+         them; the tabs are pills, like the chips. */
       .btn,
       button.tile-action {
         display: inline-flex;
@@ -1357,24 +1361,25 @@
 
       <main>
         <section class="view" id="view-library">
-          <div class="panel lede">
+          <!-- A plain page title and three tabs under it (v0.14.4 §1): each
+               tab shows its own section and hides the other two. -->
+          <div class="lede">
             <h2>Library</h2>
-            <p class="muted">Every token and component in <code>DESIGN-SYSTEM.md</code>, read live.</p>
-            <div class="filters" id="filters">
-              <button class="tile-action" data-scope="all" aria-selected="true">all</button>
-              <button class="tile-action" data-scope="tokens" aria-selected="false">tokens</button>
-              <button class="tile-action" data-scope="components" aria-selected="false">components</button>
+            <div class="tabs" id="library-tabs" role="tablist" aria-label="Library">
+              <button class="tile-action" role="tab" data-tab="foundations" aria-selected="true" aria-controls="tokens-panel">Foundations</button>
+              <button class="tile-action" role="tab" data-tab="components" aria-selected="false" aria-controls="components-panel">Components</button>
+              <button class="tile-action" role="tab" data-tab="backlog" aria-selected="false" aria-controls="backlog-panel">Backlog</button>
             </div>
           </div>
           <div class="panel panel--bare" id="tokens-panel"><h2>Foundations</h2><div id="tokens-body" class="muted">reading…</div></div>
-          <div class="panel" id="components-panel">
+          <div class="panel" id="components-panel" hidden>
             <h2>Components</h2>
             <div class="grid">
               <div class="list" id="component-list"></div>
               <div id="component-detail" class="muted">Pick a component to see its spec and code.</div>
             </div>
           </div>
-          <div class="panel">
+          <div class="panel" id="backlog-panel" hidden>
             <div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2><button class="btn btn--primary" id="backlog-assess" type="button">Assess</button></div>
             <div id="backlog"></div>
           </div>
@@ -2231,10 +2236,14 @@
       const state = {
         system: null,
         session: null,
-        scope: 'all',
         view: 'library',
         selected: null,
-        scopeTouched: false,
+        // Which Library tab is on screen (v0.14.4 §1): `foundations`,
+        // `components` or `backlog`. The page opens on Foundations. Once the
+        // reader picks a tab, `libraryTabTouched` keeps the poll's scope word
+        // from ever moving it again — a re-render reads this, never resets it.
+        libraryTab: 'foundations',
+        libraryTabTouched: false,
         // The numbered reports as `/reports` served them, and which one is
         // open (v0.9.0 §5). `null` reports means "not read yet"; an empty list
         // means "read, and there are none", and the view says so.
@@ -2255,6 +2264,11 @@
         // the file never hears about it.
         previewIcons: {},
       };
+
+      // The Library's three tabs, in bar order, and the panel each one shows
+      // (v0.14.4 §1). A tab name that is not a key here is never shown.
+      const LIBRARY_TABS = ['foundations', 'components', 'backlog'];
+      const LIBRARY_PANELS = { foundations: 'tokens-panel', components: 'components-panel', backlog: 'backlog-panel' };
 
       const el = (id) => document.getElementById(id);
 
@@ -2295,13 +2309,13 @@
         if (view === 'build-reports') loadBuildReports();
       });
 
-      el('filters').addEventListener('click', (event) => {
-        const scope = event.target.dataset && event.target.dataset.scope;
-        if (!scope) return;
-        state.scope = scope;
-        state.scopeTouched = true;
-        select(el('filters'), 'scope', scope);
-        renderLibrary();
+      // The Library tabs (v0.14.4 §1). A click is the reader's own choice, so
+      // it is marked as touched and the scope word never overrides it again.
+      el('library-tabs').addEventListener('click', (event) => {
+        const tab = event.target.dataset && event.target.dataset.tab;
+        if (!LIBRARY_TABS.includes(tab)) return;
+        state.libraryTabTouched = true;
+        showLibraryTab(tab);
       });
 
       // The theme control (v0.5.1 §4). The head script has already applied the
@@ -3407,13 +3421,35 @@
 
       /**
        * The rail shows only while the token panel is the thing on screen
-       * (v0.6.0 §4) — not the Workbench view, and not the Components half of
-       * the Library view when the token filter is switched off.
+       * (v0.6.0 §4) — not the Workbench view, and not the Components or
+       * Backlog tab of the Library view (v0.14.4 §1).
        */
       function updateRailVisibility() {
         const nav = el('rail-toc');
         if (!nav) return;
-        nav.hidden = !(state.view === 'library' && state.scope !== 'components');
+        nav.hidden = !(state.view === 'library' && state.libraryTab === 'foundations');
+      }
+
+      /**
+       * The terminal's scope word, read as the tab the Library opens on:
+       * `components` opens Components, and `tokens`, `all` or anything else
+       * opens Foundations.
+       */
+      function tabForScope(scope) {
+        return scope === 'components' ? 'components' : 'foundations';
+      }
+
+      /**
+       * Put one Library tab on screen (v0.14.4 §1): mark it in the bar, show
+       * its panel, hide the other two, and let the rail follow. It only
+       * moves visibility, so it never waits on — or redraws — the content.
+       */
+      function showLibraryTab(tab) {
+        if (!LIBRARY_TABS.includes(tab)) return;
+        state.libraryTab = tab;
+        select(el('library-tabs'), 'tab', tab);
+        for (const name of LIBRARY_TABS) el(LIBRARY_PANELS[name]).hidden = name !== tab;
+        updateRailVisibility();
       }
 
       /**
@@ -3443,8 +3479,7 @@
 
       function renderLibrary() {
         const system = state.system;
-        el('tokens-panel').hidden = state.scope === 'components';
-        el('components-panel').hidden = state.scope === 'tokens';
+        showLibraryTab(state.libraryTab);
         if (!system || system.error) {
           el('tokens-body').textContent = system ? system.message : 'reading…';
           buildRail();
@@ -3735,12 +3770,13 @@
           const response = await fetch('/state');
           const session = await response.json();
           state.session = session;
-          if (!state.scopeTouched && session.scope && session.scope !== state.scope) {
-            state.scope = session.scope;
-            select(el('filters'), 'scope', session.scope);
-            renderLibrary();
+          // The scope word picks the opening tab until the reader picks one
+          // (v0.14.4 §1). Only visibility moves, so no re-render is needed.
+          if (!state.libraryTabTouched && session.scope) {
+            const tab = tabForScope(session.scope);
+            if (tab !== state.libraryTab) showLibraryTab(tab);
           }
-          el('status').textContent = 'connected · filter: ' + state.scope;
+          el('status').textContent = 'connected';
           renderSession();
         } catch (error) {
           el('status').textContent = 'server gone — run `phyllum gui` again';
