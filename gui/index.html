@@ -636,7 +636,7 @@
          marks `.muted` itself (a date line, an empty-state sentence) keeps
          its grey, since a class outranks this zero-specificity rule. The
          bare placeholder text is not an element, so it stays muted. */
-      :where(#tokens-body, #component-detail, #reports-list, #report-detail,
+      :where(#tokens-body, #reports-list, #report-detail,
         #build-reports-list, #build-report-detail, #draft-input, #draft-output,
         #queue, #token-view-detail) > :not(.muted) {
         color: var(--ink);
@@ -958,6 +958,9 @@
       .backlog-group + .backlog-group { margin-top: var(--space-3); }
       .backlog-list { display: grid; gap: 0.375rem; margin-top: var(--space-1); list-style: none; }
       .backlog__line { font-size: var(--type-02); }
+      /* The Components tab is one container per component too (v0.14.5 §1),
+         and steps one container to the next the way the Backlog does. */
+      .component-container + .component-container { margin-top: var(--space-3); }
 
       /* The report tables (v0.9.0 §5). A report is read as a table on this
          page, so the page grows one table idiom and only one: the hairline
@@ -1416,10 +1419,9 @@
           <div class="panel panel--bare" id="tokens-panel"><h2>Foundations</h2><div id="tokens-body" class="muted">reading…</div></div>
           <div class="panel" id="components-panel" hidden>
             <h2>Components</h2>
-            <div class="grid">
-              <div class="list" id="component-list"></div>
-              <div id="component-detail" class="muted">Pick a component to see its spec and code.</div>
-            </div>
+            <!-- One container per component, drawn in full with no tap
+                 (v0.14.5 §1): nothing is left to pick, so no list. -->
+            <div id="components-body"></div>
           </div>
           <div class="panel" id="backlog-panel" hidden>
             <div class="panel__header"><h2>Backlog <span class="count" id="backlog-count">0</span></h2><button class="btn btn--primary" id="backlog-assess" type="button">Assess</button></div>
@@ -2279,7 +2281,16 @@
         system: null,
         session: null,
         view: 'library',
+        // Which component the preview toggles below point at, and the
+        // container that holds it (v0.14.5 §1). The toggles are still one
+        // page-wide reading, so they belong to one container at a time: the
+        // one last toggled. Every other container draws its own component at
+        // its recorded reading.
         selected: null,
+        previewContainer: null,
+        // Which component the Tokens view is showing — its own pick, apart
+        // from the Components tab's containers (v0.14.5 §1).
+        tokenViewSelected: null,
         // Which Library tab is on screen (v0.14.4 §1): `foundations`,
         // `components` or `backlog`. The page opens on Foundations. Once the
         // reader picks a tab, `libraryTabTouched` keeps the poll's scope word
@@ -3570,8 +3581,8 @@
             '<button data-index="' + index + '">' + esc(component && component.name) +
             appliedBadge(component) + '</button>')
           .join('');
-        el('component-list').innerHTML = list || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
         el('token-view-list').innerHTML = list || '<p class="muted">No components yet.</p>';
+        renderComponents();
 
         // The Backlog, cut into one container per component (v0.7.0 §3). The
         // names a line is matched against are the ones the file records — the
@@ -3586,7 +3597,7 @@
         el('backlog-count').textContent = String(backlog.length);
         el('backlog').innerHTML = backlogSections(backlog, componentNames);
 
-        if (state.selected !== null) showComponent(state.selected);
+        if (state.tokenViewSelected !== null) showTokenView(state.tokenViewSelected);
       }
 
       /** `applied: true` wears a chip; `false` and "no flag yet" wear nothing. */
@@ -3609,32 +3620,57 @@
         return new Set(names.filter(Boolean));
       }
 
-      function showComponent(index) {
+      /**
+       * One component's body: its name and `applied` badge, the preview, then
+       * the labelled code blocks — what the single detail panel used to show
+       * after a tap, now drawn into every container (v0.14.5 §1).
+       */
+      function componentBodyHtml(components, index, stateName, shown) {
+        const component = components[index];
+        if (!component || typeof component !== 'object') return '';
+        const blocks = (Array.isArray(component.blocks) ? component.blocks : [])
+          .map((block) => '<p class="muted">' + esc(block && block.lang) + '</p><pre><code>' + esc(block && block.content) + '</code></pre>')
+          .join('');
+        // The preview is the body's first section (v0.4.1 §4.3): the component
+        // as its spec records it, then the labelled `yaml` and `jsx` blocks the
+        // panel has always printed, unchanged beneath it.
+        const active = previewStates(component).includes(stateName) ? stateName : PREVIEW.baseState;
+        const preview = previewPanelHtml(components, index, previewTokens(state.system), active, shown);
+        return '<h3>' + esc(component.name) + appliedBadge(component) + '</h3>' + preview + blocks;
+      }
+
+      /**
+       * The Components tab: one container per component the file records,
+       * each drawn in full (v0.14.5 §1). The container that holds the toggles
+       * draws the component and reading they point at; every other container
+       * draws its own component at its recorded reading.
+       */
+      function renderComponents() {
+        const system = state.system;
+        const components = system && Array.isArray(system.components) ? system.components : [];
+        if (state.previewContainer !== null && !components[state.previewContainer]) {
+          state.previewContainer = null;
+          state.selected = null;
+        }
+        el('components-body').innerHTML =
+          components
+            .map((component, index) => {
+              const toggled = index === state.previewContainer && components[state.selected];
+              const body = toggled
+                ? componentBodyHtml(components, state.selected, state.previewState, state.previewIcons)
+                : componentBodyHtml(components, index, PREVIEW.baseState, {});
+              return body ? '<section class="container component-container" data-index="' + index + '">' + body + '</section>' : '';
+            })
+            .join('') || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
+      }
+
+      /** The Tokens view's panel for one picked component. */
+      function showTokenView(index) {
         const system = state.system;
         if (!system || system.error || !Array.isArray(system.components)) return;
         const component = system.components[index];
         if (!component || typeof component !== 'object') return;
-        // A different component is a different spec, so its attribute controls
-        // start where its own file puts them.
-        if (state.selected !== index) state.previewIcons = {};
-        state.selected = index;
-
-        const blocks = (Array.isArray(component.blocks) ? component.blocks : [])
-          .map((block) => '<p class="muted">' + esc(block && block.lang) + '</p><pre><code>' + esc(block && block.content) + '</code></pre>')
-          .join('');
-        // The preview is the panel's first section (v0.4.1 §4.3): the component
-        // as its spec records it, then the labelled `yaml` and `jsx` blocks the
-        // panel has always printed, unchanged beneath it.
-        if (!previewStates(component).includes(state.previewState)) state.previewState = PREVIEW.baseState;
-        const preview = previewPanelHtml(
-          system.components,
-          index,
-          previewTokens(system),
-          state.previewState,
-          state.previewIcons,
-        );
-        el('component-detail').innerHTML =
-          '<h3>' + esc(component.name) + appliedBadge(component) + '</h3>' + preview + blocks;
+        state.tokenViewSelected = index;
 
         const known = tokenNames();
         const used = [];
@@ -3665,41 +3701,46 @@
       }
 
       // The three toggle rows swap the rendered spec in place, without leaving
-      // the panel: a variant picks a sibling component, a state overlays its
-      // slots, and an attribute control shows or hides a recorded icon slot.
-      // All three change the projection and nothing else — no request leaves
-      // the page, and the `yaml` block keeps showing the spec as recorded.
-      // A variant or a state switch returns the attribute controls to the
-      // spec's recorded reading, since the sibling records its own.
-      el('component-detail').addEventListener('click', (event) => {
+      // the container: a variant picks a sibling component, a state overlays
+      // its slots, and an attribute control shows or hides a recorded icon
+      // slot. All three change the projection and nothing else — no request
+      // leaves the page, and the `yaml` block keeps showing the spec as
+      // recorded. A variant or a state switch returns the attribute controls
+      // to the spec's recorded reading, since the sibling records its own.
+      // The toggle reading is still page-wide, so toggling a second container
+      // hands the reading to it and returns the first to its own (v0.14.5 §1).
+      el('components-body').addEventListener('click', (event) => {
         const data = event.target.dataset;
         if (!data) return;
-        if (data.previewVariant !== undefined) {
+        const holder = event.target.closest('.component-container');
+        if (!holder) return;
+        if (data.previewVariant === undefined && data.previewState === undefined && data.previewAttribute === undefined) return;
+        const container = Number(holder.dataset.index);
+        if (state.previewContainer !== container) {
+          state.previewContainer = container;
+          state.selected = container;
           state.previewState = PREVIEW.baseState;
           state.previewIcons = {};
-          showComponent(Number(data.previewVariant));
-          return;
         }
-        if (data.previewState !== undefined && state.selected !== null) {
+        if (data.previewVariant !== undefined) {
+          state.selected = Number(data.previewVariant);
+          state.previewState = PREVIEW.baseState;
+          state.previewIcons = {};
+        } else if (data.previewState !== undefined) {
           state.previewState = data.previewState;
           state.previewIcons = {};
-          showComponent(state.selected);
-          return;
-        }
-        if (data.previewAttribute !== undefined && state.selected !== null) {
+        } else {
           state.previewIcons = Object.assign({}, state.previewIcons, {
             [data.previewAttribute]: event.target.getAttribute('aria-pressed') !== 'true',
           });
-          showComponent(state.selected);
         }
+        renderComponents();
       });
 
-      for (const id of ['component-list', 'token-view-list']) {
-        el(id).addEventListener('click', (event) => {
-          const index = event.target.dataset && event.target.dataset.index;
-          if (index !== undefined) showComponent(Number(index));
-        });
-      }
+      el('token-view-list').addEventListener('click', (event) => {
+        const index = event.target.dataset && event.target.dataset.index;
+        if (index !== undefined) showTokenView(Number(index));
+      });
 
       function renderSession() {
         const session = state.session || {};
