@@ -23,9 +23,15 @@ it (v0.14.1 §2, wired through `aria-expanded` on the tab and `aria-controls`
 naming its group). On first load every tab is collapsed, and opening one
 tab never closes another — several can stay open at once.
 
+The Library sits above the four stages as its own rail entry (v0.14.4):
+`.rail-page`, `data-view="library"`, with Lucide's `library` icon. It opens
+its page directly, so it is the one rail entry that never expands or
+collapses — no `aria-expanded`, no group — and it is the page the dashboard
+opens on.
+
 | Stage | What sits under it |
 |-------|---------------------|
-| Assess | Library and Reports — the Backlog panel's own `#backlog-assess` button posts the literal `assess` prompt, and Reports (v0.9.0 §5) shows what that command left behind under `.phyllum/` |
+| Assess | Reports (v0.9.0 §5) — what `assess` left behind under `.phyllum/`; the prompt itself is posted by the Library Backlog tab's own `#backlog-assess` button |
 | Governance | nothing yet — the tab still appears, with a quiet `nothing yet` chip in its group in place of a button, because an empty stage is still a real stage (v0.8.0 §1) |
 | Build | Workbench, Build reports and Token view — the active `create` session, the numbered build reports `create`/`build` has written (v0.10.0 §5), and the raw-value reading that feeds the next `tokenise` run |
 | Refine | nothing yet — same quiet chip as Governance |

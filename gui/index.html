@@ -398,8 +398,11 @@
       nav#views .rail-empty { padding: 0.15rem 0.75rem 0.5rem; }
       /* A stage tab (v0.14.1 §1) is a view-rail button with its Lucide icon
          set before the label, sized to the label's line. The group it owns
-         is collapsed by the `hidden` attribute until the tab is opened. */
-      nav#views .rail-tab {
+         is collapsed by the `hidden` attribute until the tab is opened. The
+         Library entry (v0.14.4) wears the same icon-and-label row, but opens
+         its page directly and owns no group. */
+      nav#views .rail-tab,
+      nav#views .rail-page {
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -1325,6 +1328,20 @@
 
     <div class="shell">
       <nav id="views">
+        <!-- The Library, on its own (v0.14.4): the one rail entry that opens a
+             page directly rather than a group, so it carries no
+             `aria-expanded` and never expands or collapses. The icon is
+             Lucide's `library` (ISC licence), inlined like the four below. -->
+        <button class="rail-page" data-view="library" aria-selected="true">
+          <svg class="rail-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m16 6 4 14" />
+            <path d="M12 6v14" />
+            <path d="M8 8v12" />
+            <path d="M4 4v16" />
+          </svg>
+          <span>Library</span>
+        </button>
+
         <!-- Four stage tabs (v0.14.1 §1). Each tab is a button that owns the
              page group after it; every group starts collapsed. The icons are
              Lucide (ISC licence): scan-search, shield-check, hammer and
@@ -1342,7 +1359,6 @@
           <span>Assess</span>
         </button>
         <div class="rail-group" id="rail-group-assess" hidden>
-          <button data-view="library" aria-selected="true">Library</button>
           <button data-view="reports" aria-selected="false">Reports</button>
         </div>
 
@@ -2320,7 +2336,10 @@
           return;
         }
 
-        const view = event.target.dataset && event.target.dataset.view;
+        // A page button, or the Library entry — whose click, like a tab's,
+        // can land on its icon or label — so the nearest `data-view` answers.
+        const page = event.target.closest && event.target.closest('[data-view]');
+        const view = page && page.dataset.view;
         if (!view) return;
         state.view = view;
         select(el('views'), 'view', view);

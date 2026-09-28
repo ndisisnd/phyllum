@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
+### [72] — The Library leaves the Assess tab for its own rail entry (v0.14.4)
+
+- `gui/index.html`: Changed — the Library moves out of the Assess group to a `.rail-page` entry above the four stages, with Lucide's `library` icon; it opens its page directly and never expands or collapses. Assess now holds Reports alone. The page-button click answers to the nearest `data-view`, so a click on the entry's icon or label still opens the Library
+- `evals/assertions/gui-rail.test.js`: Changed — Assess holds only Reports. Added — 3 tests for the entry's place and icon, its missing `aria-expanded` and group, and a click on its icon
+- `skill/refs/gui/gui.md`: Changed — describes the Library entry; the Assess row lists Reports alone
+
 ### [71] — The Library tabs are underlined tabs, not pills (v0.14.4)
 
 - `gui/index.html`: Changed — the Library tab bar drops the `button.tile-action` pill for a new `button.tab`: plain labels on one `--line` hairline, the live tab marked by a 2px accent line underneath; the button-family comments no longer count the tabs among the pills
