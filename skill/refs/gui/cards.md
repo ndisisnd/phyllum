@@ -7,7 +7,7 @@ The Library view renders each token in the thing it describes:
 |---------|-----------|
 | Colours | one **card** per token — a filled, rounded swatch, with the token name and then its value printed *beneath* the swatch (v0.4.0 §5.5, below) |
 | Colours — Primitives | **swatches** in **ramp strips**: one strip per base name, its steps side by side in file order, each step's label sitting on the swatch itself |
-| Numbers | **no section of its own** — the table is cut by the `applies to` column into one first-class section per distinct reading, sections and tokens in file order, a recognised reading drawing each value as a **specimen** — a radius tile, a spacing gap, a shadow card — with the name-and-value line as its caption, and an unrecognised one keeping the plain line (v0.6.0, below) |
+| Numbers | **no section of its own** — the table is cut by the `applies to` column into one first-class section per distinct reading, tokens in file order inside each section, a recognised reading drawing each value as a **specimen** — a radius tile, a spacing gap, a shadow card — with the name-and-value line as its caption, and an unrecognised one keeping the plain line (v0.6.0, below; section order is alphabetical since v0.14.2, see `refs/gui/gui.md`) |
 | Typography | a **live specimen** per token, set in that token's own size, weight and line-height |
 
 Two rules decide how a swatch is drawn, and both are numbers rather than
@@ -117,13 +117,20 @@ rung underneath a shared title:
   `corner radius`, `padding`, `border width`, `control size` — is one section,
   headed at the same tier as Colours, with its own row count.
 - **The label is the file's own words, verbatim.** Nothing is normalised,
-  title-cased, singularised or invented. The dashboard shows the file.
-- **File order, twice over.** Sections appear in the order their first row
-  appears in the table, and the tokens inside a section keep their own file
-  order.
-- **An empty cell falls to one trailing section.** Rows whose `applies to` cell
-  is blank collect in a single section at the end, labelled with the neutral
-  word below rather than with a guess at what they apply to.
+  title-cased, singularised or invented. The dashboard shows the file — the
+  one exception is the heading itself, which capitalises only the label's
+  first letter for display (v0.14.2); `data-applies` and the specimen still
+  carry the reading exactly as the file wrote it.
+- **File order inside a section.** The tokens inside one section keep their
+  own file order, and a section's group of rows is first assembled in the
+  order its reading first appears in the table. Where the sections themselves
+  land on the page is a separate rule, below — since v0.14.2 that is
+  alphabetical, not file order.
+- **An empty cell falls to one section.** Rows whose `applies to` cell is
+  blank collect in a single section, labelled with the neutral word below
+  rather than with a guess at what they apply to — it is still assembled last
+  among the groups, but since v0.14.2 its place on the page follows the same
+  alphabetical sort as every other section, not a fixed trailing spot.
 - **An empty table still speaks.** With no number rows at all the page renders
   one section wearing that same neutral label, a count of `0` and a
   `(none yet)` line — the way Colours and Typography answer emptiness.
