@@ -2435,7 +2435,10 @@
       // because the assertion suite lifts it out and runs it. Since v0.6.0 §3
       // a section also carries a one-line description under its heading, built
       // from the reading itself rather than from anything the page presumes
-      // about the tokens underneath it.
+      // about the tokens underneath it. Since v0.14.2 a heading wears its
+      // label with the first letter capitalised — at display time only, so
+      // `data-applies` and the specimen match still read the file's own
+      // words — and the page sorts every section by that label.
       const NUMBERS = {
         // The label the trailing group of rows with no `applies to` reading takes.
         // It is also the label the one empty section wears when the table has
@@ -2463,6 +2466,24 @@
           ungrouped: 'Number tokens with no reading of their own.',
         },
       };
+
+      /**
+       * A section label as a heading shows it (v0.14.2): the first letter
+       * capitalised, every other character left as the file wrote it.
+       */
+      function capitalFirst(label) {
+        const text = String(label ?? '');
+        return text.charAt(0).toUpperCase() + text.slice(1);
+      }
+
+      /**
+       * Sections in page order (v0.14.2): `{ label, html }` units sorted by
+       * the label a heading shows, ignoring case. The sort is stable, so two
+       * sections that show the same label keep the order they came in.
+       */
+      function sortSections(units) {
+        return units.slice().sort((a, b) => a.label.localeCompare(b.label, 'en', { sensitivity: 'base' }));
+      }
 
       /** The description under one section's heading. */
       function readingNote(applies) {
@@ -2556,7 +2577,7 @@
           .join('');
         return (
           '<section class="number-group" data-applies="' + esc(group.applies) + '">' +
-          heading(group.label, group.rows.length, readingNote(group.applies)) +
+          heading(capitalFirst(group.label), group.rows.length, readingNote(group.applies)) +
           '<ul class="number-list">' + items + '</ul></section>'
         );
       }
@@ -2568,14 +2589,28 @@
        * all; that is how every other section here handles emptiness.
        */
       function numbersSections(rows, applies) {
+        return numberSectionUnits(rows, applies).map((unit) => unit.html).join('');
+      }
+
+      /**
+       * The same sections as `{ label, html }` units, so the page can sort
+       * them among Colours and Typography (v0.14.2). Each label is the one
+       * its heading shows; the groups come in file order, unsorted.
+       */
+      function numberSectionUnits(rows, applies) {
         if (!rows.length) {
-          return (
-            '<section class="number-group" data-applies="">' +
-            heading(NUMBERS.ungrouped, 0, readingNote('')) +
-            '<p class="muted">(none yet)</p></section>'
-          );
+          return [{
+            label: capitalFirst(NUMBERS.ungrouped),
+            html:
+              '<section class="number-group" data-applies="">' +
+              heading(capitalFirst(NUMBERS.ungrouped), 0, readingNote('')) +
+              '<p class="muted">(none yet)</p></section>',
+          }];
         }
-        return numberGroups(rows, applies).map(numberGroupHtml).join('');
+        return numberGroups(rows, applies).map((group) => ({
+          label: capitalFirst(group.label),
+          html: numberGroupHtml(group),
+        }));
       }
       // --- end phyllum:numbers-contract --------------------------------------
 
@@ -3430,16 +3465,18 @@
         // section the payload left out is an empty section, never a thrown one.
         const rowsOf = (key) => (Array.isArray(system.tokens[key]) ? system.tokens[key] : []);
         const columns = system.columns && typeof system.columns === 'object' ? system.columns : {};
-        el('tokens-body').innerHTML = [
-          coloursSection(rowsOf('colours')),
+        // Every section sorts by the label its heading shows (v0.14.2).
+        el('tokens-body').innerHTML = sortSections([
           // Primitives are Colours' own subsection in the file, so their strips
-          // sit right under it (v0.3.0 §5.3, §6.5).
-          primitivesSection(rowsOf('primitives')),
+          // sit right under it (v0.3.0 §5.3, §6.5) and sort with it as one unit.
+          { label: 'Colours', html: coloursSection(rowsOf('colours')) + primitivesSection(rowsOf('primitives')) },
           // Numbers have no umbrella of their own: each `applies to` reading
           // is a section beside Colours and Typography (v0.6.0 §1).
-          numbersSections(rowsOf('numbers'), (Array.isArray(columns.numbers) ? columns.numbers : [])[2] ?? ''),
-          typographySection(rowsOf('typography')),
-        ].join('');
+          ...numberSectionUnits(rowsOf('numbers'), (Array.isArray(columns.numbers) ? columns.numbers : [])[2] ?? ''),
+          { label: 'Typography', html: typographySection(rowsOf('typography')) },
+        ])
+          .map((unit) => unit.html)
+          .join('');
         // The rail rebuilds from the DOM the line above just wrote — never
         // from a list carried over from the last render (v0.6.0 §4).
         buildRail();
