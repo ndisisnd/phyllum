@@ -2,6 +2,20 @@
 
 What's new for you, release by release.
 
+## 0.14.1 — 2026-09-28
+
+> The dashboard sidebar is tidier. It now shows four tabs, one for each stage:
+> Assess, Governance, Build, and Refine. Each tab has its own icon. Tap a tab to
+> see its pages, and tap it again to hide them.
+
+### 📈 Improved
+- Find your way around the dashboard by stage. The sidebar shows four tabs with
+  Lucide icons, and each tab opens to show its pages, indented underneath.
+- Keep several tabs open at once. Opening one tab never closes another.
+- Start from a clean sidebar. Every tab is closed when the dashboard loads.
+- See at a glance which stages have nothing yet. Governance and Refine show a
+  quiet `nothing yet` chip when you open them.
+
 ## 0.14.0 — 2026-09-28
 
 > The dashboard has a new look. It takes its lead from Mercury: calm neutral

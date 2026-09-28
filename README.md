@@ -28,13 +28,13 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.14.0 -->
+<!-- mkpub:release 0.14.1 -->
 > [!NOTE]
-> **🚀 New in 0.14.0 · A refreshed dashboard**
+> **🚀 New in 0.14.1 · A sidebar with four stage tabs**
 >
-> The dashboard takes its lead from Mercury: calm neutrals, one indigo accent, the Geist
-> fonts, and glass surfaces, on every page in light and dark mode. The fonts ship inside
-> phyllum, and a test keeps text on glass at 4.5:1 contrast in both themes.
+> The dashboard sidebar now shows four tabs, Assess, Governance, Build, and Refine, each
+> with a Lucide icon. Tap a tab to show its pages, indented underneath. Several tabs can
+> stay open at once, and all start closed.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
