@@ -4,11 +4,19 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
-### [64] — Tests and docs for capitalised, alphabetical token sections (v0.14.2 phase 3)
+### [66] — Tests and docs for capitalised, alphabetical token sections (v0.14.2 phase 3)
 
 - `evals/assertions/gui.test.js`: Added — 6 tests covering `capitalFirst` (first word only, rest untouched), a number section heading showing the capitalised label while `data-applies` keeps the raw reading, `sortSections` ordering A–Z case-insensitively and staying stable for equal labels, the ungrouped section reading "Other" and sorting by that label rather than trailing every other section, `renderLibrary` keeping Primitives glued directly under Colours as one unit, and the Library panel's "Foundations" heading with "Token view" and the `tokens` filter button unchanged
 - `skill/refs/gui/gui.md`: Changed — the view anatomy and on-page rail sections now describe capitalised-first-letter section labels, alphabetical section order shared by the page and the rail, Primitives kept directly under Colours, and the "Foundations" panel heading
 - `skill/refs/gui/cards.md`: Changed — the Numbers section rules now describe the display-only capitalisation and point at `gui.md` for the alphabetical section order, replacing the old "file order, twice over" claim at the page level
+
+### [65] — The Library token panel is headed "Foundations" (v0.14.2 phase 2)
+
+- `gui/index.html`: Changed — the token panel's `<h2>` reads "Foundations" instead of "Tokens"; the "Token view" page and the `tokens` filter button keep their names
+
+### [64] — Token sections are capitalised and sorted A–Z (v0.14.2 phase 1)
+
+- `gui/index.html`: Changed — number section headings capitalise the first letter of their `applies to` reading (`data-applies` keeps the raw word), and `renderLibrary` renders Colours (with Primitives under it), each number section and Typography through a new `sortSections`, so the page and its on-page rail read in alphabetical order
 
 ### [63] — Tests and docs for the four collapsible stage tabs (v0.14.1 phase 3)
 
