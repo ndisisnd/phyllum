@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-09-28
+
+### [60] — The dashboard docs describe the new look (v0.14.0 phase 6)
+
+- `README.md`, `llms.txt`: Changed — the dashboard is described as Mercury-led, with Geist fonts, an indigo accent and glass surfaces
+- `skill/refs/gui/gui.md`: Changed — a new "Look and feel" section names the glass surfaces, the solid fallback and the contrast floor
+- `skill/refs/gui/server.md`: Changed — documents the `GET /fonts/*` files the server sends
+- `DESIGN-SYSTEM.md`: Changed — adds `color-line-control` and its dark pair for form-field edges
+- `gui/index.html`, `evals/assertions/gui.test.js`: Changed — contrast comments now match the measured ratios
+
+### [59] — A test checks that text on every glass surface is readable in both themes (v0.14.0 phase 5)
+
+- `evals/assertions/gui-glass.test.js`: Added — 9 tests that measure text contrast on each glass surface against its real backdrop, and require 4.5:1 in light and dark mode
+
+### [58] — Every dashboard page uses the refreshed styles (v0.14.0 phase 4)
+
+- `gui/index.html`: Changed — Library, Reports, Build reports, Workbench and Tokens get pill chips, an accent primary button, stronger form-field edges and card hairlines, in light and dark mode
+
+### [57] — The dashboard shell uses the new tokens and glass surfaces (v0.14.0 phase 3)
+
+- `gui/index.html`: Changed — the page's colour settings match `DESIGN-SYSTEM.md` in both themes
+  - the header, both sidebars, the panels and the token sections are glass: a see-through tint that blurs what is behind it
+  - where the browser cannot blur, or the reader asks for less transparency, each glass surface turns solid
+
+### [56] — The dashboard loads the Geist fonts from its own files (v0.14.0 phase 2)
+
+- `gui/fonts/Geist-Variable.woff2`, `GeistMono-Variable.woff2`, `OFL.txt`: Added — the two fonts and their open licence, bundled so the page fetches nothing from the internet
+- `gui/index.html`: Changed — `@font-face` rules load Geist and Geist Mono, with system fonts as the fallback
+- `server/serve.py`: Changed — sends the right file types for `.woff2` and `.txt` files
+- `evals/assertions/gui.test.js`, `gui-typography.test.js`: Changed — pin the new font rules
+
+### [55] — The dashboard design system gets refreshed colour, radius, shadow and glass tokens (v0.14.0 phase 1)
+
+- `DESIGN-SYSTEM.md`: Added — now tracked in git, with a Mercury-led palette, a larger radius, an overlay shadow and glass tokens, each colour with a `-dark` pair
+- `.gitignore`: Changed — stops ignoring `DESIGN-SYSTEM.md`
+
 ## 2026-09-27
 
 ### [54] — New projects can start from a sample design system, and `phyllum sample` removes or restores it (v0.13.0)
