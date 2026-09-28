@@ -4,6 +4,35 @@ All notable changes to this project will be documented here.
 
 ## 2026-09-28
 
+### [72] — The Library leaves the Assess tab for its own rail entry (v0.14.4)
+
+- `gui/index.html`: Changed — the Library moves out of the Assess group to a `.rail-page` entry above the four stages, with Lucide's `library` icon; it opens its page directly and never expands or collapses. Assess now holds Reports alone. The page-button click answers to the nearest `data-view`, so a click on the entry's icon or label still opens the Library
+- `evals/assertions/gui-rail.test.js`: Changed — Assess holds only Reports. Added — 3 tests for the entry's place and icon, its missing `aria-expanded` and group, and a click on its icon
+- `skill/refs/gui/gui.md`: Changed — describes the Library entry; the Assess row lists Reports alone
+
+### [71] — The Library tabs are underlined tabs, not pills (v0.14.4)
+
+- `gui/index.html`: Changed — the Library tab bar drops the `button.tile-action` pill for a new `button.tab`: plain labels on one `--line` hairline, the live tab marked by a 2px accent line underneath; the button-family comments no longer count the tabs among the pills
+- `evals/assertions/gui.test.js`: Changed — the tab markup assertions read `class="tab"`. Added — 1 test for the hairline, the accent underline and the missing pill radius
+- `README.md`, `skill/refs/gui/gui.md`: Changed — the pill radius step is for chips and toggles, not tabs
+
+### [70] — Tests and docs for the Library tabs (v0.14.4 phase 3)
+
+- `evals/assertions/gui.test.js`: Changed — the removed `data-scope="tokens"` filter-pill assertion now checks the Foundations heading and the Foundations tab instead; the two test titles still saying "opening filter" now say "opening tab". Added — 6 tests covering the three tabs in bar order under the plain Library heading (and absent from the view rail), the page opening on Foundations with the other two panels hidden, the Backlog panel keeping `#backlog-assess`, `showLibraryTab` and `tabForScope` run against a fake DOM, a clicked tab never being overridden by the poll, and the status line dropping "filter: "; the scope-word test now also checks the terminal prints "opening tab: Foundations" or "opening tab: Components"
+- `skill/refs/gui/gui.md`: Changed — the Library entry in "Five views" now describes the three tabs, the plain heading, the default Foundations tab and the tab the scope word opens; the on-page rail's "Visibility" row, the lifecycle note and the two `segmented filter`/`filters` mentions in the styling section now say "opening tab" and "tabs"
+- `skill/refs/gui/server.md`: Changed — `GET /state`'s `scope` field is now described as "the opening tab"
+- `README.md`: Changed — the radius-scale sentence now says "chips and tabs" rather than "chips and filters"
+
+### [69] — The terminal says "opening tab" instead of "opening filter" (v0.14.4 phase 2)
+
+- `lib/gui-command.js`: Changed — `gui`/`dashboard` print `opening tab: Foundations` or `opening tab: Components` (new `openingTabLabel` helper, mirroring the page's own `tabForScope`) in place of `opening filter: <scope>`
+- `lib/registry.js`: Changed — the `gui` command's help text and argument description name the opening tab instead of the opening filter
+- `server/serve.py`: Changed — the `GET /state` docstring names the opening tab instead of the opening filter
+
+### [68] — The Library's filter pills become a tab bar (v0.14.4 phase 1)
+
+- `gui/index.html`: Changed — the Library view's boxed header card, subtitle and "all / tokens / components" filter pills are replaced by a plain "Library" heading and a Foundations / Components / Backlog tab bar (`#library-tabs`, `role="tablist"`); each tab shows its own panel and hides the other two, the terminal's scope word only picks the opening tab (until the reader clicks one), the "On page" rail shows only on the Foundations tab, and the status line drops "filter: "
+
 ### [67] — Dashboard prompts reach the Claude Code session (the Assess button works)
 
 - `lib/relay.js`: Added — drains `kind: "prompt"` queue entries (repeats collapsed, image uploads left for `create`), a `UserPromptSubmit` / `Stop` hook pair, a background watcher that exits when a prompt arrives or the dashboard stops, and a merge-only installer for `.claude/settings.local.json`

@@ -23,9 +23,15 @@ it (v0.14.1 §2, wired through `aria-expanded` on the tab and `aria-controls`
 naming its group). On first load every tab is collapsed, and opening one
 tab never closes another — several can stay open at once.
 
+The Library sits above the four stages as its own rail entry (v0.14.4):
+`.rail-page`, `data-view="library"`, with Lucide's `library` icon. It opens
+its page directly, so it is the one rail entry that never expands or
+collapses — no `aria-expanded`, no group — and it is the page the dashboard
+opens on.
+
 | Stage | What sits under it |
 |-------|---------------------|
-| Assess | Library and Reports — the Backlog panel's own `#backlog-assess` button posts the literal `assess` prompt, and Reports (v0.9.0 §5) shows what that command left behind under `.phyllum/` |
+| Assess | Reports (v0.9.0 §5) — what `assess` left behind under `.phyllum/`; the prompt itself is posted by the Library Backlog tab's own `#backlog-assess` button |
 | Governance | nothing yet — the tab still appears, with a quiet `nothing yet` chip in its group in place of a button, because an empty stage is still a real stage (v0.8.0 §1) |
 | Build | Workbench, Build reports and Token view — the active `create` session, the numbered build reports `create`/`build` has written (v0.10.0 §5), and the raw-value reading that feeds the next `tokenise` run |
 | Refine | nothing yet — same quiet chip as Governance |
@@ -45,10 +51,15 @@ wiring rather than a second kind.
    `refs/gui/cards.md`). Clicking a component shows the component itself — an
    HTML rendering projected from its recorded spec, with a variant toggle and a
    states toggle (`refs/gui/component-preview.md`) — and then its spec and its
-   code. The scope argument picks the opening filter: `tokens`, `components`, or
-   `all` (the default). The user can still switch filters inside the GUI. The
-   token panel's own `<h2>` reads "Foundations" (v0.14.2); the `tokens` scope
-   filter button and the "Token view" page keep their own, unrelated names.
+   code. A plain "Library" heading sits over three tabs (v0.14.4 §1) —
+   Foundations, Components, Backlog — each showing its own section and hiding
+   the other two; the scope argument picks the opening tab (`components` opens
+   Components, `tokens`/`all`/anything else opens Foundations, the default),
+   and clicking a tab is the reader's own choice, which the terminal's scope
+   word never overrides again. The on-page "On this page" rail (below) shows
+   only on the Foundations tab. The token panel's own `<h2>` reads
+   "Foundations" (v0.14.2); the "Token view" page keeps its own, unrelated
+   name.
 2. **Reports** — every numbered assessment `phyllum assess` has written under
    `.phyllum/`, as tables: one row per report in the list, and inside a report
    the drift findings and the recommendations as rows of their own. Read-only
@@ -78,7 +89,7 @@ no CDN, and no build step.
 - **Rounder** — rounded corners are the default: tiles, chips, buttons, inputs,
   the preview stage, the colour-card swatch. Three CSS variables carry the
   scale (`--radius-sm`, `--radius-md`, `--radius-lg`), plus a fourth,
-  `--radius-pill`, that rounds a chip or a segmented filter's ends rather than
+  `--radius-pill`, that rounds a chip or a segmented control's ends rather than
   its corners, so the page rounds from one place. Sharp corners are the
   departure that needs recording now, not the rule.
 - **Bordered** — every raised surface carries a 1px `--line` hairline as well
@@ -117,7 +128,7 @@ no CDN, and no build step.
 | Type stack | `'Geist'` first, then system sans; mono is `'Geist Mono'` then system mono |
 | Webfont | Geist and Geist Mono, bundled as variable-weight `.woff2` files under `gui/fonts/` and loaded through `@font-face`, with the system stack as the fallback; nothing is fetched over the network |
 | Network | the page makes same-origin requests to its own server only (`/state`, `/system`, `/prompt`, `/upload`, and the files under `/fonts/`); no external URL appears anywhere in the file |
-| Radius | three steps, `--radius-sm`, `--radius-md` and `--radius-lg`, plus `--radius-pill` for chips and filters; every rounded corner on the page reads one of them |
+| Radius | three steps, `--radius-sm`, `--radius-md` and `--radius-lg`, plus `--radius-pill` for chips and toggles; every rounded corner on the page reads one of them |
 | Glass | translucent panels on the header, the sidebars and the panels and top-level token sections, with a solid fallback where the browser cannot blur or the reader has asked for less transparency |
 | Themes | a cool near-white light theme (the design's default) and a blue-black dark one, one CSS variable set each, picked by the theme control below |
 
@@ -367,7 +378,7 @@ which one is in view.
 | Links | plain `<a href="#…">` per heading, inside one `<ul>`; the anchor itself is the fallback — remove every script on the page and the links still scroll |
 | Scroll | CSS `scroll-behavior: smooth`, disabled under `prefers-reduced-motion: reduce` in its own media query rather than a scroll handler |
 | Active link | `IntersectionObserver`, disconnected and rebuilt on every `buildRail()` call rather than merely appended to, so it never tracks a heading a previous render already replaced |
-| Visibility | shown only while the token panel is on screen — the Library view, with the token filter on — hidden for the Workbench view and for the Components-only filter |
+| Visibility | shown only while the token panel is on screen — the Library view's Foundations tab — hidden for the Workbench view and for the Library's Components and Backlog tabs (v0.14.4 §1) |
 | Placement | sticky, `top: 3rem`, on the margin outside `--measure`; it steps aside below `75rem` viewport width rather than squeezing the reading column |
 
 The two pure facts an id rests on — `slugify` and `dedupeId` — live in the
@@ -419,7 +430,7 @@ region, so the two cannot drift.
   under `gui` in `.phyllum/session.json`.
 - A second `phyllum gui` while one is running reprints the URL rather than
   starting a second process. A new scope word updates the recorded opening
-  filter, which the page picks up on its next poll — still one server.
+  tab, which the page picks up on its next poll — still one server.
 - A recorded server that no longer answers is treated as stale: the record is
   cleared and a fresh one started.
 - `phyllum kill` reads the record, sends `SIGTERM`, and clears the entry. With

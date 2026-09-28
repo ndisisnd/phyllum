@@ -122,7 +122,7 @@ test('the group contents match the stage table — pages where there are pages, 
   const tabs = new Map(railTabs(readPage()).map((tab) => [tab.stage, tab]));
 
   const views = (stage) => [...tabs.get(stage).group.matchAll(/data-view="([a-z-]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(views('assess'), ['library', 'reports']);
+  assert.deepEqual(views('assess'), ['reports'], 'the Library moved out to its own rail entry (v0.14.4)');
   assert.deepEqual(views('build'), ['workbench', 'build-reports', 'tokens']);
 
   for (const stage of ['governance', 'refine']) {
@@ -142,6 +142,46 @@ test('all five views still exist, and each data-view value is used exactly once'
 });
 
 // ---------------------------------------------------------------------------
+// The Library entry — its own rail item, above the stages, never a group
+// ---------------------------------------------------------------------------
+
+test('the Library sits in the rail on its own, above the four stages, with its own Lucide icon', () => {
+  const page = readPage();
+  const nav = page.slice(page.indexOf('<nav id="views">'), page.indexOf('</nav>'));
+  const match = nav.match(/<button class="rail-page" data-view="library"[^>]*>([\s\S]*?)<\/button>/);
+  assert.ok(match, 'the Library is a rail entry of its own');
+  assert.ok(match.index < nav.indexOf('class="rail-tab"'), 'it comes before the first stage tab');
+  assert.match(match[1], /<svg class="rail-icon"[^>]*>/, 'it carries an inline rail-icon svg');
+  assert.ok(match[1].includes('M4 4v16'), 'the icon is Lucide `library`');
+  for (const [stage, fragment] of Object.entries(ICON_FRAGMENTS)) {
+    assert.ok(!match[1].includes(fragment), `the Library icon does not also carry ${stage}'s path`);
+  }
+  assert.ok(match[1].includes('>Library<'), 'it carries its label');
+});
+
+test('the Library entry never expands or collapses: no aria-expanded, no group of its own', () => {
+  const page = readPage();
+  const tag = page.match(/<button class="rail-page" data-view="library"[^>]*>/)[0];
+  assert.ok(!tag.includes('aria-expanded'), 'it is not a disclosure');
+  assert.ok(!tag.includes('aria-controls'), 'it owns no group');
+  assert.ok(!page.includes('id="rail-group-library"'), 'there is no Library group to open');
+  assert.match(tag, /aria-selected="true"/, 'it is the page the dashboard opens on');
+});
+
+test('a click on the Library entry\'s icon or label still opens the Library', () => {
+  const text = readPage();
+  const start = text.indexOf("const page = event.target.closest && event.target.closest('[data-view]');");
+  const end = text.indexOf('if (!view) return;', start);
+  assert.ok(start !== -1 && end > start, 'the page-button lookup is at a findable spot');
+  // eslint-disable-next-line no-new-func
+  const lookup = new Function('event', `${text.slice(start, end)} return view;`);
+  const entry = { dataset: { view: 'library' } };
+  const icon = { closest: (selector) => (selector === '[data-view]' ? entry : null) };
+  assert.equal(lookup({ target: icon }), 'library', 'the nearest data-view answers for a click on the svg');
+  assert.equal(lookup({ target: { closest: () => null } }), null, 'a click on no page button opens nothing');
+});
+
+// ---------------------------------------------------------------------------
 // The toggle — the handler's own logic, run rather than restated
 // ---------------------------------------------------------------------------
 
@@ -155,7 +195,7 @@ test('all five views still exist, and each data-view value is used exactly once'
 function tabToggle() {
   const text = readPage();
   const start = text.indexOf("const tab = event.target.closest && event.target.closest('.rail-tab');");
-  const end = text.indexOf('const view = event.target.dataset');
+  const end = text.indexOf("const page = event.target.closest && event.target.closest('[data-view]');");
   assert.ok(start !== -1 && end > start, 'the page still has the tab-toggling block at a findable spot');
   const block = text.slice(start, end);
   assert.ok(!/\bdocument\b|\bfetch\s*\(/.test(block), 'the block touches no real document and no network');
