@@ -15,7 +15,7 @@ Contract:
   * Serves the static page in ../gui/index.html.
   * JSON API:
       GET  /state    the shared session state read from .phyllum/session.json,
-                     including the workbench draft and the opening filter
+                     including the workbench draft and the opening tab
       GET  /system   tokens + components of DESIGN-SYSTEM.md
       GET  /reports  the numbered assessment reports under .phyllum/, newest
                      first, read back into fields the page renders as tables
