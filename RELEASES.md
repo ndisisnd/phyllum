@@ -2,6 +2,20 @@
 
 What's new for you, release by release.
 
+## 0.14.5 — 2026-09-30
+
+> The Components tab shows every component at once. Each one sits in its own
+> box, with its preview and its code, so there is nothing to tap first.
+
+### 📈 Improved
+- See every component without a tap. Each box shows the name, the `applied`
+  badge, the preview and the code. The pick list and its placeholder are gone.
+- Try a variant, state or icon in one box. The other boxes stay as they are,
+  and your choices stay put when the file changes.
+- Fold a box to its name with a click on its heading. Click again to open it.
+- Jump to any component from the "On this page" list at the side. A folded
+  box opens when you jump to it.
+
 ## 0.14.4 — 2026-09-28
 
 > The Library is easier to move around. It now has its own place in the side

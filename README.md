@@ -28,12 +28,12 @@
 <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>llms.txt</code></a>.
 </sub></p>
 
-<!-- mkpub:release 0.14.4 -->
+<!-- mkpub:release 0.14.5 -->
 > [!NOTE]
-> **🚀 New in 0.14.4 · Library tabs**
+> **🚀 New in 0.14.5 · Every component on show**
 >
-> The Library now has its own item in the side panel, and its Foundations, Components
-> and Backlog sections sit under three tabs. The filter buttons and the boxed header are gone.
+> The Components tab shows every component at once, each in its own box with its preview
+> and code. Fold a box with a click, and jump to any component from the side list.
 > Update with `phyllum upgrade` · [Release notes](RELEASES.md)
 <!-- /mkpub:release -->
 
