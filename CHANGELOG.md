@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-09-30
+
+### [77] — The Components tab gets its own "On this page" rail (v0.14.5)
+
+- `gui/index.html`: Added — the on-page rail now shows on the Components tab too, with its own list `#rail-toc-components`: one link per component container, labelled with the container's own component. Each container carries a `component-N` id, and `renderComponents()` rebuilds the rail after every redraw. A link to a collapsed container reopens it before the jump, and `scroll-margin-top` lands the container below the sticky header. Changed — `updateRailVisibility()` shows the token list on Foundations and the component list on Components; `renderLibrary()` leaves the rail rebuild to `renderComponents()`
+- `evals/assertions/gui.test.js`: Changed — the Library tab test expects the rail on the Components tab with the component list shown, and the container markup assertions read the `component-N` id. Added — 3 tests for the ids and the rebuild on each redraw, a rail link reopening a collapsed container, and `buildRail` listing one escaped link per container
+- `skill/refs/gui/gui.md`: Changed — the Library entry and the on-page rail table describe the Components tab's own list
+
 ## 2026-09-28
 
 ### [76] — A component container collapses and reopens (v0.14.5)

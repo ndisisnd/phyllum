@@ -451,6 +451,7 @@
       }
       nav.rail-toc[hidden] { display: none; }
       nav.rail-toc ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.125rem; }
+      nav.rail-toc ul[hidden] { display: none; }
       nav.rail-toc a {
         display: block;
         padding: 0.35rem 0.75rem;
@@ -967,6 +968,9 @@
          alone, so the heading drops its bottom margin and the body carries
          the gap instead. */
       .component-container > h3 { margin-bottom: 0; }
+      /* A rail link lands a container below the sticky header, not under it
+         (v0.14.5 §5). */
+      .component-container { scroll-margin-top: 4rem; }
       .component-body { margin-top: var(--space-1); }
       .component-toggle {
         display: flex;
@@ -1524,6 +1528,9 @@
       <nav class="rail-toc" id="rail-toc" aria-label="On this page" hidden>
         <span class="rail-label">On this page</span>
         <ul id="rail-toc-list"></ul>
+        <!-- The Components tab's own list (v0.14.5 §5): one link per
+             component container, shown in place of the token list above. -->
+        <ul id="rail-toc-components" hidden></ul>
       </nav>
     </div>
 
@@ -3502,14 +3509,20 @@
       }
 
       /**
-       * The rail shows only while the token panel is the thing on screen
-       * (v0.6.0 §4) — not the Workbench view, and not the Components or
-       * Backlog tab of the Library view (v0.14.4 §1).
+       * The rail shows while the token panel is the thing on screen
+       * (v0.6.0 §4), and while the Components tab is (v0.14.5 §5) — not the
+       * Workbench view, and not the Backlog tab of the Library view
+       * (v0.14.4 §1). Each of the two tabs shows its own list.
        */
       function updateRailVisibility() {
         const nav = el('rail-toc');
         if (!nav) return;
-        nav.hidden = !(state.view === 'library' && state.libraryTab === 'foundations');
+        const tab = state.libraryTab;
+        nav.hidden = !(state.view === 'library' && (tab === 'foundations' || tab === 'components'));
+        const tokens = el('rail-toc-list');
+        if (tokens) tokens.hidden = tab !== 'foundations';
+        const components = el('rail-toc-components');
+        if (components) components.hidden = tab !== 'components';
       }
 
       /**
@@ -3541,6 +3554,12 @@
        * Every heading earns a stable, deduplicated id along the way, so a
        * click always lands on the section it named even when two sections
        * share a label.
+       *
+       * The Components tab's list is read the same way, off the containers
+       * `#components-body` was just given (v0.14.5 §5): one link per
+       * container, labelled with the container's own component — not a
+       * sibling its variant toggle is showing — and pointing at the
+       * container's `component-N` id.
        */
       function buildRail() {
         updateRailVisibility();
@@ -3556,7 +3575,20 @@
             return '<li><a href="#' + esc(h.id) + '">' + esc(label) + '</a></li>';
           })
           .join('');
-        observeRail(headings);
+
+        const body = el('components-body');
+        const componentList = el('rail-toc-components');
+        const components = state.system && Array.isArray(state.system.components) ? state.system.components : [];
+        const containers = body ? Array.from(body.querySelectorAll('.component-container')) : [];
+        if (componentList) {
+          componentList.innerHTML = containers
+            .map((section) => {
+              const component = components[Number(section.dataset.index)];
+              return '<li><a href="#' + esc(section.id) + '">' + esc(component && component.name) + '</a></li>';
+            })
+            .join('');
+        }
+        observeRail(headings.concat(containers));
       }
 
       function renderLibrary() {
@@ -3594,9 +3626,10 @@
         ])
           .map((unit) => unit.html)
           .join('');
-        // The rail rebuilds from the DOM the line above just wrote — never
-        // from a list carried over from the last render (v0.6.0 §4).
-        buildRail();
+        // The rail rebuilds from the DOM this render writes — never from a
+        // list carried over from the last render (v0.6.0 §4). It waits for
+        // the component containers below, since `renderComponents()` calls it
+        // once they are drawn (v0.14.5 §5).
 
         // The `applied` badge (v0.5.0 §3.4). It is the page's own chip — no new
         // colour, no new shape — and it is drawn for `applied: true` alone: a
@@ -3716,9 +3749,14 @@
               const body = reading
                 ? componentBodyHtml(components, reading.index, reading.state, reading.icons, index, open)
                 : componentBodyHtml(components, index, PREVIEW.baseState, {}, index, open);
-              return body ? '<section class="container component-container" data-index="' + index + '">' + body + '</section>' : '';
+              return body
+                ? '<section class="container component-container" id="component-' + index + '" data-index="' + index + '">' + body + '</section>'
+                : '';
             })
             .join('') || '<p class="muted">No components yet. Run <code>phyllum create</code>.</p>';
+        // Every redraw replaces the containers, so the rail relinks and
+        // re-observes the new ones (v0.14.5 §5).
+        buildRail();
       }
 
       /** The Tokens view's panel for one picked component. */
@@ -3801,6 +3839,19 @@
           };
         }
         renderComponents();
+      });
+
+      // A rail link to a collapsed container opens it before the jump
+      // (v0.14.5 §5): the reader asked to see the component, not its heading
+      // alone. The anchor's own jump then lands on the redrawn container.
+      el('rail-toc').addEventListener('click', (event) => {
+        const link = event.target.closest && event.target.closest('a');
+        if (!link) return;
+        const match = (link.getAttribute('href') || '').match(/^#component-(\d+)$/);
+        if (match && state.collapsed[match[1]]) {
+          delete state.collapsed[match[1]];
+          renderComponents();
+        }
       });
 
       el('token-view-list').addEventListener('click', (event) => {

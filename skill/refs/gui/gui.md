@@ -64,7 +64,8 @@ wiring rather than a second kind.
    Components, `tokens`/`all`/anything else opens Foundations, the default),
    and clicking a tab is the reader's own choice, which the terminal's scope
    word never overrides again. The on-page "On this page" rail (below) shows
-   only on the Foundations tab. The token panel's own `<h2>` reads
+   on the Foundations tab and, with its own list of components, on the
+   Components tab (v0.14.5 §5). The token panel's own `<h2>` reads
    "Foundations" (v0.14.2); the "Token view" page keeps its own, unrelated
    name.
 2. **Reports** — every numbered assessment `phyllum assess` has written under
@@ -373,7 +374,8 @@ GitBook's "On this page" pattern: a second, quieter rail — `nav.rail-toc`,
 `aria-label="On this page"` — sitting on the margin outside the content
 column rather than beside `nav#views`, so the two rails never compete for the
 same attention. It lists the token panel's own section headings and tracks
-which one is in view.
+which one is in view. On the Components tab it lists the component containers
+instead (v0.14.5 §5).
 
 <!-- phyllum:rail -->
 
@@ -382,10 +384,11 @@ which one is in view.
 | Source | never a hard-coded list — `buildRail` reads `#tokens-body h3` after every `renderLibrary()` render, because the sections themselves come and go with the file (v0.6.0 §1); since the sections are rendered in alphabetical order (v0.14.2, see "Section order" above) the rail lists them in that same order, because it is read straight off the DOM `renderLibrary` just wrote |
 | Labels | each heading's own text, count excluded — the same string `heading()` escaped when it built the section, read back off the live DOM |
 | Ids | a slug of the label (`slugify`), deduplicated against every id already handed out in the same pass (`dedupeId`) — two sections sharing a label still get two working anchors, `foo` and `foo-2` |
+| Components list | a second `<ul>`, `#rail-toc-components`, shown in place of the token list while the Components tab is on screen (v0.14.5 §5). `buildRail` reads it off the `.component-container` sections `renderComponents()` just drew, which calls `buildRail` after every redraw — one link per container, labelled with the container's own component rather than a sibling its variant toggle shows, pointing at its `component-N` id. A link to a collapsed container reopens it before the jump, and `scroll-margin-top` lands the container below the sticky header |
 | Links | plain `<a href="#…">` per heading, inside one `<ul>`; the anchor itself is the fallback — remove every script on the page and the links still scroll |
 | Scroll | CSS `scroll-behavior: smooth`, disabled under `prefers-reduced-motion: reduce` in its own media query rather than a scroll handler |
-| Active link | `IntersectionObserver`, disconnected and rebuilt on every `buildRail()` call rather than merely appended to, so it never tracks a heading a previous render already replaced |
-| Visibility | shown only while the token panel is on screen — the Library view's Foundations tab — hidden for the Workbench view and for the Library's Components and Backlog tabs (v0.14.4 §1) |
+| Active link | `IntersectionObserver`, disconnected and rebuilt on every `buildRail()` call rather than merely appended to, so it never tracks a heading a previous render already replaced; it observes the token headings and the component containers together |
+| Visibility | shown while the Library view's Foundations tab (v0.14.4 §1) or Components tab (v0.14.5 §5) is on screen, each with its own list; hidden for the Workbench view and for the Library's Backlog tab |
 | Placement | sticky, `top: 3rem`, on the margin outside `--measure`; it steps aside below `75rem` viewport width rather than squeezing the reading column |
 
 The two pure facts an id rests on — `slugify` and `dedupeId` — live in the

@@ -1004,7 +1004,8 @@ function libraryTabContract() {
     'backlog-panel': { hidden: true },
   };
   const railToc = { hidden: false };
-  const elements = { 'library-tabs': { querySelectorAll: () => Object.values(buttons) }, 'rail-toc': railToc, ...panels };
+  const railLists = { 'rail-toc-list': { hidden: false }, 'rail-toc-components': { hidden: true } };
+  const elements = { 'library-tabs': { querySelectorAll: () => Object.values(buttons) }, 'rail-toc': railToc, ...railLists, ...panels };
   const document = { getElementById: (id) => elements[id] ?? null };
   const state = { view: 'library', libraryTab: 'foundations' };
 
@@ -1013,11 +1014,11 @@ function libraryTabContract() {
     'state',
     `${consts}\n${elSrc}\n${selectSrc}\n${restSrc}\nreturn { showLibraryTab, tabForScope, updateRailVisibility };`,
   );
-  return { ...factory(document, state), buttons, panels, railToc, state };
+  return { ...factory(document, state), buttons, panels, railToc, railLists, state };
 }
 
 test('showLibraryTab shows exactly one panel, marks only that tab selected, and the rail follows', () => {
-  const { showLibraryTab, buttons, panels, railToc, state } = libraryTabContract();
+  const { showLibraryTab, buttons, panels, railToc, railLists, state } = libraryTabContract();
 
   showLibraryTab('components');
   assert.equal(state.libraryTab, 'components');
@@ -1028,14 +1029,16 @@ test('showLibraryTab shows exactly one panel, marks only that tab selected, and 
   assert.equal(buttons.foundations.attrs['aria-selected'], 'false');
   assert.equal(buttons.components.attrs['aria-selected'], 'true');
   assert.equal(buttons.backlog.attrs['aria-selected'], 'false');
-  assert.equal(railToc.hidden, true, 'the rail hides off the Foundations tab');
+  assert.equal(railToc.hidden, false, 'the rail stays on the Components tab (v0.14.5 §5)');
+  assert.equal(railLists['rail-toc-list'].hidden, true, 'with the token list hidden');
+  assert.equal(railLists['rail-toc-components'].hidden, false, 'and the component list shown');
 
   showLibraryTab('backlog');
   assert.deepEqual(
     Object.entries(panels).map(([id, panel]) => [id, panel.hidden]),
     [['tokens-panel', true], ['components-panel', true], ['backlog-panel', false]],
   );
-  assert.equal(railToc.hidden, true);
+  assert.equal(railToc.hidden, true, 'the rail hides on the Backlog tab');
 
   showLibraryTab('foundations');
   assert.deepEqual(
@@ -1043,6 +1046,8 @@ test('showLibraryTab shows exactly one panel, marks only that tab selected, and 
     [['tokens-panel', false], ['components-panel', true], ['backlog-panel', true]],
   );
   assert.equal(railToc.hidden, false, 'the rail returns once Foundations is back on screen');
+  assert.equal(railLists['rail-toc-list'].hidden, false, 'with the token list back');
+  assert.equal(railLists['rail-toc-components'].hidden, true, 'and the component list hidden');
 
   // An unrecognised tab name is refused rather than blanking every panel.
   showLibraryTab('sideways');
@@ -1169,14 +1174,18 @@ function componentsTabContract() {
     'components-body': fakeEl(),
     'token-view-list': fakeEl(),
     'token-view-detail': fakeEl(),
+    'rail-toc': fakeEl(),
   };
   const document = { getElementById: (id) => elements[id] ?? null };
-  const state = { system: null, previews: {}, collapsed: {}, tokenViewSelected: null };
+  const state = { system: null, previews: {}, collapsed: {}, tokenViewSelected: null, railBuilds: 0 };
 
+  // The rail has its own contract below; here it only counts the rebuilds a
+  // redraw asks for.
+  const railStub = 'function buildRail() { state.railBuilds += 1; }';
   const factory = new Function(
     'document',
     'state',
-    `${swatch}\n${preview}\n${elSrc}\n${bodySrc}\n${clickSrc}\nreturn { renderComponents, showTokenView };`,
+    `${swatch}\n${preview}\n${elSrc}\n${railStub}\n${bodySrc}\n${clickSrc}\nreturn { renderComponents, showTokenView };`,
   );
   return { ...factory(document, state), elements, state };
 }
@@ -1229,7 +1238,7 @@ test('renderComponents draws one container per component, in full, with no tap',
 
   renderComponents();
   const body = elements['components-body'].innerHTML;
-  const sections = [...body.matchAll(/<section class="container component-container" data-index="(\d+)">/g)];
+  const sections = [...body.matchAll(/<section class="container component-container" id="component-\d+" data-index="(\d+)">/g)];
   assert.deepEqual(sections.map((m) => m[1]), ['0', '1', '2'], 'one container per component, in file order');
 
   assert.match(body, /<span>Button\/Primary <span class="chip applied">applied<\/span><\/span><\/button><\/h3>/, 'the applied badge shows for applied: true');
@@ -1331,6 +1340,80 @@ test('every container opens by default, and its heading button collapses and reo
   state.system = { components: COMPONENTS_FIXTURE.slice(0, 2) };
   renderComponents();
   assert.deepEqual(state.collapsed, {}, 'container 2 is gone, so its mark drops');
+});
+
+/** A fake click on a rail link. */
+function railClick(href) {
+  const link = { getAttribute: (name) => (name === 'href' ? href : null) };
+  return { target: { closest: (selector) => (selector === 'a' ? link : null) } };
+}
+
+test('every container carries a component-N id, and each redraw rebuilds the rail (v0.14.5 §5)', () => {
+  const { renderComponents, elements, state } = componentsTabContract();
+  state.system = { components: COMPONENTS_FIXTURE };
+  renderComponents();
+  const ids = [...elements['components-body'].innerHTML.matchAll(/<section class="container component-container" id="(component-\d+)" data-index="\d+">/g)];
+  assert.deepEqual(ids.map((m) => m[1]), ['component-0', 'component-1', 'component-2']);
+  assert.equal(state.railBuilds, 1, 'the redraw relinks the rail');
+
+  elements['components-body'].click(collapseClick(0));
+  assert.equal(state.railBuilds, 2, 'and so does a redraw a click asks for');
+});
+
+test('a rail link to a collapsed container opens it, and leaves an open one alone (v0.14.5 §5)', () => {
+  const { renderComponents, elements, state } = componentsTabContract();
+  state.system = { components: COMPONENTS_FIXTURE };
+  renderComponents();
+  elements['components-body'].click(collapseClick(2));
+  assert.deepEqual(state.collapsed, { 2: true });
+
+  elements['rail-toc'].click(railClick('#component-2'));
+  assert.deepEqual(state.collapsed, {}, 'the collapsed target reopens');
+  assert.match(containerHtml(elements['components-body'].innerHTML, 2), /aria-expanded="true"/);
+
+  const builds = state.railBuilds;
+  elements['rail-toc'].click(railClick('#component-0'));
+  elements['rail-toc'].click(railClick('#colours'));
+  assert.equal(state.railBuilds, builds, 'an open target, or a token heading, redraws nothing');
+});
+
+test('buildRail lists one link per component container, named for the container\'s own component (v0.14.5 §5)', () => {
+  const text = readPage();
+  const start = text.indexOf('function buildRail() {');
+  const end = text.indexOf('function renderLibrary() {');
+  const src = text.slice(start, end);
+  assert.ok(start !== -1 && end > start, 'buildRail sits right before renderLibrary');
+
+  const section = (index) => ({ id: 'component-' + index, dataset: { index: String(index) } });
+  const elements = {
+    'tokens-body': { querySelectorAll: () => [] },
+    'rail-toc-list': { innerHTML: '' },
+    'components-body': { querySelectorAll: (selector) => (selector === '.component-container' ? [section(0), section(1)] : []) },
+    'rail-toc-components': { innerHTML: '' },
+  };
+  const observed = [];
+  const state = { system: { components: [{ name: 'Button/Primary' }, { name: 'Card/<Basic>' }] } };
+  const buildRail = new Function(
+    'document',
+    'state',
+    'observed',
+    `const el = (id) => document.getElementById(id);
+     const esc = (value) => String(value ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+     function updateRailVisibility() {}
+     function headingLabel() { return ''; }
+     function dedupeId() { return ''; }
+     function observeRail(targets) { observed.push(...targets); }
+     ${src}
+     return buildRail;`,
+  )({ getElementById: (id) => elements[id] ?? null }, state, observed);
+
+  buildRail();
+  assert.equal(
+    elements['rail-toc-components'].innerHTML,
+    '<li><a href="#component-0">Button/Primary</a></li><li><a href="#component-1">Card/&lt;Basic&gt;</a></li>',
+    'one escaped link per container, in page order',
+  );
+  assert.deepEqual(observed.map((target) => target.id), ['component-0', 'component-1'], 'the containers are observed for the active link');
 });
 
 test('showTokenView still draws a picked component\'s token usage', () => {
