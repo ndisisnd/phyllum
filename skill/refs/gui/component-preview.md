@@ -1,9 +1,14 @@
 ## The component preview (v0.4.1 §4)
 
-Clicking a component in the Library view has always shown its spec and its code.
-Since v0.4.1 the panel shows the **component** first: an HTML rendering built
-from the recorded spec, with the design system's own token values resolved into
-it. The labelled `yaml` and `jsx` blocks stay exactly as they were, beneath it.
+The Components tab has always shown a component's spec and its code. Since
+v0.4.1 the **component** shows first: an HTML rendering built from the
+recorded spec, with the design system's own token values resolved into it. The
+labelled `yaml` and `jsx` blocks stay exactly as they were, beneath it.
+
+Since v0.14.5 every component draws this way at once, each in its own
+container on the tab — there is nothing left to tap. A container's toggles
+change that container's reading alone, and a live re-read of the file keeps
+every container's reading (v0.14.5 §1, §2).
 
 ### Spec-projection, not code execution
 
@@ -41,8 +46,8 @@ the page: the dashboard shows the file.
 
 <!-- phyllum:applied-badge -->
 
-| `applied` | Component list | Preview panel heading |
-|-----------|----------------|-----------------------|
+| `applied` | Tokens view list | Component container heading |
+|-----------|-------------------|------------------------------|
 | `true` | the name, then a chip reading `applied` | the same chip, beside the component's name |
 | `false` | the name alone | the name alone |
 | absent (no flag yet) | the name alone | the name alone |
@@ -164,11 +169,12 @@ no-invented-values rule in the one place a user would believe it.
 ### The variant toggle
 
 Component names are `Archetype/Variant`. The Library groups entries sharing a
-base name — the part before the last `/` — and the preview panel for any member
+base name — the part before the last `/` — and the container for any member
 shows a toggle row, one button per variant, the clicked one active. It swaps the
-rendered spec in place without leaving the panel. **A component with no variant
-siblings shows no toggle at all**, because a picker with one option is a label
-wearing a button's clothes.
+rendered spec in place without leaving the container — a variant toggle changes
+that one container's reading, and no other (v0.14.5 §2). **A component with no
+variant siblings shows no toggle at all**, because a picker with one option is
+a label wearing a button's clothes.
 
 ### The states toggle
 
@@ -194,7 +200,7 @@ button has a leading icon, a trailing icon, or neither. The row shows one on/off
 control per recorded slot, and flipping one shows or hides that slot's
 placeholder in the stage.
 
-Four rules hold it to the same honesty the rest of the panel keeps:
+Four rules hold it to the same honesty the rest of the container keeps:
 
 - **Derived, never invented.** A control appears **only for a slot the spec
   records**. A spec with no `trailing-icon` shows no trailing-icon control — an
@@ -268,9 +274,9 @@ grows with a recorded type slot and never states a size of its own.
 
 ### Placement and treatment
 
-The preview and its toggle rows are the panel's **first** section. The labelled
-`yaml` and `jsx` blocks follow, unchanged — the panel gained a section, it did
-not lose one.
+The preview and its toggle rows are the container's **first** section. The
+labelled `yaml` and `jsx` blocks follow, unchanged — the container gained a
+section, it did not lose one.
 
 | Element | Treatment |
 |---------|-----------|

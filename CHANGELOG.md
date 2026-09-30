@@ -2,7 +2,36 @@
 
 All notable changes to this project will be documented here.
 
+## 2026-09-30
+
+### [77] — The Components tab gets its own "On this page" rail (v0.14.5)
+
+- `gui/index.html`: Added — the on-page rail now shows on the Components tab too, with its own list `#rail-toc-components`: one link per component container, labelled with the container's own component. Each container carries a `component-N` id, and `renderComponents()` rebuilds the rail after every redraw. A link to a collapsed container reopens it before the jump, and `scroll-margin-top` lands the container below the sticky header. Changed — `updateRailVisibility()` shows the token list on Foundations and the component list on Components; `renderLibrary()` leaves the rail rebuild to `renderComponents()`
+- `evals/assertions/gui.test.js`: Changed — the Library tab test expects the rail on the Components tab with the component list shown, and the container markup assertions read the `component-N` id. Added — 3 tests for the ids and the rebuild on each redraw, a rail link reopening a collapsed container, and `buildRail` listing one escaped link per container
+- `skill/refs/gui/gui.md`: Changed — the Library entry and the on-page rail table describe the Components tab's own list
+
 ## 2026-09-28
+
+### [76] — A component container collapses and reopens (v0.14.5)
+
+- `gui/index.html`: Added — each Components tab container's heading is a disclosure button with Lucide's `chevron-down`; a click collapses the container to its name and a second click reopens it. Every container opens by default. `state.collapsed` holds the collapsed containers by `data-index`, survives a live re-read, and drops a container that is gone
+- `evals/assertions/gui.test.js`: Changed — the container heading assertions read the name inside the button. Added — 1 test for the default open state, one container collapsing alone, the collapse surviving a redraw, reopening, and the mark dropping with its container
+- `evals/assertions/applied.test.js`: Changed — the badge assertion reads the badge inside the heading button
+- `skill/refs/gui/gui.md`: Changed — the Library entry describes the collapsible containers
+
+### [75] — Tests and docs for the Components tab's containers (v0.14.5 phase 3)
+
+- `evals/assertions/gui.test.js`: Added — 5 tests covering the Components tab's markup (`#components-body`, no `#component-list` or `#component-detail`, the placeholder gone, the Tokens view's own list and panel untouched), `renderComponents` against a small fixture (one container per component, the `applied` badge, the preview and the code blocks, the empty-file message), a state toggle and an attribute toggle each persisting in their own container while a third stays at default, a variant toggle swapping only its own container, readings surviving a second `renderComponents()` call and dropping on a re-read with fewer components, and `showTokenView` still drawing a picked component's token usage
+- `skill/refs/gui/gui.md`: Changed — the Library entry in "Five views" now describes the Components tab showing every component in full, each in its own container with no tap, and each container keeping its own toggle reading
+- `skill/refs/gui/component-preview.md`: Changed — describes the preview living inside each component's own container rather than a single shared panel, a toggle changing only its own container, and readings surviving a live re-read; the `applied` badge table's "Component list" column is now "Tokens view list", the one list left that shows the badge
+
+### [74] — Each container keeps its own toggles (v0.14.5 phase 2)
+
+- `gui/index.html`: Changed — the Components tab's preview toggle reading moves from one page-wide `state.selected`/`state.previewState`/`state.previewIcons` to `state.previews`, one reading per container keyed by its `data-index`; the click handler on `#components-body` now updates only the clicked container's reading; `renderComponents()` keeps every reading across a live re-read and drops one when its container or component is gone, or when the shown component is no longer the container's own or a sibling of it
+
+### [73] — Components shown in their own containers (v0.14.5 phase 1)
+
+- `gui/index.html`: Changed — the Components tab's tap-to-pick `#component-list` and shared `#component-detail` panel are replaced by `#components-body`, filled by `renderComponents()` with one `<section class="container component-container">` per component, each drawn in full by `componentBodyHtml()` (name, `applied` badge, preview, code blocks) with no tap; an empty file still shows "No components yet. Run `phyllum create`." The Tokens view keeps its own tap-to-pick list and panel, now drawn by `showTokenView()`
 
 ### [72] — The Library leaves the Assess tab for its own rail entry (v0.14.4)
 
